@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Office 环境全局重置 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Segoe UI', sans-serif;
+  font-size: 14px;
+  color: #1f2937;
+  background: #f9fafb;
+  /* Office Task Pane 宽度通常为 320-400px */
+  min-width: 280px;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 风险等级颜色辅助类 */
+@layer components {
+  .risk-badge-high {
+    @apply bg-red-100 text-red-700 border border-red-200;
+  }
+  .risk-badge-medium {
+    @apply bg-amber-100 text-amber-700 border border-amber-200;
+  }
+  .risk-badge-low {
+    @apply bg-emerald-100 text-emerald-700 border border-emerald-200;
+  }
+  .risk-badge-info {
+    @apply bg-indigo-100 text-indigo-700 border border-indigo-200;
+  }
+  
+  .tab-active {
+    @apply border-b-2 border-primary-600 text-primary-600 font-medium;
+  }
+  .tab-inactive {
+    @apply border-b-2 border-transparent text-gray-500 hover:text-gray-700;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg
+           transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1;
+  }
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium
+           py-2 px-4 rounded-lg transition-colors duration-150
+           focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-1;
+  }
+  .btn-ghost {
+    @apply text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-md
+           transition-colors duration-150;
+  }
+}

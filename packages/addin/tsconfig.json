@@ -1,0 +1,32 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "baseUrl": "./src",
+        "paths": {
+            "@office/*": [
+                "office/*"
+            ],
+            "@services/*": [
+                "services/*"
+            ],
+            "@store/*": [
+                "store/*"
+            ],
+            "@types/*": [
+                "types/*"
+            ],
+            "@components/*": [
+                "taskpane/components/*"
+            ]
+        }
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

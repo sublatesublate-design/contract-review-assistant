@@ -1,0 +1,8 @@
+﻿src/taskpane/components/ReviewPanel/index.tsx(74,34): error TS2379: Argument of type '{ content: string; provider: ProviderType; model: string; depth: ReviewDepth; apiKey: string | undefined; baseUrl: string | undefined; globalInstruction: string; standpoint: ReviewStandpoint; selectedTemplate: ReviewTemplate | undefined; }' is not assignable to parameter of type 'Omit<ReviewStreamRequest, "standpoint" | "depth" | "customTemplates">' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'selectedTemplate' are incompatible.
+    Type 'ReviewTemplate | undefined' is not assignable to type '{ name: string; prompt: string; }'.
+      Type 'undefined' is not assignable to type '{ name: string; prompt: string; }'.
+src/taskpane/components/ReviewPanel/index.tsx(84,17): error TS2379: Argument of type '{ content: string; provider: ProviderType; model: string; depth: ReviewDepth; apiKey: string | undefined; baseUrl: string | undefined; globalInstruction: string; standpoint: ReviewStandpoint; selectedTemplate: ReviewTemplate | undefined; }' is not assignable to parameter of type 'ReviewStreamRequest' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'selectedTemplate' are incompatible.
+    Type 'ReviewTemplate | undefined' is not assignable to type '{ name: string; prompt: string; }'.
+      Type 'undefined' is not assignable to type '{ name: string; prompt: string; }'.

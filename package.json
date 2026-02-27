@@ -1,0 +1,25 @@
+{
+  "name": "contract-review-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "合同审查助手 - Word Add-in with AI-powered contract review",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter addin dev\" \"pnpm --filter server dev\"",
+    "build": "pnpm --filter addin build && pnpm --filter server build",
+    "build:addin": "pnpm --filter addin build",
+    "build:server": "pnpm --filter server build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean",
+    "start:word": "office-addin-debugging start manifest.xml desktop",
+    "stop:word": "office-addin-debugging stop manifest.xml"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

@@ -1,0 +1,42 @@
+{
+    "name": "addin",
+    "version": "1.0.0",
+    "private": true,
+    "description": "合同审查助手 Word Add-in 前端",
+    "scripts": {
+        "dev": "webpack serve --mode development",
+        "build": "webpack --mode production",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint src --ext .ts,.tsx",
+        "clean": "rimraf dist"
+    },
+    "dependencies": {
+        "@microsoft/office-js": "^1.1.87",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "zustand": "^4.4.7",
+        "clsx": "^2.1.0",
+        "lucide-react": "^0.303.0"
+    },
+    "devDependencies": {
+        "@types/office-js": "^1.0.372",
+        "@types/react": "^18.2.46",
+        "@types/react-dom": "^18.2.18",
+        "@types/webpack-env": "^1.18.4",
+        "autoprefixer": "^10.4.16",
+        "copy-webpack-plugin": "^11.0.0",
+        "css-loader": "^6.8.1",
+        "html-webpack-plugin": "^5.6.0",
+        "mini-css-extract-plugin": "^2.7.7",
+        "postcss": "^8.4.32",
+        "postcss-loader": "^7.3.3",
+        "rimraf": "^5.0.5",
+        "style-loader": "^3.3.3",
+        "tailwindcss": "^3.4.0",
+        "ts-loader": "^9.5.1",
+        "typescript": "^5.3.3",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4",
+        "webpack-dev-server": "^4.15.1"
+    }
+}

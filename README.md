@@ -2,6 +2,18 @@
 
 > 专为非技术人员设计的「Word 智能审查插件」。不用懂写代码，不用配 Python，双击就能在 Word 里获得一个 AI 法律助手。
 
+## ✨ 核心能力
+
+本插件以原生 Word 右侧加载项（Taskpane）的形式运行，为您提供沉浸式的 AI 审阅体验：
+
+- 📑 **一键交叉审查**：从预先设定的四维审查标准（主要风险、权利义务不对等、关键条款缺失、格式规范）出发，秒级出具审查结构报告。
+- ⚖️ **原文精准定位与批注**：不仅告诉你哪里有风险，更能直接在 Word 正文中高亮风险段落，并生成标准的审阅批注。
+- 🤖 **划选对话陪伴**：遇到不懂的条款？直接在 Word 里用鼠标选中那段话，右侧 AI 就会针对你的划选内容进行解答、翻译或改写。
+- 🔒 **进阶断网审查**：支持接入电脑本地大模型（Ollama），彻底断网离线运算，极致保障商业机密安全。
+- 🔗 **外挂法律检索 (MCP)**：支持连接外部专业法律数据库，查法条、核对法条引用有效性，告别 AI 法律幻觉（见末尾高阶教程）。
+
+---
+
 ## 🎯 你的电脑需要准备什么？
 
 为了让这个助手在你的电脑上跑起来，你需要安装 **1个前置软件**（叫做 Node.js，它负责给助手提供运行环境）。
@@ -89,7 +101,7 @@
 国内主流大模型都支持，方法和 DeepSeek 完全一样。在 Word 设置页的提供商都选 **OpenAI**：
 
 | 平台 | 获取钥匙的地址 | API Base URL (填在Word里) | 模型名 (填在Word里) |
-|------|--------------|-------------------------|----------------|
+| :--- | :--- | :--- | :--- |
 | **Kimi (月之暗面)** | [moonshot.cn](https://platform.moonshot.cn/) | `https://api.moonshot.cn/v1` | `kimi-k2.5` |
 | **通义千问 (阿里)** | [dashscope.aliyun.com](https://dashscope.console.aliyun.com/) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.5-max` 或 `qwen3.5-plus` |
 | **智谱 GLM** | [bigmodel.cn](https://open.bigmodel.cn/) | `https://open.bigmodel.cn/api/paas/v4` | `glm-5-plus` 或 `glm-4.7-flash` |

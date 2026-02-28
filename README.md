@@ -94,7 +94,7 @@
    - API Base URL 填入：`https://api.deepseek.com`
    - API Key 粘贴刚才复制的字符串：`sk-xxxxxxxxx...`
    - 模型名：
-     - **`deepseek-chat`**：速度极快，适合多数普通审查。拥有 100 万字 Token 的超大上下文容量，长文本首选。
+     - **`deepseek-chat`**：速度极快，适合多数普通审查。拥有 12.8 万 Token 的大上下文容量，长文本首选。
      - **`deepseek-reasoner`**：搭载深度思考（R1 模型）能力，推理极强。在处理非常复杂、存在霸王条款和多重陷阱的合同时推荐使用，但速度较慢。
 
 ### 方案 B：使用通义千问 / Kimi / 智谱 GLM 等（同样的方法）

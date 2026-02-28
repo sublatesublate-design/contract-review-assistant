@@ -11,15 +11,17 @@ export const modelsRouter: import('express').Router = Router();
 modelsRouter.get('/', async (_req, res) => {
     const models: ModelInfo[] = [
         // Claude 模型（固定列表）
-        { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', provider: 'claude', contextWindow: 200000 },
-        { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', provider: 'claude', contextWindow: 200000 },
-        { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5（快速/低成本）', provider: 'claude', contextWindow: 200000 },
+        { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'claude', contextWindow: 1000000 },
+        { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', provider: 'claude', contextWindow: 1000000 },
 
         // OpenAI / 兼容接口模型
-        { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', contextWindow: 128000 },
-        { id: 'gpt-4o-mini', name: 'GPT-4o mini（低成本）', provider: 'openai', contextWindow: 128000 },
-        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai', contextWindow: 128000 },
-        { id: 'deepseek-chat', name: 'DeepSeek Chat（兼容接口）', provider: 'openai', contextWindow: 64000 },
+        { id: 'gpt-5.2', name: 'GPT-5.2', provider: 'openai', contextWindow: 400000 },
+        { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'openai', contextWindow: 400000 },
+        { id: 'deepseek-chat', name: 'DeepSeek V3.2 Chat', provider: 'openai', contextWindow: 128000 },
+        { id: 'deepseek-reasoner', name: 'DeepSeek V3.2 Reasoner', provider: 'openai', contextWindow: 128000 },
+        { id: 'qwen3.5-max', name: 'Qwen 3.5 Max', provider: 'openai', contextWindow: 1000000 },
+        { id: 'kimi-k2.5', name: 'Kimi K2.5', provider: 'openai', contextWindow: 2000000 },
+        { id: 'glm-5-plus', name: 'GLM 5 Plus', provider: 'openai', contextWindow: 1000000 },
     ];
 
     // 动态获取 Ollama 本地模型

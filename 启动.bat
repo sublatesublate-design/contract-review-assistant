@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 :: 重新以 cmd /k 启动自己，防止遇到语法错误或闪退
 if "%~1"=="--internal-run" goto :INTERNAL_START
 cmd /k ""%~f0" --internal-run"

@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { useChatStore } from '../../../store/chatStore';
 import { useReviewStore } from '../../../store/reviewStore';
 import { useSettingsStore } from '../../../store/settingsStore';
-import { documentReader } from '../../../office/documentReader';
+import { usePlatform } from '../../../platform/platformContext';
 import { apiClient } from '../../../services/apiClient';
 
 export default function ChatPanel() {
@@ -12,6 +12,7 @@ export default function ChatPanel() {
         useChatStore();
     const { result } = useReviewStore();
     const { settings } = useSettingsStore();
+    const platform = usePlatform();
     const [input, setInput] = useState('');
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -23,7 +24,7 @@ export default function ChatPanel() {
     /** 注入合同内容作为上下文 */
     const handleInjectContext = async () => {
         try {
-            const content = await Word.run((ctx) => documentReader.readFullText(ctx));
+            const content = await platform.documentReader.readFullText();
             const reviewSummary = result
                 ? `\n\n当前审查已发现 ${result.issues.length} 个问题，摘要：${result.summary}`
                 : '';

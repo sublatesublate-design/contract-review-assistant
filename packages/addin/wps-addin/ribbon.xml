@@ -1,0 +1,11 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="OnAddinLoad">
+  <ribbon startFromScratch="false">
+    <tabs>
+      <tab id="TabContractReview" label="智能审查">
+        <group id="GroupAI" label="合同助手">
+          <button id="BtnShowTaskPane" label="打开审查面板" onAction="OnShowTaskPane" size="large" imageMso="AddInManager" />
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>

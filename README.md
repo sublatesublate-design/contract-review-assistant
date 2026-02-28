@@ -88,16 +88,16 @@
 
 | 平台 | 获取钥匙的地址 | API Base URL (填在Word里) | 模型名 (填在Word里) |
 |------|--------------|-------------------------|----------------|
-| **Kimi (月之暗面)** | [moonshot.cn](https://platform.moonshot.cn/) | `https://api.moonshot.cn/v1` | `moonshot-v1-128k` |
-| **通义千问 (阿里)** | [dashscope.aliyun.com](https://dashscope.console.aliyun.com/) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-max` 或 `qwen-plus` |
-| **智谱 GLM** | [bigmodel.cn](https://open.bigmodel.cn/) | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-plus` |
+| **Kimi (月之暗面)** | [moonshot.cn](https://platform.moonshot.cn/) | `https://api.moonshot.cn/v1` | `kimi-k2.5` |
+| **通义千问 (阿里)** | [dashscope.aliyun.com](https://dashscope.console.aliyun.com/) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.5-max` 或 `qwen3.5-plus` |
+| **智谱 GLM** | [bigmodel.cn](https://open.bigmodel.cn/) | `https://open.bigmodel.cn/api/paas/v4` | `glm-5-plus` 或 `glm-4.7-flash` |
 
 ### 方案 C：使用国外的 ChatGPT 或 Claude（最聪明但不易用）
 
 *如果你有良好的科学网络条件并有外币卡：*
 
-- 选 **Anthropic** 提供商，填 Claude 的 API Key，无需填 URL，推荐模型 `claude-3-5-sonnet-20241022`。
-- 选 **OpenAI** 提供商，填 ChatGPT 的 API Key，无需填 URL，推荐模型 `gpt-4o`。
+- 选 **Anthropic** 提供商，填 Claude 的 API Key，无需填 URL，推荐模型 `claude-opus-4-6` 或 `claude-sonnet-4-6`。
+- 选 **OpenAI** 提供商，填 ChatGPT 的 API Key，无需填 URL，推荐模型 `gpt-5.2`。
 
 ---
 

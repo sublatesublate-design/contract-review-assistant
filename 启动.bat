@@ -43,18 +43,16 @@ if errorlevel 1 (
 )
 echo   [OK] pnpm 已就绪
 
-:: ─── 安装依赖 ────────────────────────────────────────────────
-if not exist "node_modules\" (
-    echo.
-    echo   [提示] 首次运行，正在安装依赖（可能需要 1-3 分钟）...
-    call pnpm install
-    if errorlevel 1 (
-        echo   [错误] 依赖安装失败，请检查网络（或尝试清理 npm 缓存）。
-        pause
-        exit /b 1
-    )
-    echo   [OK] 依赖安装完成
+:: ─── 同步依赖（每次启动自动检查 pnpm-lock.yaml 是否有变化） ────────────────────────────────────────────────
+echo.
+echo   [提示] 正在检查依赖更新（首次约需 1-3 分钟，后续几秒内完成）...
+call pnpm install
+if errorlevel 1 (
+    echo   [错误] 依赖安装失败，请检查网络（或切换 npm 镜像）。
+    pause
+    exit /b 1
 )
+echo   [OK] 依赖已是最新
 
 :: ─── 询问目标软件 ────────────────────────────────────────────
 echo.

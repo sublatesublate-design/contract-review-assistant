@@ -6,14 +6,13 @@ import {
 import clsx from 'clsx';
 import { useReviewStore } from '../../../store/reviewStore';
 import { useSettingsStore } from '../../../store/settingsStore';
-import { documentReader } from '../../../office/documentReader';
+import { usePlatform } from '../../../platform/platformContext';
+import { batchComment, batchApply } from '../../../platform/issueActions';
 import { apiClient } from '../../../services/apiClient';
-import { batchComment, batchApply } from '../../../office/issueActions';
 import IssueCard from './IssueCard';
 import HistoryPanel from './HistoryPanel';
 import SummaryCard from './SummaryCard';
 import ClauseLibrary from './ClauseLibrary';
-import { generateReviewReport } from '../../../office/reportGenerator';
 import type { ReviewIssue } from '../../../types/review';
 
 const ALL_CATEGORIES = ['risk_clause', 'missing_clause', 'compliance', 'clause_analysis'] as const;
@@ -36,6 +35,7 @@ export default function ReviewPanel() {
         setStatus, setError, addStreamingIssue, setResult, reset, updateIssueStatus,
     } = useReviewStore();
     const { settings } = useSettingsStore();
+    const platform = usePlatform();
     const [filter, setFilter] = useState<string>('all');
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
     const [selectionMode, setSelectionMode] = useState(false);
@@ -113,9 +113,7 @@ export default function ReviewPanel() {
         setSelectionMode(false);
         setStatus('reading');
         try {
-            const docContent = await Word.run(async (context) =>
-                documentReader.readFullText(context)
-            );
+            const docContent = await platform.documentReader.readFullText();
             if (!docContent || docContent.trim().length < 10) {
                 setError('文档内容为空，请先打开一份合同文档');
                 return;
@@ -124,7 +122,7 @@ export default function ReviewPanel() {
         } catch (err) {
             setError(err instanceof Error ? err.message : '读取文档失败');
         }
-    }, [reset, setStatus, setError, runReview]);
+    }, [reset, setStatus, setError, runReview, platform]);
 
     /** 局部审查（选中段落） */
     const handleSelectionReview = useCallback(async () => {
@@ -133,9 +131,7 @@ export default function ReviewPanel() {
         setSelectionMode(true);
         setStatus('reading');
         try {
-            const selText = await Word.run(async (context) =>
-                documentReader.readSelection(context)
-            );
+            const selText = await platform.documentReader.readSelection();
             if (!selText) {
                 setError('请先在文档中选中需要审查的文本段落');
                 return;
@@ -144,7 +140,7 @@ export default function ReviewPanel() {
         } catch (err) {
             setError(err instanceof Error ? err.message : '读取选中内容失败');
         }
-    }, [reset, setStatus, setError, runReview]);
+    }, [reset, setStatus, setError, runReview, platform]);
 
     // 按类别过滤问题
     const filteredIssues =
@@ -170,14 +166,14 @@ export default function ReviewPanel() {
         if (targets.length === 0) return;
         setBatchProgress({ done: 0, total: targets.length });
         try {
-            await batchComment(targets, (done, total) => {
+            await batchComment(platform, targets, (done, total) => {
                 setBatchProgress({ done, total });
                 targets.slice(0, done).forEach((i) => updateIssueStatus(i.id, 'commented'));
             });
         } finally {
             setBatchProgress(null);
         }
-    }, [filteredIssues, updateIssueStatus]);
+    }, [filteredIssues, updateIssueStatus, platform]);
 
     /** 批量应用修改（针对当前过滤结果） */
     const handleBatchApply = useCallback(async () => {
@@ -185,34 +181,31 @@ export default function ReviewPanel() {
         if (targets.length === 0) return;
         setBatchProgress({ done: 0, total: targets.length });
         try {
-            await batchApply(targets, (done, total) => {
+            await batchApply(platform, targets, (done, total) => {
                 setBatchProgress({ done, total });
                 targets.slice(0, done).forEach((i) => updateIssueStatus(i.id, 'applied'));
             });
         } finally {
             setBatchProgress(null);
         }
-    }, [filteredIssues, updateIssueStatus]);
+    }, [filteredIssues, updateIssueStatus, platform]);
 
     /** 导出审查报告为 Word 文档 */
     const handleExportReport = useCallback(async () => {
         if (!result) return;
         try {
             setStatus('analyzing'); // 借用 analyzing 状态显示 loading，或者也可以不显示
-            await Word.run(async (context) => {
-                await generateReviewReport(
-                    context,
-                    result,
-                    useReviewStore.getState().summary,
-                    result.contractLabel // 使用保存的新字段
-                );
-            });
+            await platform.reportGenerator.generateReport(
+                result,
+                useReviewStore.getState().summary,
+                result.contractLabel // 使用保存的新字段
+            );
         } catch (err) {
             setError(err instanceof Error ? err.message : '生成报告失败');
         } finally {
             setStatus('completed');
         }
-    }, [result, setError, setStatus]);
+    }, [result, setError, setStatus, platform]);
 
     const hasApplicable = filteredIssues.some((i) => i.suggestedText && i.status !== 'applied');
     const isAnalyzing = status === 'reading' || status === 'analyzing';

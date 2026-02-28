@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Search, Plus, Trash2, Edit2, Check, X, BookOpen, ChevronDown, ChevronRight, CornerDownLeft } from 'lucide-react';
 import { useClauseStore } from '../../../store/clauseStore';
 import type { ContractClause } from '../../../types/clause';
+import { usePlatform } from '../../../platform/platformContext';
 
 interface ClauseLibraryProps {
     onClose: () => void;
@@ -10,6 +11,7 @@ interface ClauseLibraryProps {
 export default function ClauseLibrary({ onClose }: ClauseLibraryProps) {
     const { addClause, updateClause, deleteClause, getAllClauses } = useClauseStore();
     const clauses = getAllClauses();
+    const platform = usePlatform();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -46,12 +48,7 @@ export default function ClauseLibrary({ onClose }: ClauseLibraryProps) {
 
     const handleInsert = async (content: string) => {
         try {
-            await Word.run(async (context) => {
-                const range = context.document.getSelection();
-                range.insertText(content, Word.InsertLocation.replace);
-                range.select(); // Re-select the inserted text or cursor
-                await context.sync();
-            });
+            await platform.clauseInserter.insertTextAtSelection(content);
         } catch (error) {
             console.error('Failed to insert clause:', error);
         }
@@ -121,8 +118,8 @@ export default function ClauseLibrary({ onClose }: ClauseLibraryProps) {
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={`px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors ${selectedCategory === cat
-                                    ? 'bg-primary-100 text-primary-700 font-medium'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-primary-100 text-primary-700 font-medium'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             {cat === 'all' ? '全部' : cat}

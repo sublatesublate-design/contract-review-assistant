@@ -2,39 +2,54 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './taskpane/App';
-
-/* global Office */
+import { waitForPlatform } from './platform/detect';
+import { PlatformProvider } from './platform/platformContext';
+import { createWordAdapter } from './platform/word/WordAdapter';
+import { createWpsAdapter } from './platform/wps/WpsAdapter';
+import type { IPlatformAdapter } from './platform/types';
 
 /**
- * Office.onReady 是 Word Add-in 的入口点。
- * 必须等 Office JS 初始化完成后才能挂载 React。
+ * 统一入口：检测宿主平台（Word / WPS），初始化对应适配器后挂载 React
  */
-Office.onReady((info) => {
-    if (info.host === Office.HostType.Word) {
-        const rootElement = document.getElementById('root');
-        if (!rootElement) {
-            throw new Error('Root element #root not found in taskpane.html');
-        }
+async function bootstrap() {
+    const platformType = await waitForPlatform();
+    let adapter: IPlatformAdapter | null = null;
 
-        const root = createRoot(rootElement);
+    if (platformType === 'word') {
+        const wordAdapter = createWordAdapter();
+        const isWord = await wordAdapter.initialize();
+        if (isWord) adapter = wordAdapter;
+    } else if (platformType === 'wps') {
+        const wpsAdapter = createWpsAdapter();
+        const ok = await wpsAdapter.initialize();
+        if (ok) adapter = wpsAdapter;
+    }
+
+    const rootElement = document.getElementById('root');
+    if (!rootElement) {
+        throw new Error('Root element #root not found in taskpane.html');
+    }
+    const root = createRoot(rootElement);
+
+    if (adapter) {
         root.render(
             <React.StrictMode>
-                <App />
+                <PlatformProvider value={adapter}>
+                    <App />
+                </PlatformProvider>
             </React.StrictMode>
         );
     } else {
-        // 非 Word 环境（开发调试用）
-        const rootElement = document.getElementById('root');
-        if (rootElement) {
-            const root = createRoot(rootElement);
-            root.render(
-                <React.StrictMode>
-                    <div className="p-4 text-center text-gray-500">
-                        <p className="text-lg font-medium">合同审查助手</p>
-                        <p className="text-sm mt-2">请在 Microsoft Word 中使用本插件</p>
-                    </div>
-                </React.StrictMode>
-            );
-        }
+        // 非 Word/WPS 环境（开发调试用）
+        root.render(
+            <React.StrictMode>
+                <div className="p-4 text-center text-gray-500">
+                    <p className="text-lg font-medium">合同审查助手</p>
+                    <p className="text-sm mt-2">请在 Microsoft Word 或 WPS Office 中使用本插件</p>
+                </div>
+            </React.StrictMode>
+        );
     }
-});
+}
+
+bootstrap();

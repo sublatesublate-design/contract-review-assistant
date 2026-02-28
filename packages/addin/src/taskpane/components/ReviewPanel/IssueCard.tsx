@@ -3,7 +3,8 @@ import { AlertTriangle, AlertCircle, Info, CheckCircle2, MapPin, MessageSquare, 
 import clsx from 'clsx';
 import type { ReviewIssue, RiskLevel, IssueCategory } from '../../../types/review';
 import { useReviewStore } from '../../../store/reviewStore';
-import { locateIssue, commentIssue, applyIssue } from '../../../office/issueActions';
+import { locateIssue, commentIssue, applyIssue } from '../../../platform/issueActions';
+import { usePlatform } from '../../../platform/platformContext';
 
 interface IssueCardProps {
     issue: ReviewIssue;
@@ -43,6 +44,7 @@ const CATEGORY_LABELS: Record<IssueCategory, string> = {
 
 export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: IssueCardProps) {
     const { setActiveIssue, updateIssueStatus } = useReviewStore();
+    const platform = usePlatform();
     const [expanded, setExpanded] = React.useState(isActive);
     const [actionLoading, setActionLoading] = React.useState<string | null>(null);
 
@@ -52,10 +54,8 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
     const handleLocate = async () => {
         setActionLoading('locate');
         try {
-            await Word.run(async (context) => {
-                const ok = await locateIssue(context, issue);
-                if (ok) updateIssueStatus(issue.id, 'located');
-            });
+            const ok = await locateIssue(platform, issue);
+            if (ok) updateIssueStatus(issue.id, 'located');
             setActiveIssue(issue.id);
         } catch (err) {
             console.error('定位失败:', err);
@@ -68,10 +68,8 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
     const handleComment = async () => {
         setActionLoading('comment');
         try {
-            await Word.run(async (context) => {
-                const ok = await commentIssue(context, issue);
-                if (ok) updateIssueStatus(issue.id, 'commented');
-            });
+            const ok = await commentIssue(platform, issue);
+            if (ok) updateIssueStatus(issue.id, 'commented');
         } catch (err) {
             console.error('添加批注失败:', err);
         } finally {
@@ -84,10 +82,8 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
         if (!issue.suggestedText) return;
         setActionLoading('apply');
         try {
-            await Word.run(async (context) => {
-                const ok = await applyIssue(context, issue);
-                if (ok) updateIssueStatus(issue.id, 'applied');
-            });
+            const ok = await applyIssue(platform, issue);
+            if (ok) updateIssueStatus(issue.id, 'applied');
         } catch (err) {
             console.error('应用修改失败:', err);
         } finally {

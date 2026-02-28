@@ -52,6 +52,11 @@ module.exports = (env, argv) => {
                 filename: 'taskpane.html',
                 chunks: ['taskpane'],
             }),
+            new HtmlWebpackPlugin({
+                template: './taskpane-wps.html',
+                filename: 'taskpane-wps.html',
+                chunks: ['taskpane'],
+            }),
             new MiniCssExtractPlugin({
                 filename: '[name].[contenthash].css',
             }),

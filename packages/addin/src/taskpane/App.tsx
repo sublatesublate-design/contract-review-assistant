@@ -36,7 +36,7 @@ export default function App() {
                         <span className="text-white text-xs font-bold">审</span>
                     </div>
                     <h1 className="text-sm font-semibold text-gray-800">合同审查助手</h1>
-                    <span className="ml-auto text-xs text-gray-400">v1.0</span>
+                    <span className="ml-auto text-xs text-gray-400">v2.0</span>
                 </div>
             </header>
 

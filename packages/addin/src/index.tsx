@@ -33,17 +33,13 @@ async function bootstrap() {
     const root = createRoot(rootElement);
 
     if (adapter) {
-        if (adapter.platform === 'wps') {
-            root.render(<h2>WPS React Render Test</h2>);
-        } else {
-            root.render(
-                <React.StrictMode>
-                    <PlatformProvider value={adapter}>
-                        <App />
-                    </PlatformProvider>
-                </React.StrictMode>
-            );
-        }
+        root.render(
+            <React.StrictMode>
+                <PlatformProvider value={adapter}>
+                    <App />
+                </PlatformProvider>
+            </React.StrictMode>
+        );
     } else {
         // 非 Word/WPS 环境（开发调试用）
         root.render(

@@ -1,4 +1,11 @@
 @echo off
+chcp 65001 >nul
+:: 重新以 cmd /k 启动自己，防止遇到语法错误或闪退
+if "%~1"=="--internal-run" goto :INTERNAL_START
+cmd /k ""%~f0" --internal-run"
+exit /b
+
+:INTERNAL_START
 :: 切换到脚本所在绝对目录，防止管理员模式下工作目录变成 System32
 cd /d "%~dp0"
 title 合同审查助手
@@ -11,7 +18,7 @@ echo.
 
 :: ─── 检测 Node.js ─────────────────────────────────────────────
 where node >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo   [错误] 未检测到 Node.js
     echo.
     echo   请先安装 Node.js：
@@ -26,10 +33,10 @@ echo   [OK] Node.js %NODE_VER%
 
 :: ─── 检测 pnpm ────────────────────────────────────────────────
 where pnpm >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo   [提示] 正在安装 pnpm 包管理器...
     call npm install -g pnpm
-    if %ERRORLEVEL% NEQ 0 (
+    if errorlevel 1 (
         echo   [错误] pnpm 安装失败，请检查网络或权限。
         pause
         exit /b 1
@@ -42,7 +49,7 @@ if not exist "node_modules\" (
     echo.
     echo   [提示] 首次运行，正在安装依赖（可能需要 1-3 分钟）...
     call pnpm install
-    if %ERRORLEVEL% NEQ 0 (
+    if errorlevel 1 (
         echo   [错误] 依赖安装失败，请检查网络（或尝试清理 npm 缓存）。
         pause
         exit /b 1
@@ -63,7 +70,6 @@ set CHOICE=
 set /p CHOICE=  请输入 W 或 P 后按回车（直接回车默认 Word）：
 
 if "%CHOICE%"=="" set CHOICE=W
-:: 转为大写
 if /i "%CHOICE%"=="P" goto :START_WPS
 
 :: ─── Word 模式 ───────────────────────────────────────────────
@@ -79,7 +85,7 @@ if not exist "%USERPROFILE%\.office-addin-dev-certs\localhost.crt" (
 
 echo   [提示] 正在注册 Word 插件...
 call npx office-addin-dev-settings sideload manifest.xml 2>nul
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     powershell -ExecutionPolicy Bypass -Command "$p='HKCU:\Software\Microsoft\Office\16.0\WEF\Developer'; New-Item -Path $p -Force | Out-Null; $m=(Get-Location).Path + '\manifest.xml'; Set-ItemProperty -Path $p -Name $m -Value $m"
 )
 echo   [OK] 插件已注册
@@ -93,9 +99,8 @@ echo     首次使用请在设置中填入 API Key
 echo   ========================================
 echo.
 call pnpm dev
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [系统提示] pnpm dev 进程意外退出，请查看上方报错信息！
-    pause
 )
 pause
 exit /b 0
@@ -108,10 +113,10 @@ echo.
 
 :: 安装 wpsjs 工具（若未安装）
 where wpsjs >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo   [提示] 首次使用 WPS 模式，正在安装 wpsjs 工具（约 30 秒）...
     call npm install -g wpsjs
-    if %ERRORLEVEL% NEQ 0 (
+    if errorlevel 1 (
         echo   [错误] wpsjs 安装失败，请检查网络后重试
         pause
         exit /b 1
@@ -137,9 +142,8 @@ echo     首次使用请在设置中填入 API Key
 echo   ========================================
 echo.
 call pnpm dev
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [系统提示] pnpm dev 进程意外退出，请查看上方报错信息！
-    pause
 )
 pause
 exit /b 0

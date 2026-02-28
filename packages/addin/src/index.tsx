@@ -32,13 +32,17 @@ async function bootstrap() {
     const root = createRoot(rootElement);
 
     if (adapter) {
-        root.render(
-            <React.StrictMode>
-                <PlatformProvider value={adapter}>
-                    <App />
-                </PlatformProvider>
-            </React.StrictMode>
-        );
+        if (adapter.platform === 'wps') {
+            root.render(<h2>WPS React Render Test</h2>);
+        } else {
+            root.render(
+                <React.StrictMode>
+                    <PlatformProvider value={adapter}>
+                        <App />
+                    </PlatformProvider>
+                </React.StrictMode>
+            );
+        }
     } else {
         // 非 Word/WPS 环境（开发调试用）
         root.render(
@@ -52,4 +56,12 @@ async function bootstrap() {
     }
 }
 
-bootstrap();
+bootstrap().catch(err => {
+    document.body.innerHTML = `
+        <div style="color: red; padding: 20px; font-family: monospace;">
+            <h3>Fatal Error in Bootstrap</h3>
+            <pre>${err.message}</pre>
+            <pre>${err.stack}</pre>
+        </div>
+    `;
+});

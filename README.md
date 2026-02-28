@@ -1,187 +1,124 @@
 # 🔍 AI 合同审查助手
 
-> 基于人工智能的合同智能审查工具，以 Word 插件形式运行，支持批注、修订标记与上下文对话。
+> 专为非技术人员设计的「Word 智能审查插件」。不用懂写代码，不用配 Python，双击就能在 Word 里获得一个 AI 法律助手。
 
-![Word Add-in](https://img.shields.io/badge/Word-Add--in-blue?logo=microsoftword)
-![Node.js](https://img.shields.io/badge/Node.js-≥18-green?logo=node.js)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+## 🎯 你的电脑需要准备什么？
 
-## ✨ 功能特性
+为了让这个助手在你的电脑上跑起来，你需要安装 **1个前置软件**（叫做 Node.js，它负责给助手提供运行环境）。
 
-- 🤖 **AI 智能审查** — 自动识别合同类型，从法律合规、风险防控、条款完善、利益保护四个维度审查
-- 📝 **Word 深度集成** — 直接在 Word 中显示审查结果，一键插入批注或修订标记
-- 💬 **上下文对话** — 针对合同内容与 AI 进行追问对话
-- 🔧 **MCP 工具扩展** — 可挂接外部法律数据库等 MCP 服务器，让 AI 在审查时援引法条
-- 📋 **自定义模板** — 内置多种合同类型模板，也可自建专属审查规则
-- 🔒 **数据安全** — 支持 Ollama 本地模型，完全离线审查
+> 💡 **为什么要装这个？** 因为苹果和微软限制了直接安装未上架应用商店的 Word 插件，我们需要用开发者的身份把它“挂载”到 Word 里。这就需要 Node.js 环境。
 
-## 📋 支持的 AI 提供商
+### 第一步：安装 Node.js（只需做一次）
 
-| 提供商 | 说明 | 是否需要联网 |
-|--------|------|:---:|
-| **Anthropic** | Claude 系列模型 | ✅ |
-| **OpenAI** | GPT 系列，也兼容 DeepSeek 等 API | ✅ |
-| **Ollama** | 本地部署，完全离线 | ❌ |
+1. 点击打开官网：[Node.js 官方下载页](https://nodejs.org/zh-cn)
+2. 选择 **LTS（长期支持版）** 下载（会有个绿色的按钮推荐你点）
+3. 下载完成后，双击安装包。
+4. **一路点击“下一步 (Next) ”和“同意 (Agree)”**。什么选项都不要改，直到安装完成。
+
+> ✅ **检查是否成功**：
+>
+> - **Windows 用户**：按键盘上的 `Win + R` 键，输入 `cmd` 按回车。在跳出来的黑框框里输入 `node -v`。如果出现 `v20...` 这样的字样，说明成功。
+> - **Mac 用户**：打开“终端”（启动台里搜索“终端”）。输入 `node -v`，出现版本号即为成功。
 
 ---
 
-## 🚀 快速开始（5 分钟上手）
+## 🚀 第二步：下载插件并启动
 
-### 第 1 步：安装 Node.js
+完成第一步后，一切就非常简单了。
 
-1. 打开 [Node.js 官网](https://nodejs.org/)
-2. 下载 **LTS（长期支持版）**
-3. 安装时**一路点"下一步"**即可，不需要改任何设置
-4. 安装完成后，按 `Win + R`，输入 `cmd` 回车，输入 `node -v`，如果显示版本号（如 `v20.x.x`）就说明安装成功
+1. **下载本项目**：在这个网页的右上方找到绿色的 **`<> Code`** 按钮，点击后选择 **`Download ZIP`**。
+2. 下载后，**解压缩**这个 ZIP 文件，把它存放在一个你找得到的地方（比如桌面）。
+3. 打开解压后的文件夹。
 
-### 第 2 步：下载本项目
+### 🍎 对于 Mac（苹果电脑）用户
 
-**方法 A：Git 克隆（推荐）**
+- 双击文件夹里的 **`启动.command`** 文件。
+- *（首次运行可能提示无法打开，找到文件右键 → 选“打开”）*
+- 终端（黑框框）会自动跳出来，开始下载依赖。
+- 中途可能会弹窗要求输入**开机密码**（这是为了安装安全证书，允许 Word 和助手通信）。
+- Word 会自动跳出来，加载插件。
 
-```bash
-git clone https://github.com/sublatesublate-design/contract-review-assistant.git
-cd contract-review-assistant
-```
+### 🪟 对于 Windows 用户
 
-**方法 B：直接下载 ZIP**
+- 双击文件夹里的 **`启动.bat`** 文件。
+- *（如果一闪而过退出了，右键点击它 → 选“以管理员身份运行”）*
+- 黑框框会自动完成所有配置，并在最后提示你“请关闭所有Word重新打开”。
 
-1. 点击本页面右上方绿色的 **Code** 按钮
-2. 选择 **Download ZIP**
-3. 解压到任意目录
-
-### 第 3 步：启动
-
-**双击项目根目录下的 `启动.bat`**，它会自动完成以下操作：
-
-- ✅ 检测 Node.js 环境
-- ✅ 安装 pnpm 包管理器（首次）
-- ✅ 安装项目依赖（首次，约 1-3 分钟）
-- ✅ 安装 HTTPS 开发证书（首次）
-- ✅ 注册 Word 插件
-- ✅ 启动前端 + 后端服务
-
-> ⚠️ **启动后请勿关闭命令行窗口**，关闭窗口 = 关闭服务 = 插件无法使用。
-
-### 第 4 步：在 Word 中使用
-
-1. **打开 Word**（任意文档）
-2. 点击菜单栏 **首页** 选项卡，找到「合同审查助手」按钮
-3. 如果首页没有，点 **插入** → **加载项** → **我的加载项** → 双击「AI 合同审查助手」
-4. 打开侧边栏后，去 **设置** 选项卡填入你的 API Key（见下方教程）
-5. 回到 **审查结果** 选项卡，点击「开始审查」
+> ⚠️️️ **全系统必看警告**
+> 启动成功后，**绝对不要关闭那个黑框框（终端）！**
+> 黑框框就是助手的大脑，关掉黑框框，Word 里的助手就会“断联”。不用的时候最小化即可。
 
 ---
 
-## 🔑 如何获取 API Key
+## 📝 第三步：在 Word 中调出助手
 
-本工具支持任何 OpenAI 兼容接口。以下是主流 AI 平台的配置方式：
+1. 随便打开一份 Word 文档。
+2. 在 Word 最上方的菜单栏，点击 **【首页】** 选项卡。
+3. 在工具栏的最右侧，找到并点击 **【AI 合同审查助手】** 这个按钮。
+4. （如果没找到，点顶部的 **【插入】** -> **【获取加载项 / 我的加载项】** -> 选择“AI 合同审查助手”）
 
-### Anthropic
-
-1. 打开 [Anthropic Console](https://console.anthropic.com/)
-2. 注册账号并登录
-3. 点击左侧 **API Keys** → **Create Key**
-4. 复制密钥（以 `sk-ant-` 开头）
-5. 在插件设置中选择 **Anthropic**，粘贴到 API Key 栏
-
-### OpenAI
-
-1. 打开 [OpenAI Platform](https://platform.openai.com/)
-2. 注册账号并登录
-3. 点击右上角头像 → **View API Keys** → **Create new secret key**
-4. 复制密钥（以 `sk-` 开头）
-5. 在插件设置中选择 **OpenAI**，粘贴到 API Key 栏
-
-### 🇨🇳 国产大模型（推荐，性价比高）
-
-以下平台均兼容 OpenAI 接口协议，在插件中选择 **OpenAI** 提供商，然后填写对应的 Base URL 和模型名即可。
-
-| 平台 | 注册地址 | API Base URL | 模型名示例 |
-|------|---------|-------------|-----------|
-| **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com/) | `https://api.deepseek.com` | `deepseek-chat`、`deepseek-reasoner` |
-| **通义千问 (Qwen)** | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com/) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-max`、`qwen-plus` |
-| **Kimi (月之暗面)** | [platform.moonshot.cn](https://platform.moonshot.cn/) | `https://api.moonshot.cn/v1` | `moonshot-v1-128k` |
-| **智谱 GLM** | [open.bigmodel.cn](https://open.bigmodel.cn/) | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-plus`、`glm-4-flash` |
-| **MiniMax** | [platform.minimaxi.com](https://platform.minimaxi.com/) | `https://api.minimax.chat/v1` | `MiniMax-Text-01` |
-
-配置步骤（以 DeepSeek 为例）：
-
-1. 去对应平台注册账号，获取 API Key
-2. 在插件设置中选择 **OpenAI**
-3. **API Base URL** 填写上表中的地址
-4. **API Key** 填写平台提供的密钥
-5. **模型** 填写上表中的模型名
-
-### Ollama（完全免费 + 离线）
-
-适合对数据安全要求高、不希望合同内容上传到云端的用户：
-
-1. 打开 [Ollama 官网](https://ollama.com)，下载安装
-2. 打开命令行，运行 `ollama pull qwen3:32b`（需耐心等待）
-3. 在插件设置中选择 **Ollama（本地）**，无需 API Key
+此时，Word 右侧会弹出一个助手面板。但是，它还不能思考，你需要给它接上“AI 大脑”。
 
 ---
 
-## 🛠️ 项目结构
+## 🧠 第四步：给助手接上 AI 大脑
 
-```
-合同审查助手/
-├── 启动.bat                    ← 双击启动
-├── manifest.xml               ← Word 插件清单
-├── packages/
-│   ├── addin/                 ← 前端（React + TypeScript）
-│   │   └── src/
-│   │       ├── taskpane/      ← UI 面板（审查/设置/对话）
-│   │       ├── store/         ← 状态管理（Zustand）
-│   │       ├── services/      ← API 调用封装
-│   │       └── office/        ← Word API 集成
-│   └── server/                ← 后端（Express + TypeScript）
-│       └── src/
-│           ├── routes/        ← REST API 路由
-│           ├── services/
-│           │   ├── ai/        ← AI 提供商（Claude/OpenAI/Ollama）
-│           │   ├── mcp/       ← MCP 工具扩展
-│           │   └── review/    ← 审查逻辑（提示词/解析器）
-│           └── index.ts       ← 服务入口
-└── package.json
-```
+现在的 AI 大多是收费的，我们需要你在 AI 厂商的官网注册一个账号，获取一串「钥匙（API Key）」，填到插件里。
 
----
+> 💡 **推荐用哪个 AI？**
+> 强烈推荐 **DeepSeek (深度求索)**，便宜、聪明、目前国产第一梯队。
 
-## ❓ 常见问题
+### 方案 A：使用 DeepSeek（最省钱/推荐）
 
-### Q: 双击启动.bat 闪退
+1. 打开 [DeepSeek 开放平台](https://platform.deepseek.com/)
+2. 用手机号注册并登录。
+3. 点击左侧菜单的 **【API keys】** -> 点击 **【创建 API key】**。
+4. 复制生成的这一长串英文字母（比如 `sk-xxxxxxxxx`）。
+5. **重要：** 必须去“充值”页面**充值 10 块钱**才能用（按次扣费，非常非常便宜，10块钱够用很久）。
+6. 回到 Word 里的助手面板：
+   - 点击面板上的 **【设置】**（小齿轮图标）。
+   - 提供商选择：**OpenAI（兼容接口）**
+   - API Base URL 填入：`https://api.deepseek.com`
+   - API Key 粘贴刚才复制的字符串：`sk-xxxxxxxxx...`
+   - 模型名：如果你审查普通合同填 `deepseek-chat`；很复杂的合同填 `deepseek-reasoner`。
 
-**A:** 右键 `启动.bat` → 选择「以管理员身份运行」。或者检查是否已安装 Node.js（在命令行输入 `node -v` 看是否有输出）。
+### 方案 B：使用通义千问 / Kimi / 智谱 GLM 等（同样的方法）
 
-### Q: Word 中看不到插件按钮
+国内主流大模型都支持，方法和 DeepSeek 完全一样。在 Word 设置页的提供商都选 **OpenAI**：
 
-**A:** 确保 `启动.bat` 窗口**没有关闭**（服务在运行），然后：
+| 平台 | 获取钥匙的地址 | API Base URL (填在Word里) | 模型名 (填在Word里) |
+|------|--------------|-------------------------|----------------|
+| **Kimi (月之暗面)** | [moonshot.cn](https://platform.moonshot.cn/) | `https://api.moonshot.cn/v1` | `moonshot-v1-128k` |
+| **通义千问 (阿里)** | [dashscope.aliyun.com](https://dashscope.console.aliyun.com/) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-max` 或 `qwen-plus` |
+| **智谱 GLM** | [bigmodel.cn](https://open.bigmodel.cn/) | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-plus` |
 
-- 点击 Word **插入** → **加载项** → **我的加载项** → 找到并双击「AI 合同审查助手」
+### 方案 C：使用国外的 ChatGPT 或 Claude（最聪明但不易用）
 
-### Q: 插件显示空白 / 无法加载
+*如果你有良好的科学网络条件并有外币卡：*
 
-**A:** 这通常是 HTTPS 证书问题。在浏览器中打开 `https://localhost:3000`，如果弹出不安全警告，点击「高级」→「继续前往」。然后回到 Word 重新打开插件。
-
-### Q: API 调用报错 "401 Unauthorized"
-
-**A:** API Key 填写错误或已过期。请重新去对应平台生成新的 Key。
-
-### Q: 如何切换审查视角（甲方/乙方/中立）？
-
-**A:** 在插件的「设置」选项卡中，找到「审查立场」部分选择即可。
+- 选 **Anthropic** 提供商，填 Claude 的 API Key，无需填 URL，推荐模型 `claude-3-5-sonnet-20241022`。
+- 选 **OpenAI** 提供商，填 ChatGPT 的 API Key，无需填 URL，推荐模型 `gpt-4o`。
 
 ---
 
-## 🔌 MCP 工具扩展（高级功能）
+## 💥 常见问题排雷 (FAQ)
 
-MCP（Model Context Protocol）允许 AI 在审查时调用外部工具，例如查询法律数据库。
+### 1. 助手面板白屏，显示什么“证书不受信任 / 无法加载”？
 
-在插件「设置」页面底部的「MCP 工具扩展」区域可以管理 MCP 服务器。添加后，AI 审查时会自动调用可用的工具来增强分析。
+这是因为我们的助手程序运行在你电脑本地（`https://localhost:3000`），浏览器觉得它没有被正规机构盖章所以拦截了。
+**怎么修？**
+打开你电脑里的浏览器（最好是 Chrome/Edge 或 Safari），把这个网址输进去：`https://localhost:3000`
+浏览器会跳出一个刺眼的警告页面（说连接不安全），点击 **【高级】** -> 选 **【继续前往 localhost (不安全)】**。
+看到白板上有一行小字后，关掉浏览器，去 Word 里重新点开插件就好了。
 
----
+### 2. 双击 Mac 的 `启动.command` 没反应说权限不足？
 
-## 📄 开源协议
+打开 Mac 终端，输入 `chmod +x`（注意 `x` 后面有一个空格），然后把 `启动.command` 这个文件拖进终端里，按回车。然后再去双击。
 
-MIT License
+### 3. 一点击「开始审查」，就报错 401？
+
+这代表你找 AI 厂商要来的“钥匙（API Key）”填错了，或者你的 AI 账号里没有钱（欠费了）。请去对应官网查下余额。
+
+### 4. 数据安全吗？会泄露给网上吗？
+
+你的合同内容**只会在你点击“审查”的那一瞬间**，发送给你在设置里填写的“那个 AI 厂商（比如深证、阿里）”。代码里**没有任何后门或截留**。如果实在对保密要求极高，请使用 Ollama 本地化部署功能（见进阶教程）。

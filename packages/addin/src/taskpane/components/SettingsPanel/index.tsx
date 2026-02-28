@@ -14,7 +14,7 @@ const PROVIDERS: { id: ProviderType; label: string; description: string }[] = [
 ];
 
 const CLAUDE_MODELS = ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'];
-const OPENAI_MODELS = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'deepseek-chat', 'deepseek-reasoner'];
+const OPENAI_MODELS = ['gpt-5.2', 'deepseek-chat', 'deepseek-reasoner', 'qwen3.5-max', 'kimi-k2.5', 'glm-5-plus'];
 const DEPTH_OPTIONS: { id: ReviewDepth; label: string; description: string }[] = [
     { id: 'quick', label: '快速审查', description: '约 30s，关注主要风险条款' },
     { id: 'standard', label: '标准审查', description: '约 1-2min，四维度全面分析' },

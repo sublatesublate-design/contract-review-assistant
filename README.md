@@ -259,3 +259,11 @@ ollama run qwen3.5:14b
 6. 点击 **添加** 确认。
 
 连接成功后，对应服务器会亮起绿灯。下次让它审查合同时，它就会**自动调用**这个本地数据库，给你绝对权威、100% 准确的法律解答！
+
+---
+
+## 👨‍💻 贡献者 & 鸣谢 (Contributors)
+
+- **[sublatesublate-design](https://github.com/sublatesublate-design)**: 开源发起人 & 主创
+- **Antigravity (Powered by Google Deepmind)**: AI 联合开发架构师 (操刀 v2.0 自动部署脚手架、Mac/Win 跨平台工程适配、防呆容错系统及视觉设计)
+- **Claude (Anthropic)**: AI 联合开发工程师 (辅助编写 v2.0 早期核心逻辑及提示词模型)

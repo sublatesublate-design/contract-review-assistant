@@ -3,6 +3,10 @@
   "version": "2.0.0",
   "private": true,
   "description": "合同审查助手 - Word Add-in with AI-powered contract review",
+  "author": "sublatesublate-design",
+  "contributors": [
+    "Antigravity (Google Deepmind)"
+  ],
   "scripts": {
     "dev": "concurrently \"pnpm --filter addin dev\" \"pnpm --filter server dev\"",
     "build": "pnpm --filter addin build && pnpm --filter server build",
@@ -17,6 +21,7 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "iconv-lite": "^0.7.2",
+    "puppeteer": "^24.37.5",
     "typescript": "^5.3.3"
   },
   "engines": {

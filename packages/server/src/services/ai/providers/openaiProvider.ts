@@ -9,10 +9,8 @@ export class OpenAIProvider implements AIProvider {
 
     constructor(apiKey: string, model = 'gpt-4o', baseURL?: string) {
         this.model = model;
-        // 规范化 baseURL：兼容用户输入 https://api.deepseek.com 或 https://api.deepseek.com/v1
-        this.baseURL = baseURL
-            ? (baseURL.endsWith('/v1') || baseURL.endsWith('/v1/') ? baseURL : `${baseURL.replace(/\/$/, '')}/v1`)
-            : 'https://api.openai.com/v1';
+        // 使用原样传入的 baseURL，不要强制追加 /v1，但移除末尾可能的斜杠以防拼接出错
+        this.baseURL = baseURL ? baseURL.replace(/\/$/, '') : 'https://api.openai.com/v1';
         console.log(`[OpenAIProvider] 初始化: model=${model}, baseURL=${this.baseURL}`);
         this.client = new OpenAI({
             apiKey,

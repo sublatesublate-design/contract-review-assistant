@@ -11,6 +11,9 @@ importers:
       concurrently:
         specifier: ^8.2.2
         version: 8.2.2
+      iconv-lite:
+        specifier: ^0.7.2
+        version: 0.7.2
       typescript:
         specifier: ^5.3.3
         version: 5.9.3

@@ -109,6 +109,11 @@ if [ "$CHOICE" = "P" ]; then
         pnpm run build:addin
     fi
 
+    # 安装 HTTPS 开发证书（WPS 的 dev server 同样需要 HTTPS）
+    echo -e "${YELLOW}正在检查安全证书...${NC}"
+    npx office-addin-dev-certs install --machine 2>/dev/null
+    echo -e "✅ 安全证书已配置"
+
     # 释放可能占用的端口
     for PORT in 3000 3001 3889; do
         PID=$(lsof -t -i:$PORT 2>/dev/null)

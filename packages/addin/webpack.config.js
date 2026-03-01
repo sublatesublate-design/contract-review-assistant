@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
@@ -67,14 +68,16 @@ module.exports = (env, argv) => {
         devServer: {
             port: 3000,
             hot: true,
-            // Word 插件要求 HTTPS，使用 office-addin-dev-certs 安装的系统信任证书
-            server: {
-                type: 'https',
-                options: {
-                    key: require('path').join(process.env.USERPROFILE || process.env.HOME, '.office-addin-dev-certs', 'localhost.key'),
-                    cert: require('path').join(process.env.USERPROFILE || process.env.HOME, '.office-addin-dev-certs', 'localhost.crt'),
-                },
-            },
+            // HTTPS：优先使用 office-addin-dev-certs 的受信证书，缺失时回退到 webpack 自签证书
+            server: (() => {
+                const home = process.env.USERPROFILE || process.env.HOME;
+                const keyPath = path.join(home, '.office-addin-dev-certs', 'localhost.key');
+                const certPath = path.join(home, '.office-addin-dev-certs', 'localhost.crt');
+                if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+                    return { type: 'https', options: { key: keyPath, cert: certPath } };
+                }
+                return 'https'; // webpack 自动生成自签证书
+            })(),
             static: [
                 { directory: path.join(__dirname, 'public') },
                 { directory: path.join(__dirname, 'dist') },

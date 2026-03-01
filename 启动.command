@@ -41,15 +41,21 @@ if ! command -v pnpm &> /dev/null; then
     echo -e "${YELLOW}正在自动安装核心依赖管理器 (pnpm)...${NC}"
     # 优先独立安装器以避免系统级 EACCES 报错
     curl -fsSL https://get.pnpm.io/install.sh | sh -
-    export PNPM_HOME="$HOME/.local/share/pnpm"
+    # macOS 独立安装器装到 ~/Library/pnpm，Linux 装到 ~/.local/share/pnpm
+    if [ -d "$HOME/Library/pnpm" ]; then
+        export PNPM_HOME="$HOME/Library/pnpm"
+    elif [ -d "$HOME/.local/share/pnpm" ]; then
+        export PNPM_HOME="$HOME/.local/share/pnpm"
+    fi
     export PATH="$PNPM_HOME:$PATH"
-    
+
     if ! command -v pnpm &> /dev/null; then
         echo -e "${YELLOW}独立安装失败，尝试 npm 全局安装...${NC}"
         npm install -g pnpm
         if [ $? -ne 0 ]; then
             echo -e "${RED}pnpm 安装失败！${NC}"
-            echo -e "请在终端手动执行：${YELLOW}curl -fsSL https://get.pnpm.io/install.sh | sh -${NC}"
+            echo -e "请关闭此终端，重新打开一个新终端，再次运行本脚本即可。"
+            echo -e "（如果仍然失败，请手动执行：${YELLOW}curl -fsSL https://get.pnpm.io/install.sh | sh -${NC}）"
             exit 1
         fi
     fi

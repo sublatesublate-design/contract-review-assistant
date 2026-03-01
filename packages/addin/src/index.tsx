@@ -26,6 +26,13 @@ async function bootstrap() {
         if (ok) adapter = wpsAdapter;
     }
 
+    if (!adapter && window.location.search.includes('mock=true')) {
+        const { createMockAdapter } = await import('./platform/mock/MockAdapter');
+        const mockAdapter = createMockAdapter();
+        await mockAdapter.initialize();
+        adapter = mockAdapter;
+    }
+
     const rootElement = document.getElementById('root');
     if (!rootElement) {
         throw new Error('Root element #root not found in taskpane.html');

@@ -15,8 +15,16 @@ echo -e "${GREEN}      启动 AI 合同审查助手 (Mac 版)     ${NC}"
 echo -e "${GREEN}==========================================${NC}"
 echo ""
 
-# 获取脚本所在目录并切换过去
+# 获取脚本所在目录
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# macOS 自愈前导块：消除隔离警告和运行权限问题
+if [ "$(uname)" = "Darwin" ]; then
+    xattr -rd com.apple.quarantine "$DIR" 2>/dev/null
+    chmod +x "$DIR/启动.command" 2>/dev/null
+fi
+
+# 切换到脚本目录
 cd "$DIR"
 
 # ─── 检测 Node.js ─────────────────────────────────────────────
@@ -31,13 +39,31 @@ echo -e "✅ Node.js 已安装: $(node -v)"
 # ─── 检测 pnpm ────────────────────────────────────────────────
 if ! command -v pnpm &> /dev/null; then
     echo -e "${YELLOW}正在自动安装核心依赖管理器 (pnpm)...${NC}"
-    npm install -g pnpm
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}pnpm 安装失败！请尝试：sudo npm install -g pnpm${NC}"
-        exit 1
+    # 优先独立安装器以避免系统级 EACCES 报错
+    curl -fsSL https://get.pnpm.io/install.sh | sh -
+    export PNPM_HOME="$HOME/.local/share/pnpm"
+    export PATH="$PNPM_HOME:$PATH"
+    
+    if ! command -v pnpm &> /dev/null; then
+        echo -e "${YELLOW}独立安装失败，尝试 npm 全局安装...${NC}"
+        npm install -g pnpm
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}pnpm 安装失败！${NC}"
+            echo -e "请在终端手动执行：${YELLOW}curl -fsSL https://get.pnpm.io/install.sh | sh -${NC}"
+            exit 1
+        fi
     fi
 fi
 echo -e "✅ 包管理工具准备就绪"
+
+# ─── npm 缓存权限检测 (防老版本遗留 EACCES) ────────────────────────
+if [ -d "$HOME/.npm" ]; then
+    ROOT_OWNED=$(find "$HOME/.npm" -user root -print -quit 2>/dev/null)
+    if [ ! -z "$ROOT_OWNED" ]; then
+        echo -e "${YELLOW}检测到 root 权限缓存，正在修复以防止 npm/pnpm 安装报错...${NC}"
+        sudo chown -R $(whoami) "$HOME/.npm"
+    fi
+fi
 
 # ─── 安装项目依赖 ─────────────────────────────────────────────
 if [ ! -d "node_modules" ]; then
@@ -71,15 +97,10 @@ if [ "$CHOICE" = "P" ]; then
     echo -e "${GREEN}[模式] WPS Office${NC}"
     echo ""
 
-    # 安装 wpsjs 工具（若未安装）
-    if ! command -v wpsjs &> /dev/null; then
-        echo -e "${YELLOW}首次使用 WPS 模式，正在安装 wpsjs 工具（约 30 秒）...${NC}"
-        npm install -g wpsjs
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}wpsjs 安装失败，请检查网络后重试${NC}"
-            exit 1
-        fi
-        echo -e "✅ wpsjs 安装完成"
+    # WPS 模式前置检查：确保有 dist 编译产物，防止白屏
+    if [ ! -d "packages/addin/dist" ]; then
+        echo -e "${YELLOW}首次运行 WPS 模式，正在自动构建前端资源...${NC}"
+        pnpm run build:addin
     fi
 
     # 释放可能占用的端口
@@ -91,10 +112,10 @@ if [ "$CHOICE" = "P" ]; then
         fi
     done
 
-    # 在后台启动 wpsjs debug（端口 3889）
+    # 在后台启动 wpsjs debug（端口 3889），改用 npx 免全局安装防 EACCES
     echo -e "${YELLOW}正在启动 WPS 插件服务（端口 3889）...${NC}"
     cd "$DIR/packages/addin/wps-addin"
-    wpsjs debug --nolaunch &
+    npx wpsjs debug --nolaunch &
     WPSJS_PID=$!
     cd "$DIR"
     sleep 2
@@ -120,10 +141,32 @@ else
     echo -e "${GREEN}[模式] Microsoft Word${NC}"
     echo ""
 
+    # Word.app 存在性检查
+    if [ ! -d "/Applications/Microsoft Word.app" ]; then
+        echo -e "${RED}[运行被拦截] 我们发现您这台电脑没有安装正版 Microsoft Word！${NC}"
+        echo -e "由于 Mac 机制，继续开启将会导致 WPS(或其他软件) 被强行当做 Word 打开并导致异常。"
+        echo ""
+        echo -e "👉 ${YELLOW}请重新运行脚本，并输入 P 选择 WPS 模式！${NC}"
+        echo -e "（或者如果您知道自己在做什么，请确保 docx 文件默认程序已关联 Word）"
+        exit 1
+    fi
+
+    # .docx 文件关联提醒
+    if [ -d "/Applications/wpsoffice.app" ] || [ -d "/Applications/WPS Office.app" ]; then
+        echo -e "⚠ ${YELLOW}检测到您同时安装了 WPS 和 Word。如果您等会弹出来的是 WPS，${NC}"
+        echo -e "   ${YELLOW}请右键任意 .docx 文档 -> 显示简介 -> 打开方式 -> 选 Word -> 全部更改。${NC}"
+        echo ""
+    fi
+
     # 安装 HTTPS 开发证书
     echo -e "${YELLOW}正在检查安全证书...${NC}"
     npx office-addin-dev-certs install --machine
-    echo -e "✅ 安全证书已配置"
+    if [ $? -eq 0 ]; then
+        echo -e "✅ 安全证书已配置"
+    else
+        echo -e "${RED}⚠ 安全证书配置失败，但程序将继续。由于各种原因可能导致开发证书不受信任。${NC}"
+        echo -e "   如果 Word 插件加载白屏，请在浏览器中打开 https://localhost:3000 点击信任。${NC}"
+    fi
 
     # 释放可能占用的端口
     for PORT in 3000 3001; do

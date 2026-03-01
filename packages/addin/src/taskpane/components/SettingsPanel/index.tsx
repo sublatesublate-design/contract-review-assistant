@@ -203,17 +203,19 @@ export default function SettingsPanel() {
                         />
                         <div className="mt-2">
                             <label className="text-xs text-gray-600">本地模型</label>
-                            <select
+                            <input
+                                type="text"
+                                list="ollama-models-list"
                                 value={settings.models.ollama}
                                 onChange={(e) => updateSettings({ models: { ...settings.models, ollama: e.target.value } })}
+                                placeholder="输入模型名称，如 qwen2.5:32b"
                                 className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                            >
-                                {ollamaModels.length > 0 ? (
-                                    ollamaModels.map((m) => <option key={m} value={m}>{m}</option>)
-                                ) : (
-                                    <option value={settings.models.ollama}>{settings.models.ollama}</option>
-                                )}
-                            </select>
+                            />
+                            {ollamaModels.length > 0 && (
+                                <datalist id="ollama-models-list">
+                                    {ollamaModels.map((m) => <option key={m} value={m} />)}
+                                </datalist>
+                            )}
                         </div>
                     </section>
                 )}

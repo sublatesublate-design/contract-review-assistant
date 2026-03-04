@@ -41,10 +41,9 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                     const wordRange = await resolveWordRange(context, ref);
                     if (!wordRange) return false;
 
-                    // 通过 expandTo 扩展搜索范围，覆盖相邻的修订标记
-                    // 注意：office.js 的 getSpellCheckedRange 等 API 不全可用，
-                    // 改为直接获取 document.revisions 并按文本过滤
-                    const revisions = context.document.body.getRange().revisions;
+                    // 将搜索范围限制在当前段落，避免加载整个文档的修订导致崩溃
+                    const searchRange = wordRange.paragraphs.getFirst().getRange().expandTo(wordRange.paragraphs.getLast().getRange());
+                    const revisions = searchRange.revisions;
                     revisions.load('items');
                     await context.sync();
 
@@ -81,33 +80,8 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                 rejectedViaRevisions = false;
             }
 
-            // 策略 2（兜底）：关闭修订模式，直接无痕替换回原文
             if (!rejectedViaRevisions) {
-                await Word.run(async (context) => {
-                    let wordRange = await resolveWordRange(context, ref);
-
-                    // 如果按 originalText 找不到，尝试按 suggestedText 查找
-                    if (!wordRange && suggestedText) {
-                        wordRange = await resolveWordRange(context, { searchText: suggestedText });
-                    }
-
-                    if (!wordRange) throw new Error('无法定位到文档中的原文或修改后的文本');
-
-                    const doc = context.document;
-                    doc.load('changeTrackingMode');
-                    await context.sync();
-                    const originalMode = doc.changeTrackingMode;
-
-                    try {
-                        doc.changeTrackingMode = Word.ChangeTrackingMode.off;
-                        await context.sync();
-                        wordRange.insertText(originalText, Word.InsertLocation.replace);
-                        await context.sync();
-                    } finally {
-                        doc.changeTrackingMode = originalMode;
-                        await context.sync();
-                    }
-                });
+                throw new Error('无法自动取消修订，请手动在 Word 中拒绝此修订');
             }
         },
     };

@@ -22,10 +22,14 @@ export async function resolveWordRange(
 
     // 策略 1：精确搜索
     try {
-        const searchText = text.length <= 255 ? text : text.slice(0, 200);
+        // 清理搜索文本中的通配符，防止导致搜索错误
+        let cleanText = text.replace(/[*?<>]/g, '');
+        const searchText = cleanText.length <= 255 ? cleanText : cleanText.slice(0, 200);
         const results = context.document.body.search(searchText, {
             matchCase: false,
             matchWholeWord: false,
+            ignoreSpace: true,
+            ignorePunct: true,
         });
         results.load('items');
         await context.sync();
@@ -37,10 +41,14 @@ export async function resolveWordRange(
     // 策略 2：截断搜索
     if (text.length > 100) {
         try {
-            const shortText = text.slice(0, 80).trim();
+            // 清理通配符
+            let cleanText = text.replace(/[*?<>]/g, '');
+            const shortText = cleanText.slice(0, 80).trim();
             const results = context.document.body.search(shortText, {
                 matchCase: false,
                 matchWholeWord: false,
+                ignoreSpace: true,
+                ignorePunct: true,
             });
             results.load('items');
             await context.sync();

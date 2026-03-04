@@ -54,7 +54,7 @@ function classifyError(err: unknown, status?: number): { message: string; errorT
     if (status === 429 || lower.includes('rate_limit') || lower.includes('rate limit') || lower.includes('insufficient') || lower.includes('quota')) {
         return { message: `余额不足或达到速率限制，请稍后再试（${raw}）`, errorType: 'quota' };
     }
-    if (lower.includes('failed to fetch') || lower.includes('econnrefused') || lower.includes('network') || lower.includes('fetch') || lower.includes('connect')) {
+    if (lower.includes('failed to fetch') || lower.includes('load failed') || lower.includes('econnrefused') || lower.includes('network') || lower.includes('fetch') || lower.includes('connect')) {
         return { message: `无法连接服务器，请检查网络和服务地址（${raw}）`, errorType: 'network' };
     }
     return { message: raw, errorType: 'unknown' };

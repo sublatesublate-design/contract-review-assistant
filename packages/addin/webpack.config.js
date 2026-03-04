@@ -82,6 +82,13 @@ module.exports = (env, argv) => {
                 { directory: path.join(__dirname, 'public') },
                 { directory: path.join(__dirname, 'dist') },
             ],
+            proxy: {
+                '/api': {
+                    target: 'http://localhost:3001',
+                    changeOrigin: true,
+                    secure: false,
+                },
+            },
             headers: {
                 'Access-Control-Allow-Origin': '*',
             },

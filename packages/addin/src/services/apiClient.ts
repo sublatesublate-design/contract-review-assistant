@@ -60,6 +60,60 @@ function classifyError(err: unknown, status?: number): { message: string; errorT
     return { message: raw, errorType: 'unknown' };
 }
 
+/** 检测是否为 Mac Word 的 WKWebView（不支持 fetch 流式 ReadableStream） */
+function isMacWordWebView(): boolean {
+    const ua = navigator.userAgent;
+    // Mac + WebKit 但非 Chrome/Chromium（WPS 使用 CEF/Chromium，不受影响）
+    return /Macintosh/.test(ua) && /AppleWebKit/.test(ua) && !/Chrome/.test(ua);
+}
+
+/** 通过 XHR 的 onprogress 实现 SSE 流式消费（适用于 WKWebView） */
+function sseViaXHR(
+    url: string,
+    body: string,
+    handlers: { onEvent: (data: Record<string, unknown>) => void }
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.timeout = 300000; // 5 分钟超时（长合同审查）
+
+        let processed = 0;
+        let buffer = '';
+
+        function flush() {
+            const newText = xhr.responseText.substring(processed);
+            processed = xhr.responseText.length;
+            buffer += newText;
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const jsonStr = line.slice(6).trim();
+                    if (!jsonStr) continue;
+                    try {
+                        handlers.onEvent(JSON.parse(jsonStr));
+                    } catch { /* 忽略非 JSON 行 */ }
+                }
+            }
+        }
+
+        xhr.onprogress = flush;
+        xhr.onload = () => {
+            flush();
+            if (xhr.status >= 400) {
+                reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+            } else {
+                resolve();
+            }
+        };
+        xhr.onerror = () => reject(new Error('Load failed'));
+        xhr.ontimeout = () => reject(new Error('Request timeout'));
+        xhr.send(body);
+    });
+}
+
 /** 带重试的 fetch：仅限网络错误，最多 2 次，每次延迟 2s */
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
     let lastErr: unknown;
@@ -92,12 +146,41 @@ export const apiClient = {
         callbacks: ReviewStreamCallbacks
     ): Promise<void> {
         const baseUrl = serverUrl ? serverUrl.replace(/\/$/, '') : window.location.origin;
+        const url = `${baseUrl}/api/review`;
+        const body = JSON.stringify(req);
+
+        const onEvent = (data: Record<string, unknown>) => {
+            if (data['type'] === 'issue') callbacks.onIssue(data['data'] as ReviewIssue);
+            else if (data['type'] === 'summary')
+                callbacks.onSummary(
+                    data['content'] as string,
+                    data['model'] as string,
+                    data['contractType'] as string | undefined,
+                    data['contractLabel'] as string | undefined,
+                );
+            else if (data['type'] === 'error') {
+                const { message, errorType } = classifyError(data['message'] as string);
+                callbacks.onError(message, errorType);
+            }
+        };
+
+        // Mac Word (WKWebView) 的 ReadableStream 会缓冲整个响应，改用 XHR 流式读取
+        if (isMacWordWebView()) {
+            try {
+                await sseViaXHR(url, body, { onEvent });
+            } catch (err) {
+                const { message, errorType } = classifyError(err);
+                callbacks.onError(message, errorType);
+            }
+            return;
+        }
+
         let response: Response;
         try {
-            response = await fetchWithRetry(`${baseUrl}/api/review`, {
+            response = await fetchWithRetry(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(req),
+                body,
             });
         } catch (err) {
             const { message, errorType } = classifyError(err);
@@ -112,22 +195,7 @@ export const apiClient = {
             return;
         }
 
-        await consumeSSE(response, {
-            onEvent: (data) => {
-                if (data['type'] === 'issue') callbacks.onIssue(data['data'] as ReviewIssue);
-                else if (data['type'] === 'summary')
-                    callbacks.onSummary(
-                        data['content'] as string,
-                        data['model'] as string,
-                        data['contractType'] as string | undefined,
-                        data['contractLabel'] as string | undefined,
-                    );
-                else if (data['type'] === 'error') {
-                    const { message, errorType } = classifyError(data['message'] as string);
-                    callbacks.onError(message, errorType);
-                }
-            },
-        });
+        await consumeSSE(response, { onEvent });
     },
 
     /**
@@ -139,10 +207,29 @@ export const apiClient = {
         callbacks: ChatStreamCallbacks
     ): Promise<void> {
         const baseUrl = serverUrl ? serverUrl.replace(/\/$/, '') : window.location.origin;
-        const response = await fetch(`${baseUrl}/api/chat`, {
+        const url = `${baseUrl}/api/chat`;
+        const body = JSON.stringify(req);
+
+        const onEvent = (data: Record<string, unknown>) => {
+            if (data['type'] === 'delta') callbacks.onDelta(data['content'] as string);
+            else if (data['type'] === 'done') callbacks.onDone();
+            else if (data['type'] === 'error') callbacks.onError(data['message'] as string);
+        };
+
+        // Mac Word (WKWebView) 的 ReadableStream 会缓冲整个响应，改用 XHR 流式读取
+        if (isMacWordWebView()) {
+            try {
+                await sseViaXHR(url, body, { onEvent });
+            } catch (err) {
+                callbacks.onError(err instanceof Error ? err.message : String(err));
+            }
+            return;
+        }
+
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req),
+            body,
         });
 
         if (!response.ok) {
@@ -151,13 +238,7 @@ export const apiClient = {
             return;
         }
 
-        await consumeSSE(response, {
-            onEvent: (data) => {
-                if (data['type'] === 'delta') callbacks.onDelta(data['content'] as string);
-                else if (data['type'] === 'done') callbacks.onDone();
-                else if (data['type'] === 'error') callbacks.onError(data['message'] as string);
-            },
-        });
+        await consumeSSE(response, { onEvent });
     },
 
     /**

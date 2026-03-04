@@ -44,11 +44,13 @@ export interface IRangeMapper {
 export interface ICommentManager {
     addComment(range: PlatformRange, commentText: string): Promise<void>;
     addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<void>;
+    removeComment(range: PlatformRange, commentText: string): Promise<void>;
 }
 
 /** 修订追踪 */
 export interface ITrackChangesManager {
     applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void>;
+    revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void>;
 }
 
 /** 导航与高亮 */

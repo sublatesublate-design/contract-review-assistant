@@ -28,6 +28,42 @@ export function createWordCommentManager(): ICommentManager {
             });
         },
 
+        async removeComment(range: PlatformRange, commentText: string): Promise<void> {
+            const ref = range._internal as WordRangeRef;
+            await Word.run(async (context) => {
+                const wordRange = await resolveWordRange(context, ref);
+                if (!wordRange) throw new Error('无法定位到文档中的原文');
+
+                try {
+                    const comments = wordRange.getComments();
+                    context.load(comments, 'items/content');
+                    await context.sync();
+
+                    for (let i = 0; i < comments.items.length; i++) {
+                        const comment = comments.items[i];
+                        if (comment && comment.content && comment.content.includes(commentText)) {
+                            comment.delete();
+                            break;
+                        }
+                    }
+                } catch (err) {
+                    // Fallback to global search for older Word API (e.g. 1.4)
+                    const comments = context.document.body.getComments();
+                    context.load(comments, 'items/content');
+                    await context.sync();
+
+                    for (let i = 0; i < comments.items.length; i++) {
+                        const comment = comments.items[i];
+                        if (comment && comment.content && comment.content.includes(commentText)) {
+                            comment.delete();
+                            break;
+                        }
+                    }
+                }
+                await context.sync();
+            });
+        },
+
         async addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<void> {
             await Word.run(async (context) => {
                 const doc = context.document;

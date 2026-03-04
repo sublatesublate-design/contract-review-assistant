@@ -3,7 +3,7 @@ import { AlertTriangle, AlertCircle, Info, CheckCircle2, MapPin, MessageSquare, 
 import clsx from 'clsx';
 import type { ReviewIssue, RiskLevel, IssueCategory } from '../../../types/review';
 import { useReviewStore } from '../../../store/reviewStore';
-import { locateIssue, commentIssue, applyIssue } from '../../../platform/issueActions';
+import { locateIssue, commentIssue, applyIssue, uncommentIssue, unapplyIssue } from '../../../platform/issueActions';
 import { usePlatform } from '../../../platform/platformContext';
 
 interface IssueCardProps {
@@ -64,28 +64,38 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
         }
     };
 
-    /** 在文档中添加批注 */
+    /** 在文档中添加或取消批注 */
     const handleComment = async () => {
         setActionLoading('comment');
         try {
-            const ok = await commentIssue(platform, issue);
-            if (ok) updateIssueStatus(issue.id, 'commented');
+            if (issue.status === 'commented') {
+                const ok = await uncommentIssue(platform, issue);
+                if (ok) updateIssueStatus(issue.id, 'pending');
+            } else {
+                const ok = await commentIssue(platform, issue);
+                if (ok) updateIssueStatus(issue.id, 'commented');
+            }
         } catch (err) {
-            console.error('添加批注失败:', err);
+            console.error('批注操作失败:', err);
         } finally {
             setActionLoading(null);
         }
     };
 
-    /** 应用 AI 建议的修改（生成修订标记） */
+    /** 应用或取消 AI 建议的修改（生成修订标记） */
     const handleApply = async () => {
         if (!issue.suggestedText) return;
         setActionLoading('apply');
         try {
-            const ok = await applyIssue(platform, issue);
-            if (ok) updateIssueStatus(issue.id, 'applied');
+            if (issue.status === 'applied') {
+                const ok = await unapplyIssue(platform, issue);
+                if (ok) updateIssueStatus(issue.id, 'pending');
+            } else {
+                const ok = await applyIssue(platform, issue);
+                if (ok) updateIssueStatus(issue.id, 'applied');
+            }
         } catch (err) {
-            console.error('应用修改失败:', err);
+            console.error('应用修改操作失败:', err);
         } finally {
             setActionLoading(null);
         }
@@ -174,22 +184,22 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
                         </button>
                         <button
                             onClick={handleComment}
-                            disabled={actionLoading === 'comment' || issue.status === 'commented'}
+                            disabled={actionLoading === 'comment'}
                             className="flex items-center gap-1 text-xs py-1 px-2 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors disabled:opacity-50"
-                            title="在文档中添加批注"
+                            title={issue.status === 'commented' ? '在文档中取消批注' : '在文档中添加批注'}
                         >
                             <MessageSquare size={11} />
-                            {issue.status === 'commented' ? '已批注' : actionLoading === 'comment' ? '添加中...' : '批注'}
+                            {actionLoading === 'comment' ? (issue.status === 'commented' ? '取消中...' : '添加中...') : (issue.status === 'commented' ? '取消批注' : '批注')}
                         </button>
                         {issue.suggestedText && (
                             <button
                                 onClick={handleApply}
-                                disabled={actionLoading === 'apply' || issue.status === 'applied'}
+                                disabled={actionLoading === 'apply'}
                                 className="flex items-center gap-1 text-xs py-1 px-2 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors disabled:opacity-50"
-                                title="应用 AI 修改建议（生成修订标记）"
+                                title={issue.status === 'applied' ? '取消修改' : '应用 AI 修改建议（生成修订标记）'}
                             >
                                 <Edit3 size={11} />
-                                {issue.status === 'applied' ? '已应用' : actionLoading === 'apply' ? '应用中...' : '应用修改'}
+                                {actionLoading === 'apply' ? (issue.status === 'applied' ? '取消中...' : '应用中...') : (issue.status === 'applied' ? '取消修改' : '应用修改')}
                             </button>
                         )}
                         {issue.category === 'missing_clause' && onOpenClauseLibrary && (

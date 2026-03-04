@@ -10,51 +10,36 @@ export function createWordNavigationHelper(): INavigationHelper {
             await Word.run(async (context) => {
                 const wordRange = await resolveWordRange(context, ref);
                 if (!wordRange) return;
+                // select() 会自动将视图滚动到选中位置（Win/Mac 均有效）
                 wordRange.select(Word.SelectionMode.select);
                 await context.sync();
             });
         },
 
-        async highlightRange(range: PlatformRange, color: string = '#FFFF00'): Promise<void> {
+        async highlightRange(range: PlatformRange, _color?: string): Promise<void> {
+            // 改为原生选中，不再使用 highlightColor（取消麻烦且颜色停留）
             const ref = range._internal as WordRangeRef;
             await Word.run(async (context) => {
                 const wordRange = await resolveWordRange(context, ref);
                 if (!wordRange) return;
-                wordRange.font.highlightColor = color;
+                wordRange.select(Word.SelectionMode.select);
                 await context.sync();
             });
         },
 
-        async clearHighlight(range: PlatformRange): Promise<void> {
-            const ref = range._internal as WordRangeRef;
-            await Word.run(async (context) => {
-                const wordRange = await resolveWordRange(context, ref);
-                if (!wordRange) return;
-                wordRange.font.highlightColor = 'None';
-                await context.sync();
-            });
+        async clearHighlight(_range: PlatformRange): Promise<void> {
+            // 改为原生选中方式后，clearHighlight 不再需要操作，用户点击即取消
         },
 
         async navigateAndHighlight(range: PlatformRange): Promise<void> {
+            // 直接选中跳转即可，原生选中高亮用户点击其他地方自然消失
             const ref = range._internal as WordRangeRef;
             await Word.run(async (context) => {
                 const wordRange = await resolveWordRange(context, ref);
                 if (!wordRange) return;
                 wordRange.select(Word.SelectionMode.select);
-                wordRange.font.highlightColor = '#FFF9C4';
                 await context.sync();
             });
-
-            // 2 秒后自动取消高亮
-            setTimeout(async () => {
-                try {
-                    await Word.run(async (ctx) => {
-                        const selection = ctx.document.getSelection();
-                        selection.font.highlightColor = 'None';
-                        await ctx.sync();
-                    });
-                } catch { /* 忽略 */ }
-            }, 2000);
         },
     };
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState, useMemo } from 'react';
 import {
     Play, RotateCcw, CheckCircle, AlertCircle, Loader2, MessageSquarePlus,
     MessageSquare, Edit3, MousePointer, Clock, Zap, History, Tag, Download, BookOpen
@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { useReviewStore } from '../../../store/reviewStore';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { usePlatform } from '../../../platform/platformContext';
-import { batchComment, batchApply } from '../../../platform/issueActions';
+import { batchComment, batchApply, clearAllRangeCache } from '../../../platform/issueActions';
 import { apiClient } from '../../../services/apiClient';
 import IssueCard from './IssueCard';
 import HistoryPanel from './HistoryPanel';
@@ -42,6 +42,10 @@ export default function ReviewPanel() {
     const [showHistory, setShowHistory] = useState(false);
     const [showClauseLibrary, setShowClauseLibrary] = useState(false);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('auto');
+    const [sortMode, setSortMode] = useState<'default' | 'position' | 'risk'>('default');
+
+    // 缓存文档全文，用于按位置排序
+    const docContentRef = useRef<string>('');
 
     // 用 ref 标记是否是"刚做完"的审查（false 时显示"来自上次"提示）
     const isNewReview = useRef(false);
@@ -108,6 +112,7 @@ export default function ReviewPanel() {
 
     /** 全文审查 */
     const handleStartReview = useCallback(async () => {
+        clearAllRangeCache();
         reset();
         isNewReview.current = false;
         setSelectionMode(false);
@@ -118,6 +123,7 @@ export default function ReviewPanel() {
                 setError('文档内容为空，请先打开一份合同文档');
                 return;
             }
+            docContentRef.current = docContent;
             await runReview(docContent, false);
         } catch (err) {
             setError(err instanceof Error ? err.message : '读取文档失败');
@@ -126,6 +132,7 @@ export default function ReviewPanel() {
 
     /** 局部审查（选中段落） */
     const handleSelectionReview = useCallback(async () => {
+        clearAllRangeCache();
         reset();
         isNewReview.current = false;
         setSelectionMode(true);
@@ -136,19 +143,43 @@ export default function ReviewPanel() {
                 setError('请先在文档中选中需要审查的文本段落');
                 return;
             }
+            docContentRef.current = selText;
             await runReview(selText, true);
         } catch (err) {
             setError(err instanceof Error ? err.message : '读取选中内容失败');
         }
     }, [reset, setStatus, setError, runReview, platform]);
 
-    // 按类别过滤问题
-    const filteredIssues =
-        result?.issues.filter((issue) => {
+    const effectiveSortMode = status === 'analyzing' ? 'default' : sortMode;
+
+    const filteredIssues = useMemo(() => {
+        const baseFilteredIssues = result?.issues.filter((issue) => {
             if (issue.status === 'dismissed') return false;
             if (filter === 'all') return true;
             return issue.category === filter;
         }) ?? [];
+
+        if (effectiveSortMode === 'default') return baseFilteredIssues;
+
+        const list = [...baseFilteredIssues];
+        if (effectiveSortMode === 'position') {
+            list.sort((a, b) => {
+                let indexA = docContentRef.current.indexOf(a.originalText);
+                let indexB = docContentRef.current.indexOf(b.originalText);
+                if (indexA === -1 || a.category === 'missing_clause') indexA = Infinity;
+                if (indexB === -1 || b.category === 'missing_clause') indexB = Infinity;
+                return indexA - indexB; // Ascending order
+            });
+        } else if (effectiveSortMode === 'risk') {
+            const riskScore: Record<string, number> = { high: 0, medium: 1, low: 2, info: 3 };
+            list.sort((a, b) => {
+                const scoreA = riskScore[a.riskLevel] ?? 99;
+                const scoreB = riskScore[b.riskLevel] ?? 99;
+                return scoreA - scoreB;
+            });
+        }
+        return list;
+    }, [result?.issues, filter, effectiveSortMode, docContentRef.current]);
 
     const issueCountByLevel = result?.issues.reduce(
         (acc, issue) => {
@@ -394,17 +425,17 @@ export default function ReviewPanel() {
             {/* 分类过滤 Tab + 批量操作 */}
             {result && result.issues.length > 0 && (
                 <div className="flex-shrink-0 px-3 pt-2 space-y-1.5">
-                    {/* 分类 Tab */}
-                    <div className="flex overflow-x-auto gap-1">
+                    {/* 分类 Tab 单独一行 */}
+                    <div className="flex overflow-x-auto gap-1 pb-1 scrollbar-hide">
                         {(['all', ...ALL_CATEGORIES] as const).map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => setFilter(cat)}
                                 className={clsx(
-                                    'flex-shrink-0 text-xs px-2 py-1 rounded-full border transition-colors',
+                                    'flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full border transition-colors',
                                     filter === cat
-                                        ? 'bg-primary-600 text-white border-primary-600'
-                                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                                        ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                 )}
                             >
                                 {cat === 'all'
@@ -414,41 +445,80 @@ export default function ReviewPanel() {
                         ))}
                     </div>
 
-                    {/* 批量操作行（C） */}
-                    {filteredIssues.length > 0 && (
+                    {/* 工具栏：批量操作与排序 */}
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                        {/* 批量操作部分 */}
                         <div className="flex items-center gap-1.5">
-                            {batchProgress ? (
-                                <span className="text-xs text-gray-400 flex items-center gap-1">
-                                    <Loader2 size={11} className="animate-spin" />
-                                    {batchProgress.done}/{batchProgress.total} 完成…
-                                </span>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={handleBatchComment}
-                                        disabled={!!batchProgress}
-                                        className="flex items-center gap-1 text-xs py-1 px-2 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors disabled:opacity-50"
-                                        title={`对当前筛选的 ${filteredIssues.length} 个问题全部添加批注`}
-                                    >
-                                        <MessageSquare size={11} />
-                                        全部批注
-                                    </button>
-                                    {hasApplicable && (
+                            {filteredIssues.length > 0 && (
+                                batchProgress ? (
+                                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                                        <Loader2 size={11} className="animate-spin" />
+                                        {batchProgress.done}/{batchProgress.total} 完成…
+                                    </span>
+                                ) : (
+                                    <>
                                         <button
-                                            onClick={handleBatchApply}
+                                            onClick={handleBatchComment}
                                             disabled={!!batchProgress}
-                                            className="flex items-center gap-1 text-xs py-1 px-2 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors disabled:opacity-50"
-                                            title="对当前筛选的问题全部应用修改建议"
+                                            className="flex items-center gap-1 text-[11px] py-1 px-1.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors disabled:opacity-50"
+                                            title={`对当前筛选的 ${filteredIssues.length} 个问题全部添加批注`}
                                         >
-                                            <Edit3 size={11} />
-                                            全部应用
+                                            <MessageSquare size={10} />
+                                            全部批注
                                         </button>
-                                    )}
-                                    <span className="ml-auto text-xs text-gray-400">{filteredIssues.length} 条</span>
-                                </>
+                                        {hasApplicable && (
+                                            <button
+                                                onClick={handleBatchApply}
+                                                disabled={!!batchProgress}
+                                                className="flex items-center gap-1 text-[11px] py-1 px-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors disabled:opacity-50"
+                                                title="对当前筛选的问题全部应用修改建议"
+                                            >
+                                                <Edit3 size={10} />
+                                                全部应用
+                                            </button>
+                                        )}
+                                    </>
+                                )
                             )}
                         </div>
-                    )}
+
+                        {/* 排序按钮 */}
+                        <div className="flex ml-auto flex-shrink-0 items-center gap-1.5">
+                            <span className="text-[10px] text-gray-400">排序:</span>
+                            <div className="flex items-center bg-gray-100/80 rounded p-0.5 gap-0.5 border border-gray-200/50">
+                                <button
+                                    onClick={() => setSortMode('default')}
+                                    disabled={status === 'analyzing'}
+                                    className={clsx(
+                                        'text-[10px] px-1.5 py-0.5 rounded transition-all',
+                                        effectiveSortMode === 'default' ? 'bg-white shadow-sm text-gray-800 font-medium' : 'text-gray-500 hover:text-gray-700',
+                                        status === 'analyzing' && 'opacity-50 cursor-not-allowed'
+                                    )}
+                                    title="按AI发现问题的先后顺序"
+                                >发现顺序</button>
+                                <button
+                                    onClick={() => setSortMode('position')}
+                                    disabled={status === 'analyzing'}
+                                    className={clsx(
+                                        'text-[10px] px-1.5 py-0.5 rounded transition-all',
+                                        effectiveSortMode === 'position' ? 'bg-white shadow-sm text-gray-800 font-medium' : 'text-gray-500 hover:text-gray-700',
+                                        status === 'analyzing' && 'opacity-50 cursor-not-allowed'
+                                    )}
+                                    title="按问题在文档中从上到下的位置进行排序"
+                                >文档位置</button>
+                                <button
+                                    onClick={() => setSortMode('risk')}
+                                    disabled={status === 'analyzing'}
+                                    className={clsx(
+                                        'text-[10px] px-1.5 py-0.5 rounded transition-all',
+                                        effectiveSortMode === 'risk' ? 'bg-white shadow-sm text-gray-800 font-medium' : 'text-gray-500 hover:text-gray-700',
+                                        status === 'analyzing' && 'opacity-50 cursor-not-allowed'
+                                    )}
+                                    title="按风险严重程度优先排序"
+                                >严重程度</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

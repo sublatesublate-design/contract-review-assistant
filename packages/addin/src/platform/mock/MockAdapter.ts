@@ -64,6 +64,9 @@ export class MockAdapter implements IPlatformAdapter {
         },
         async addBatchComments(comments) {
             console.log('[MockAdapter] addBatchComments:', comments.length, 'comments');
+        },
+        async removeComment(range, text) {
+            console.log('[MockAdapter] removeComment:', text);
         }
     };
 
@@ -71,6 +74,10 @@ export class MockAdapter implements IPlatformAdapter {
         async applySuggestedEdit(range, suggestedText) {
             console.log('[MockAdapter] applySuggestedEdit:', suggestedText);
             // 这里可以加一个延迟动画模拟
+            await new Promise(r => setTimeout(r, 500));
+        },
+        async revertEdit(range, originalText, suggestedText) {
+            console.log('[MockAdapter] revertEdit:', originalText);
             await new Promise(r => setTimeout(r, 500));
         }
     };

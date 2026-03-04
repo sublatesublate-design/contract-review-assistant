@@ -1,95 +1,61 @@
-# 渚濊禆
+# 依赖
 node_modules/
 .pnpm-debug.log*
 
-# 鏋勫缓杈撳嚭
+# 构建输出
 dist/
 build/
 *.js.map
 *.d.ts
-!tailwind.config.js
-!webpack.config.js
-!postcss.config.js
 
-# 鐜��鍙橀噺
+# 系统与开发环境
+.DS_Store
+Thumbs.db
 .env
-.env.local
-.env.*.local
-
-# 璇佷功锛坵ebpack HTTPS锛�
-packages/addin/certs/
-
-# IDE
+*.local
+.claude/
 .vscode/
 .idea/
+
+# 临时文件与备份
+*.tmp
+*.bak
 *.swp
 *.swo
 
-# 绯荤粺
-.DS_Store
-Thumbs.db
-
-# 鏃ュ織
+# 日志文件 (忽略所有根目录及包内的 txt / log)
 *.log
-logs/
+*.txt
+!README.txt
+!LICENSE.txt
+!packages/**/README.txt
 
-# TypeScript 缂撳瓨
-*.tsbuildinfo
-
-# Desktop packaging
-packages/desktop/out/
-packages/desktop/node_modules/
-*.exe
-
-# Certificates
-*.crt
-*.key
-*.pem
-*.pfx
-
-# OS
-desktop.ini
-
-# Misc
-.antigravityignore
-out/
-
-nul
-
-# 过程文档（不上传到仓库）
-findings.md
-progress.md
-review_report.md
-Word_Addin_Sideload_Guide.md
-manifest_error.txt
-fix_registry.ps1
-image/
-.claude/
-packages/desktop/
-task_plan.md
-*.swo
-*.local
-
-# 临时素材与测试脚本
+# 资源与素材 (忽略根目录下的图片，仅保留包内 assets)
 *.png
 *.jpg
+*.jpeg
+*.gif
 !packages/**/assets/*.png
 !packages/**/assets/*.jpg
 !public/assets/*.png
 !public/assets/*.jpg
 
+# Markdown (忽略根目录下的非核心 md 文件)
 *.md
 !README.md
 !CODE_OF_CONDUCT.md
 !CONTRIBUTING.md
 !packages/**/*.md
 
+# 脚本 (仅保留核心启动脚本)
 *.bat
 !启动.bat
-!test_crash.bat
 !fix_registry.bat
 !packages/**/*.bat
 
-# 编辑器临时文件
-*.tmp
-*.bak
+# 审查辅助文件
+findings.md
+progress.md
+task_plan.md
+review_report.md
+ts_errors.txt

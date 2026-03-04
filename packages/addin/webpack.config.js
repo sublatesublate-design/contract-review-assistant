@@ -68,6 +68,7 @@ module.exports = (env, argv) => {
         devServer: {
             port: 3000,
             hot: true,
+            compress: false, // 禁用 gzip 压缩，防止 SSE 流式响应被缓冲（Mac Word WKWebView）
             // HTTPS：优先使用 office-addin-dev-certs 的受信证书，缺失时回退到 webpack 自签证书
             server: (() => {
                 const home = process.env.USERPROFILE || process.env.HOME;

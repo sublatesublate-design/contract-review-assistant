@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { createProvider } from '../services/ai/providerFactory';
 import { buildReviewPrompt } from '../services/review/promptBuilder';
@@ -24,34 +25,24 @@ const ReviewRequestSchema = z.object({
     }).optional(),
 });
 
-/**
- * POST /api/review
- * 以 SSE 流式返回合同审查结果
- * 每发现一个问题，推送 { type: 'issue', data: ReviewIssue }
- * 全部完成后，推送 { type: 'summary', content: '...', model: '...' }
- */
-reviewRouter.post('/', async (req, res) => {
-    // 验证请求
-    const parseResult = ReviewRequestSchema.safeParse(req.body);
-    if (!parseResult.success) {
-        res.status(400).json({ error: parseResult.error.flatten() });
-        return;
+// ── EventSource 支持：作业存储（Mac Word WKWebView 需要 GET 端点） ────
+type ReviewReqData = z.infer<typeof ReviewRequestSchema>;
+const reviewJobs = new Map<string, { data: ReviewReqData; expires: number }>();
+// 每 5 分钟清理过期作业
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, job] of reviewJobs) {
+        if (job.expires < now) reviewJobs.delete(id);
     }
-    const reviewReq = parseResult.data;
+}, 5 * 60 * 1000);
 
-    // 设置 SSE 响应头
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders();
-
-    const sendEvent = (data: unknown) => {
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
+/** 核心审查逻辑：发送 SSE 事件流（POST 和 GET 端点共用） */
+async function executeReview(
+    reviewReq: ReviewReqData,
+    sendEvent: (data: unknown) => void,
+    endResponse: () => void,
+): Promise<void> {
     try {
-        // 【调试日志 - 确认后删除】
         console.log('[Review] 收到请求:', {
             provider: reviewReq.provider,
             model: reviewReq.model,
@@ -101,7 +92,6 @@ reviewRouter.post('/', async (req, res) => {
             {
                 onDelta: (delta) => {
                     lineBuffer += delta;
-                    // 按换行符分割，处理完整行
                     const lines = lineBuffer.split('\n');
                     lineBuffer = lines.pop() ?? '';
 
@@ -124,7 +114,6 @@ reviewRouter.post('/', async (req, res) => {
                     }
                 },
                 onDone: () => {
-                    // 处理残留 buffer
                     if (lineBuffer.trim()) {
                         const parsed = parseLine(lineBuffer);
                         if (parsed?.type === 'summary') {
@@ -132,11 +121,11 @@ reviewRouter.post('/', async (req, res) => {
                         }
                     }
                     sendEvent({ type: 'done' });
-                    res.end();
+                    endResponse();
                 },
                 onError: (err) => {
                     sendEvent({ type: 'error', message: err });
-                    res.end();
+                    endResponse();
                 },
             },
             systemPrompt,
@@ -145,6 +134,66 @@ reviewRouter.post('/', async (req, res) => {
         );
     } catch (err) {
         sendEvent({ type: 'error', message: err instanceof Error ? err.message : String(err) });
-        res.end();
+        endResponse();
     }
+}
+
+/** 设置 SSE 响应头 */
+function setupSSEHeaders(res: import('express').Response) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+}
+
+/**
+ * POST /api/review
+ * 以 SSE 流式返回合同审查结果（fetch / XHR 消费）
+ */
+reviewRouter.post('/', async (req, res) => {
+    const parseResult = ReviewRequestSchema.safeParse(req.body);
+    if (!parseResult.success) {
+        res.status(400).json({ error: parseResult.error.flatten() });
+        return;
+    }
+    setupSSEHeaders(res);
+    const sendEvent = (data: unknown) => { res.write(`data: ${JSON.stringify(data)}\n\n`); };
+    await executeReview(parseResult.data, sendEvent, () => res.end());
+});
+
+/**
+ * POST /api/review/init
+ * 创建审查作业，返回 jobId（配合 EventSource GET 端点使用）
+ */
+reviewRouter.post('/init', (req, res) => {
+    const parseResult = ReviewRequestSchema.safeParse(req.body);
+    if (!parseResult.success) {
+        res.status(400).json({ error: parseResult.error.flatten() });
+        return;
+    }
+    const jobId = crypto.randomUUID();
+    reviewJobs.set(jobId, {
+        data: parseResult.data,
+        expires: Date.now() + 5 * 60 * 1000, // 5 分钟有效期
+    });
+    res.json({ jobId });
+});
+
+/**
+ * GET /api/review/stream/:jobId
+ * EventSource 端点 —— Mac Word WKWebView 专用
+ * 原生 EventSource API 可在 WKWebView 中正确流式输出
+ */
+reviewRouter.get('/stream/:jobId', async (req, res) => {
+    const job = reviewJobs.get(req.params['jobId']!);
+    if (!job) {
+        res.status(404).json({ error: 'Job not found or expired' });
+        return;
+    }
+    reviewJobs.delete(req.params['jobId']!);
+
+    setupSSEHeaders(res);
+    const sendEvent = (data: unknown) => { res.write(`data: ${JSON.stringify(data)}\n\n`); };
+    await executeReview(job.data, sendEvent, () => res.end());
 });

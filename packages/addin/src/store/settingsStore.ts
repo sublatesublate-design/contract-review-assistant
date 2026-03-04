@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     reviewTemplates: [...BUILTIN_TEMPLATES],
     reviewDepth: 'standard',
     standpoint: 'neutral',
-    serverUrl: 'http://localhost:3001',
+    serverUrl: '',
     rememberApiKeys: false,
 };
 

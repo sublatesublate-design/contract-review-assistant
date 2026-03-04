@@ -1,0 +1,16 @@
+{
+    "name": "desktop",
+    "version": "2.0.0",
+    "private": true,
+    "description": "合同审查助手 - 桌面端安装包构建环境",
+    "scripts": {
+        "build:exe": "node scripts/build.mjs"
+    },
+    "dependencies": {
+        "node-forge": "^1.3.1"
+    },
+    "devDependencies": {
+        "@yao-pkg/pkg": "^5.11.5",
+        "shelljs": "^0.8.5"
+    }
+}

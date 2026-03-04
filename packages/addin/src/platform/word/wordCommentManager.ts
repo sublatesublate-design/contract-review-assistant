@@ -41,9 +41,12 @@ export function createWordCommentManager(): ICommentManager {
 
                     for (let i = 0; i < comments.items.length; i++) {
                         const comment = comments.items[i];
-                        if (comment && comment.content && comment.content.includes(commentText)) {
-                            comment.delete();
-                            break;
+                        if (comment && comment.content) {
+                            const normalize = (t: string) => t.replace(/\s+/g, '');
+                            if (normalize(comment.content).includes(normalize(commentText))) {
+                                comment.delete();
+                                break;
+                            }
                         }
                     }
                 } catch (err) {
@@ -54,9 +57,12 @@ export function createWordCommentManager(): ICommentManager {
 
                     for (let i = 0; i < comments.items.length; i++) {
                         const comment = comments.items[i];
-                        if (comment && comment.content && comment.content.includes(commentText)) {
-                            comment.delete();
-                            break;
+                        if (comment && comment.content) {
+                            const normalize = (t: string) => t.replace(/\s+/g, '');
+                            if (normalize(comment.content).includes(normalize(commentText))) {
+                                comment.delete();
+                                break;
+                            }
                         }
                     }
                 }

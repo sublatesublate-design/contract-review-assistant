@@ -1,0 +1,12 @@
+﻿build-and-test (18.x)	Install dependencies	锘?026-03-01T02:08:13.2788400Z ##[group]Run pnpm install --frozen-lockfile
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.2788770Z [36;1mpnpm install --frozen-lockfile[0m
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.2844410Z shell: /bin/bash -e {0}
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.2844680Z env:
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.2844870Z   PNPM_HOME: /Users/runner/setup-pnpm/node_modules/.bin
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.2845190Z ##[endgroup]
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.6539670Z Scope: all 3 workspace projects
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.6841240Z 鈥塛ARN鈥?Ignoring not compatible lockfile at /Users/runner/work/contract-review-assistant/contract-review-assistant/pnpm-lock.yaml
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.6940930Z 鈥塃RR_PNPM_NO_LOCKFILE鈥?Cannot install with "frozen-lockfile" because pnpm-lock.yaml is absent
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.7040300Z 
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.7142410Z Note that in CI environments this setting is true by default. If you still need to run install in such cases, use "pnpm install --no-frozen-lockfile"
+build-and-test (18.x)	Install dependencies	2026-03-01T02:08:13.7205000Z ##[error]Process completed with exit code 1.

@@ -107,7 +107,7 @@ export function buildReviewPrompt(req: ReviewRequest & {
 {"type":"issue","id":"issue-001","category":"risk_clause","riskLevel":"high","title":"违约金条款显失公平","description":"合同第X条约定乙方违约须承担合同总价200%的违约金，远超《民法典》第585条所允许的以弥补损失为目的原则，属于可撤销条款。甲方可利用此条款主张过高违约金，对乙方构成重大不利。","originalText":"<合同中的精确原文，不超过200字>","suggestedText":"<建议修改后的完整文字>","legalBasis":"《民法典》第585条第2款：约定的违约金过分高于造成的损失的，人民法院或者仲裁机构可以根据当事人的请求予以适当减少。"}
 
 ### 审查总结（全部问题输出完毕后，单独一行）：
-{"type":"summary","content":"<100字以内的整体评估，包括：风险等级（高/中/低）、最主要的2-3个问题、总体建议>","model":"${req.model}"}
+{"type":"summary","content":"<100字以内的整体评估，包括：风险等级（高/中/低）、最主要的2-3个问题、总体建议。注意：总结文字中绝不允许出现「issue-xxx」等内部编号，必须使用纯中文自然语言描述>","model":"${req.model}"}
 
 ---
 
@@ -122,7 +122,7 @@ export function buildReviewPrompt(req: ReviewRequest & {
    - low：表述不够严谨但影响有限，可选择修改
    - info：最佳实践建议，当前表述合法但可优化
 5. **禁止在 JSON 之外输出任何文字**（包括分析过程、思考链、Markdown 格式）
-6. **所有文本内容使用中文**
+6. **所有文本内容使用中文**，特别是 summary 的 content 中**严禁**出现 "issue-001" 等内部编号符号
 7. **发现一个问题立即输出一行 JSON**，不要积累后批量输出
 ${req.standpoint === 'party_a' ? `\n---\n\n## 审查立场\n你以 **甲方法律顾问** 的立场审查此合同。重点识别：\n- 对甲方不利的权利义务分配\n- 甲方潜在的责任风险和经济损失\n- 缺少保护甲方利益的条款\n- 对方可能利用的模糊条款\n在 description 中明确说明该问题对甲方的具体影响。` : req.standpoint === 'party_b' ? `\n---\n\n## 审查立场\n你以 **乙方法律顾问** 的立场审查此合同。重点识别：\n- 对乙方不利的权利义务分配\n- 乙方潜在的责任风险和经济损失\n- 缺少保护乙方利益的条款\n- 甲方可能利用的苛刻条款\n在 description 中明确说明该问题对乙方的具体影响。` : ''}
 ${typeSpecificFocus}

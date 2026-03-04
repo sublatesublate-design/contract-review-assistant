@@ -60,57 +60,54 @@ function classifyError(err: unknown, status?: number): { message: string; errorT
     return { message: raw, errorType: 'unknown' };
 }
 
-/** 检测是否为 Mac Word 的 WKWebView（不支持 fetch 流式 ReadableStream） */
+/** 检测是否为 Mac Word 的 WKWebView（不支持 fetch/XHR 流式 ReadableStream） */
 function isMacWordWebView(): boolean {
     const ua = navigator.userAgent;
     // Mac + WebKit 但非 Chrome/Chromium（WPS 使用 CEF/Chromium，不受影响）
     return /Macintosh/.test(ua) && /AppleWebKit/.test(ua) && !/Chrome/.test(ua);
 }
 
-/** 通过 XHR 的 onprogress 实现 SSE 流式消费（适用于 WKWebView） */
-function sseViaXHR(
-    url: string,
+/**
+ * 通过 EventSource（原生 SSE）实现流式消费
+ * WKWebView 的 fetch ReadableStream 和 XHR onprogress 都会缓冲响应，
+ * 但原生 EventSource API 可正常逐事件触发。
+ * 流程：POST /init 创建作业 → GET /stream/:jobId 用 EventSource 消费
+ */
+async function sseViaEventSource(
+    initUrl: string,
+    streamUrlBase: string,
     body: string,
     handlers: { onEvent: (data: Record<string, unknown>) => void }
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', url);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.timeout = 300000; // 5 分钟超时（长合同审查）
+    // Phase 1: POST 创建作业，获取 jobId
+    const initRes = await fetch(initUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+    });
+    if (!initRes.ok) {
+        const text = await initRes.text().catch(() => '');
+        throw Object.assign(new Error(text || `HTTP ${initRes.status}`), { status: initRes.status });
+    }
+    const { jobId } = (await initRes.json()) as { jobId: string };
 
-        let processed = 0;
-        let buffer = '';
-
-        function flush() {
-            const newText = xhr.responseText.substring(processed);
-            processed = xhr.responseText.length;
-            buffer += newText;
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const jsonStr = line.slice(6).trim();
-                    if (!jsonStr) continue;
-                    try {
-                        handlers.onEvent(JSON.parse(jsonStr));
-                    } catch { /* 忽略非 JSON 行 */ }
+    // Phase 2: EventSource 流式消费
+    return new Promise<void>((resolve, reject) => {
+        const es = new EventSource(`${streamUrlBase}/${jobId}`);
+        es.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data) as Record<string, unknown>;
+                handlers.onEvent(data);
+                if (data['type'] === 'done' || data['type'] === 'error') {
+                    es.close();
+                    resolve();
                 }
-            }
-        }
-
-        xhr.onprogress = flush;
-        xhr.onload = () => {
-            flush();
-            if (xhr.status >= 400) {
-                reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
-            } else {
-                resolve();
-            }
+            } catch { /* 忽略非 JSON */ }
         };
-        xhr.onerror = () => reject(new Error('Load failed'));
-        xhr.ontimeout = () => reject(new Error('Request timeout'));
-        xhr.send(body);
+        es.onerror = () => {
+            es.close();
+            reject(new Error('Load failed'));
+        };
     });
 }
 
@@ -164,10 +161,15 @@ export const apiClient = {
             }
         };
 
-        // Mac Word (WKWebView) 的 ReadableStream 会缓冲整个响应，改用 XHR 流式读取
+        // Mac Word (WKWebView) 的 fetch/XHR 都会缓冲 SSE 响应，改用原生 EventSource
         if (isMacWordWebView()) {
             try {
-                await sseViaXHR(url, body, { onEvent });
+                await sseViaEventSource(
+                    `${baseUrl}/api/review/init`,
+                    `${baseUrl}/api/review/stream`,
+                    body,
+                    { onEvent },
+                );
             } catch (err) {
                 const { message, errorType } = classifyError(err);
                 callbacks.onError(message, errorType);
@@ -216,10 +218,15 @@ export const apiClient = {
             else if (data['type'] === 'error') callbacks.onError(data['message'] as string);
         };
 
-        // Mac Word (WKWebView) 的 ReadableStream 会缓冲整个响应，改用 XHR 流式读取
+        // Mac Word (WKWebView) 的 fetch/XHR 都会缓冲 SSE 响应，改用原生 EventSource
         if (isMacWordWebView()) {
             try {
-                await sseViaXHR(url, body, { onEvent });
+                await sseViaEventSource(
+                    `${baseUrl}/api/chat/init`,
+                    `${baseUrl}/api/chat/stream`,
+                    body,
+                    { onEvent },
+                );
             } catch (err) {
                 callbacks.onError(err instanceof Error ? err.message : String(err));
             }

@@ -29,6 +29,30 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
             });
         },
 
+        async insertAfterRange(range: PlatformRange, suggestedText: string): Promise<void> {
+            const ref = range._internal as WordRangeRef;
+            await Word.run(async (context) => {
+                const wordRange = await resolveWordRange(context, ref);
+                if (!wordRange) throw new Error('无法定位到文档中的插入锚点');
+
+                const doc = context.document;
+                doc.load('changeTrackingMode');
+                await context.sync();
+                const originalMode = doc.changeTrackingMode;
+
+                doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+                await context.sync();
+
+                try {
+                    wordRange.insertText('\n' + suggestedText, Word.InsertLocation.after);
+                    await context.sync();
+                } finally {
+                    doc.changeTrackingMode = originalMode;
+                    await context.sync();
+                }
+            });
+        },
+
         async revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void> {
             const ref = range._internal as WordRangeRef;
 

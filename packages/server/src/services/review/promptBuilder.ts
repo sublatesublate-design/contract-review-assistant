@@ -113,8 +113,8 @@ export function buildReviewPrompt(req: ReviewRequest & {
 
 ## 关键执行规则
 
-1. **originalText 必须是合同原文逐字引用**，不得改写或概括，这是 Word 定位功能的核心依据
-2. **suggestedText 必须是完整可替换的修改后文字**，用户将直接用它替换原文
+1. **originalText 必须是合同原文逐字引用的【完整可替换单元】**——必须引用到完整的句子或条款段落，确保 suggestedText 替换 originalText 后语句通顺、不会遗留残余文字。例如原文"甲方的付款期限为三年"，不得只引用"甲方的付款期限"而遗漏"为三年"。对于 missing_clause，originalText 应填写缺失条款建议插入位置的前一条款原文（锚点文本），系统将在该位置之后插入建议内容。
+2. **suggestedText 必须是 originalText 的完整替换版本**，直接替换后上下文必须通顺连贯，不得假设保留 originalText 之外的任何文字
 3. **legalBasis 必须引用完整法条名称及条款编号**（如《民法典》第470条第8项），禁止笼统引用
 4. **riskLevel 量化标准**：
    - high：可能导致合同无效、重大财产损失、严重法律责任

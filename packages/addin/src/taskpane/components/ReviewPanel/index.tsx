@@ -55,6 +55,7 @@ export default function ReviewPanel() {
 
     // 缓存文档全文，用于按位置排序
     const docContentRef = useRef<string>('');
+    const [docTextUpdated, setDocTextUpdated] = useState<number>(0);
 
     // 用 ref 标记是否是"刚做完"的审查（false 时显示"来自上次"提示）
     const isNewReview = useRef(false);
@@ -136,6 +137,7 @@ export default function ReviewPanel() {
                 return;
             }
             docContentRef.current = docContent;
+            setDocTextUpdated(Date.now());
             await runReview(docContent, false);
         } catch (err) {
             setError(err instanceof Error ? err.message : '读取文档失败');
@@ -157,6 +159,7 @@ export default function ReviewPanel() {
                 return;
             }
             docContentRef.current = selText;
+            setDocTextUpdated(Date.now());
             await runReview(selText, true);
         } catch (err) {
             setError(err instanceof Error ? err.message : '读取选中内容失败');
@@ -208,7 +211,7 @@ export default function ReviewPanel() {
             });
         }
         return list;
-    }, [result?.issues, filter, effectiveSortMode]);
+    }, [result?.issues, filter, effectiveSortMode, docTextUpdated]);
 
     const issueCountByLevel = result?.issues.reduce(
         (acc, issue) => {

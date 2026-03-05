@@ -50,15 +50,24 @@ export default function ReviewPanel() {
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('auto');
     const [sortMode, setSortMode] = useState<'default' | 'position' | 'risk'>('default');
 
-    // 排序索引缓存
-    const sortIndexCache = useRef<Map<string, number>>(new Map());
-
     // 缓存文档全文，用于按位置排序
     const docContentRef = useRef<string>('');
     const [docTextUpdated, setDocTextUpdated] = useState<number>(0);
 
     // 用 ref 标记是否是"刚做完"的审查（false 时显示"来自上次"提示）
     const isNewReview = useRef(false);
+
+    // 监听：如果是由于查看历史记录导致 docText 为空且用户要求文档位置排序，按需抓取全文
+    React.useEffect(() => {
+        if (sortMode === 'position' && !docContentRef.current) {
+            platform.documentReader.readFullText().then(text => {
+                if (text) {
+                    docContentRef.current = text;
+                    setDocTextUpdated(Date.now());
+                }
+            }).catch(e => console.warn('Lazy fetch document for sort failed', e));
+        }
+    }, [sortMode, platform]);
 
     /** 通用审查入口 */
     const runReview = useCallback(async (docContent: string, isSelection = false) => {
@@ -125,7 +134,6 @@ export default function ReviewPanel() {
     /** 全文审查 */
     const handleStartReview = useCallback(async () => {
         clearAllRangeCache();
-        sortIndexCache.current.clear();
         reset();
         isNewReview.current = false;
         setSelectionMode(false);
@@ -147,7 +155,6 @@ export default function ReviewPanel() {
     /** 局部审查（选中段落） */
     const handleSelectionReview = useCallback(async () => {
         clearAllRangeCache();
-        sortIndexCache.current.clear();
         reset();
         isNewReview.current = false;
         setSelectionMode(true);
@@ -182,8 +189,7 @@ export default function ReviewPanel() {
             const docNormalized = normalizeForSort(docContentRef.current);
             list.sort((a, b) => {
                 const getIndex = (issue: ReviewIssue): number => {
-                    const cached = sortIndexCache.current.get(issue.id);
-                    if (cached !== undefined) return cached;
+                    if (!docNormalized) return Infinity; // 尚未加载文本
 
                     const normalized = normalizeForSort(issue.originalText);
                     let idx = docNormalized.indexOf(normalized);
@@ -196,9 +202,7 @@ export default function ReviewPanel() {
                         }
                     }
 
-                    if (idx === -1) idx = Infinity;
-                    sortIndexCache.current.set(issue.id, idx);
-                    return idx;
+                    return idx === -1 ? Infinity : idx;
                 };
                 return getIndex(a) - getIndex(b);
             });

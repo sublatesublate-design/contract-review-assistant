@@ -92,16 +92,23 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                     revisions.load('items');
                     await context.sync();
 
+                    // 第一步：先将所有的 rev.range 全部 load('text')
+                    for (const rev of revisions.items) {
+                        rev.range.load('text');
+                    }
+                    await context.sync();
+
                     const orig = originalText.replace(/\s+/g, '');
                     const sugg = (suggestedText || '').replace(/\s+/g, '');
 
                     let rejectedCount = 0;
-                    for (const rev of revisions.items) {
+                    // 第二步：由于 .reject() 会改变文档，进而可能立即使后续未处理的修订节点产生无效的对象引用 (InvalidObjectPath)
+                    // 所以必须：在所有 text 完成 load 并且脱离 sync 后，再从后往前(倒序)来判断并执行 reject
+                    for (let i = revisions.items.length - 1; i >= 0; i--) {
+                        const rev = revisions.items[i];
+                        if (!rev) continue;
                         try {
-                            rev.range.load('text');
-                            await context.sync();
                             const revText = (rev.range.text || '').replace(/\s+/g, '');
-
                             if (revText && (
                                 orig.includes(revText) ||
                                 sugg.includes(revText) ||
@@ -111,7 +118,9 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                                 rev.reject();
                                 rejectedCount++;
                             }
-                        } catch { /* 单条修订处理失败，继续 */ }
+                        } catch (err) {
+                            console.warn('[Word revertEdit] Reject single revision failed:', err);
+                        }
                     }
 
                     if (rejectedCount > 0) {
@@ -121,7 +130,7 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                     return false;
                 });
             } catch {
-                // WordApi.Revision 不可用（旧版 Word / 某些 Mac 版本），降级到策略 2
+                // WordApi.Revision 不可用（旧版 Word / 某些 Mac 版本），抛出异常让用户手动撤销
                 rejectedViaRevisions = false;
             }
 

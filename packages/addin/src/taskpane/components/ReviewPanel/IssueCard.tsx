@@ -47,18 +47,30 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
     const platform = usePlatform();
     const [expanded, setExpanded] = React.useState(isActive);
     const [actionLoading, setActionLoading] = React.useState<string | null>(null);
+    const [actionError, setActionError] = React.useState<string | null>(null);
+
+    const showError = (msg: string) => {
+        setActionError(msg);
+        setTimeout(() => setActionError(null), 5000);
+    };
 
     const riskConfig = RISK_CONFIG[issue.riskLevel];
 
     /** 定位到文档中的原文 */
     const handleLocate = async () => {
         setActionLoading('locate');
+        setActionError(null);
         try {
             const ok = await locateIssue(platform, issue);
-            if (ok) updateIssueStatus(issue.id, 'located');
-            setActiveIssue(issue.id);
+            if (ok) {
+                updateIssueStatus(issue.id, 'located');
+                setActiveIssue(issue.id);
+            } else {
+                showError('无法在文档中定位原文');
+            }
         } catch (err) {
             console.error('定位失败:', err);
+            showError('无法在文档中定位原文');
         } finally {
             setActionLoading(null);
         }
@@ -67,16 +79,26 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
     /** 在文档中添加或取消批注 */
     const handleComment = async () => {
         setActionLoading('comment');
+        setActionError(null);
         try {
             if (issue.status === 'commented') {
                 const ok = await uncommentIssue(platform, issue);
-                if (ok) updateIssueStatus(issue.id, 'pending');
+                if (ok) {
+                    updateIssueStatus(issue.id, 'pending');
+                } else {
+                    showError('无法在文档中定位原批注');
+                }
             } else {
                 const ok = await commentIssue(platform, issue);
-                if (ok) updateIssueStatus(issue.id, 'commented');
+                if (ok) {
+                    updateIssueStatus(issue.id, 'commented');
+                } else {
+                    showError('无法在文档中定位原文进行批注');
+                }
             }
         } catch (err) {
             console.error('批注操作失败:', err);
+            showError('操作失败，无法定位原文');
         } finally {
             setActionLoading(null);
         }
@@ -86,16 +108,26 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
     const handleApply = async () => {
         if (!issue.suggestedText) return;
         setActionLoading('apply');
+        setActionError(null);
         try {
             if (issue.status === 'applied') {
                 const ok = await unapplyIssue(platform, issue);
-                if (ok) updateIssueStatus(issue.id, 'pending');
+                if (ok) {
+                    updateIssueStatus(issue.id, 'pending');
+                } else {
+                    showError('无法在文档中定位原修改');
+                }
             } else {
                 const ok = await applyIssue(platform, issue);
-                if (ok) updateIssueStatus(issue.id, 'applied');
+                if (ok) {
+                    updateIssueStatus(issue.id, 'applied');
+                } else {
+                    showError('无法在文档中定位原文进行修改');
+                }
             }
         } catch (err) {
             console.error('应用修改操作失败:', err);
+            showError('操作失败，无法定位原文');
         } finally {
             setActionLoading(null);
         }
@@ -151,7 +183,9 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
                     {/* 原文引用 */}
                     {issue.originalText && (
                         <div className="bg-gray-50 border border-gray-200 rounded p-2">
-                            <p className="text-xs text-gray-400 mb-1">合同原文：</p>
+                            <p className="text-xs text-gray-400 mb-1">
+                                {issue.category === 'missing_clause' ? '建议插入位置（锚点）：' : '合同原文：'}
+                            </p>
                             <p className="text-xs text-gray-700 italic line-clamp-3">
                                 「{issue.originalText}」
                             </p>
@@ -169,6 +203,14 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
                     {/* 法律依据 */}
                     {issue.legalBasis && (
                         <p className="text-xs text-gray-400 italic">{issue.legalBasis}</p>
+                    )}
+
+                    {/* 操作错误提示 */}
+                    {actionError && (
+                        <div className="bg-red-50 border border-red-200 rounded p-2 flex items-start gap-1.5 animate-fade-in">
+                            <AlertCircle size={12} className="text-red-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-red-600 leading-snug">{actionError}</p>
+                        </div>
                     )}
 
                     {/* 操作按钮 */}
@@ -196,10 +238,12 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
                                 onClick={handleApply}
                                 disabled={actionLoading === 'apply'}
                                 className="flex items-center gap-1 text-xs py-1 px-2 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors disabled:opacity-50"
-                                title={issue.status === 'applied' ? '取消修改' : '应用 AI 修改建议（生成修订标记）'}
+                                title={issue.status === 'applied' ? '取消修改' : (issue.category === 'missing_clause' ? '在锚点后插入条款' : '应用 AI 修改建议（生成修订标记）')}
                             >
                                 <Edit3 size={11} />
-                                {actionLoading === 'apply' ? (issue.status === 'applied' ? '取消中...' : '应用中...') : (issue.status === 'applied' ? '取消修改' : '应用修改')}
+                                {actionLoading === 'apply'
+                                    ? (issue.category === 'missing_clause' ? '插入中...' : (issue.status === 'applied' ? '取消中...' : '应用中...'))
+                                    : (issue.category === 'missing_clause' ? '插入条款' : (issue.status === 'applied' ? '取消修改' : '应用修改'))}
                             </button>
                         )}
                         {issue.category === 'missing_clause' && onOpenClauseLibrary && (

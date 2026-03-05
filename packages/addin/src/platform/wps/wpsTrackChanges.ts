@@ -18,6 +18,20 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
         doc.TrackRevisions = originalTrackMode; // 恢复之前的状态
     }
 
+    public async insertAfterRange(range: PlatformRange, suggestedText: string): Promise<void> {
+        if (!window.wps || range._platform !== 'wps') return;
+        const app = window.wps.WpsApplication();
+        const doc = app.ActiveDocument as any;
+
+        const info = range._internal as { start: number, end: number };
+        const r = doc.Range(info.end, info.end);
+
+        const originalTrackMode = doc.TrackRevisions;
+        doc.TrackRevisions = true;  // 开启修订模式
+        r.Text = '\n' + suggestedText; // 插入的新内容即刻成为修订痕迹
+        doc.TrackRevisions = originalTrackMode; // 恢复之前的状态
+    }
+
     public async revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void> {
         if (!window.wps || range._platform !== 'wps') return;
         const app = window.wps.WpsApplication();

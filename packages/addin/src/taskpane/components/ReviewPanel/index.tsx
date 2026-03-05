@@ -13,6 +13,7 @@ import IssueCard from './IssueCard';
 import HistoryPanel from './HistoryPanel';
 import SummaryCard from './SummaryCard';
 import ClauseLibrary from './ClauseLibrary';
+import { ensureSentenceBoundary } from '../../../utils/issuePostProcess';
 import type { ReviewIssue } from '../../../types/review';
 
 const ALL_CATEGORIES = ['risk_clause', 'missing_clause', 'compliance', 'clause_analysis'] as const;
@@ -26,6 +27,11 @@ const CATEGORY_LABELS: Record<typeof ALL_CATEGORIES[number], string> = {
 function formatTime(isoString: string): string {
     const d = new Date(isoString);
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function normalizeForSort(text: string): string {
+    // 只保留 CJK 汉字、英文字母、数字，其余全部移除
+    return text.replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9]/g, '').toLowerCase();
 }
 
 export default function ReviewPanel() {
@@ -43,6 +49,9 @@ export default function ReviewPanel() {
     const [showClauseLibrary, setShowClauseLibrary] = useState(false);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('auto');
     const [sortMode, setSortMode] = useState<'default' | 'position' | 'risk'>('default');
+
+    // 排序索引缓存
+    const sortIndexCache = useRef<Map<string, number>>(new Map());
 
     // 缓存文档全文，用于按位置排序
     const docContentRef = useRef<string>('');
@@ -88,7 +97,9 @@ export default function ReviewPanel() {
                 reviewReq,
                 settings.serverUrl,
                 {
-                    onIssue: (issue: ReviewIssue) => addStreamingIssue(issue),
+                    onIssue: (issue: ReviewIssue) => addStreamingIssue(
+                        ensureSentenceBoundary(issue, docContent)
+                    ),
                     onSummary: (summary: string, model: string, contractType?: string, contractLabel?: string) => {
                         const finalResult = {
                             issues: useReviewStore.getState().result?.issues ?? [],
@@ -113,6 +124,7 @@ export default function ReviewPanel() {
     /** 全文审查 */
     const handleStartReview = useCallback(async () => {
         clearAllRangeCache();
+        sortIndexCache.current.clear();
         reset();
         isNewReview.current = false;
         setSelectionMode(false);
@@ -133,6 +145,7 @@ export default function ReviewPanel() {
     /** 局部审查（选中段落） */
     const handleSelectionReview = useCallback(async () => {
         clearAllRangeCache();
+        sortIndexCache.current.clear();
         reset();
         isNewReview.current = false;
         setSelectionMode(true);
@@ -163,12 +176,28 @@ export default function ReviewPanel() {
 
         const list = [...baseFilteredIssues];
         if (effectiveSortMode === 'position') {
+            const docNormalized = normalizeForSort(docContentRef.current);
             list.sort((a, b) => {
-                let indexA = docContentRef.current.indexOf(a.originalText);
-                let indexB = docContentRef.current.indexOf(b.originalText);
-                if (indexA === -1 || a.category === 'missing_clause') indexA = Infinity;
-                if (indexB === -1 || b.category === 'missing_clause') indexB = Infinity;
-                return indexA - indexB; // Ascending order
+                const getIndex = (issue: ReviewIssue): number => {
+                    const cached = sortIndexCache.current.get(issue.id);
+                    if (cached !== undefined) return cached;
+
+                    const normalized = normalizeForSort(issue.originalText);
+                    let idx = docNormalized.indexOf(normalized);
+
+                    // 递减前缀长度尝试匹配
+                    if (idx === -1 && normalized.length > 8) {
+                        for (let len = Math.min(normalized.length, 60); len >= 8; len -= 5) {
+                            idx = docNormalized.indexOf(normalized.slice(0, len));
+                            if (idx !== -1) break;
+                        }
+                    }
+
+                    if (idx === -1) idx = Infinity;
+                    sortIndexCache.current.set(issue.id, idx);
+                    return idx;
+                };
+                return getIndex(a) - getIndex(b);
             });
         } else if (effectiveSortMode === 'risk') {
             const riskScore: Record<string, number> = { high: 0, medium: 1, low: 2, info: 3 };
@@ -179,7 +208,7 @@ export default function ReviewPanel() {
             });
         }
         return list;
-    }, [result?.issues, filter, effectiveSortMode, docContentRef.current]);
+    }, [result?.issues, filter, effectiveSortMode]);
 
     const issueCountByLevel = result?.issues.reduce(
         (acc, issue) => {
@@ -197,10 +226,16 @@ export default function ReviewPanel() {
         if (targets.length === 0) return;
         setBatchProgress({ done: 0, total: targets.length });
         try {
-            await batchComment(platform, targets, (done, total) => {
+            const { success } = await batchComment(platform, targets, (done, total, lastSuccess) => {
                 setBatchProgress({ done, total });
-                targets.slice(0, done).forEach((i) => updateIssueStatus(i.id, 'commented'));
+                if (lastSuccess) {
+                    const target = targets[done - 1];
+                    if (target) updateIssueStatus(target.id, 'commented');
+                }
             });
+            setTimeout(() => {
+                alert(`批量批注完成：成功 ${success}/${targets.length}`);
+            }, 100);
         } finally {
             setBatchProgress(null);
         }
@@ -212,10 +247,16 @@ export default function ReviewPanel() {
         if (targets.length === 0) return;
         setBatchProgress({ done: 0, total: targets.length });
         try {
-            await batchApply(platform, targets, (done, total) => {
+            const { success } = await batchApply(platform, targets, (done, total, lastSuccess) => {
                 setBatchProgress({ done, total });
-                targets.slice(0, done).forEach((i) => updateIssueStatus(i.id, 'applied'));
+                if (lastSuccess) {
+                    const target = targets[done - 1];
+                    if (target) updateIssueStatus(target.id, 'applied');
+                }
             });
+            setTimeout(() => {
+                alert(`批量应用完成：成功 ${success}/${targets.length}`);
+            }, 100);
         } finally {
             setBatchProgress(null);
         }

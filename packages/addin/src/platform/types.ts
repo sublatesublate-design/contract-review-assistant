@@ -50,6 +50,7 @@ export interface ICommentManager {
 /** 修订追踪 */
 export interface ITrackChangesManager {
     applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void>;
+    insertAfterRange(range: PlatformRange, suggestedText: string): Promise<void>;
     revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void>;
 }
 

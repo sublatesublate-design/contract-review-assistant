@@ -36,7 +36,7 @@ export function createWordNavigationHelper(): INavigationHelper {
             const ref = range._internal as WordRangeRef;
             await Word.run(async (context) => {
                 const wordRange = await resolveWordRange(context, ref);
-                if (!wordRange) return;
+                if (!wordRange) throw new Error("无法在文档中定位原文");
                 wordRange.select(Word.SelectionMode.select);
                 await context.sync();
             });

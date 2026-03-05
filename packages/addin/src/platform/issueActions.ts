@@ -75,7 +75,9 @@ export async function commentIssue(
     const range = await getRange(adapter, issue);
     if (!range) return false;
     const riskLabel = RISK_LABEL[issue.riskLevel];
-    const commentText = `[${riskLabel}] ${issue.title}\n${issue.description}${issue.legalBasis ? `\n法律依据：${issue.legalBasis}` : ''}`;
+    const prefix = issue.category === 'missing_clause' ? '[缺失条款] ' : '';
+    const suggested = issue.category === 'missing_clause' && issue.suggestedText ? `\n建议补充内容：\n${issue.suggestedText}` : '';
+    const commentText = `${prefix}[${riskLabel}] ${issue.title}\n${issue.description}${issue.legalBasis ? `\n法律依据：${issue.legalBasis}` : ''}${suggested}`;
     await adapter.commentManager.addComment(range, commentText);
     return true;
 }
@@ -88,7 +90,13 @@ export async function applyIssue(
     if (!issue.suggestedText) return false;
     const range = await getRange(adapter, issue);
     if (!range) return false;
-    await adapter.trackChangesManager.applySuggestedEdit(range, issue.suggestedText);
+
+    if (issue.category === 'missing_clause' && adapter.trackChangesManager.insertAfterRange) {
+        await adapter.trackChangesManager.insertAfterRange(range, issue.suggestedText);
+    } else {
+        await adapter.trackChangesManager.applySuggestedEdit(range, issue.suggestedText);
+    }
+
     // 应用修改后文档文本已变化，使缓存失效，下次取消时需要重新定位
     invalidateRangeCache(adapter, issue.id);
     return true;
@@ -128,20 +136,21 @@ export async function unapplyIssue(
 export async function batchComment(
     adapter: IPlatformAdapter,
     issues: ReviewIssue[],
-    onProgress?: (done: number, total: number) => void
+    onProgress?: (done: number, total: number, lastSuccess: boolean) => void
 ): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
     for (let i = 0; i < issues.length; i++) {
         const issue = issues[i];
         if (!issue) continue;
+        let ok = false;
         try {
-            const ok = await commentIssue(adapter, issue);
+            ok = await commentIssue(adapter, issue);
             ok ? success++ : failed++;
         } catch {
             failed++;
         }
-        onProgress?.(i + 1, issues.length);
+        onProgress?.(i + 1, issues.length, ok);
     }
     return { success, failed };
 }
@@ -150,7 +159,7 @@ export async function batchComment(
 export async function batchApply(
     adapter: IPlatformAdapter,
     issues: ReviewIssue[],
-    onProgress?: (done: number, total: number) => void
+    onProgress?: (done: number, total: number, lastSuccess: boolean) => void
 ): Promise<{ success: number; failed: number }> {
     const applicableIssues = issues.filter((i) => i.suggestedText && i.status !== 'applied');
     let success = 0;
@@ -161,13 +170,14 @@ export async function batchApply(
     for (let i = 0; i < applicableIssues.length; i++) {
         const issue = applicableIssues[i];
         if (!issue) continue;
+        let ok = false;
         try {
-            const ok = await applyIssue(adapter, issue);
+            ok = await applyIssue(adapter, issue);
             ok ? success++ : failed++;
         } catch {
             failed++;
         }
-        onProgress?.(i + 1, total);
+        onProgress?.(i + 1, total, ok);
     }
     return { success, failed };
 }

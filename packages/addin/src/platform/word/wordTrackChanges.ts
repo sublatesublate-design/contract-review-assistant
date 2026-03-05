@@ -65,8 +65,29 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                     const wordRange = await resolveWordRange(context, ref);
                     if (!wordRange) return false;
 
-                    // 将搜索范围限制在当前段落，避免加载整个文档的修订导致崩溃
-                    const searchRange = wordRange.paragraphs.getFirst().getRange().expandTo(wordRange.paragraphs.getLast().getRange());
+                    // 将搜索范围向前后大幅扩展，以确保包含因为替换而产生的邻近的"删除修订"(Deletion Revision)
+                    // (原先只用当前段落，可能会漏掉跨段删除或由于替换导致段落边界变动而被落下的删除痕迹)
+                    let searchRange = wordRange;
+                    try {
+                        const firstPara = wordRange.paragraphs.getFirst();
+                        const lastPara = wordRange.paragraphs.getLast();
+
+                        // 尝试获取前后各一个段落以扩大范围
+                        const prevPara = firstPara.getPreviousOrNullObject();
+                        const nextPara = lastPara.getNextOrNullObject();
+                        // 必须加载 nullObject 状态以便后续判断
+                        prevPara.load('isNullObject');
+                        nextPara.load('isNullObject');
+                        await context.sync();
+
+                        const expandStart = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
+                        const expandEnd = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
+                        searchRange = expandStart.expandTo(expandEnd);
+                    } catch (e) {
+                        // 失败时的兜底策略
+                        searchRange = wordRange.paragraphs.getFirst().getRange().expandTo(wordRange.paragraphs.getLast().getRange());
+                    }
+
                     const revisions = searchRange.revisions;
                     revisions.load('items');
                     await context.sync();

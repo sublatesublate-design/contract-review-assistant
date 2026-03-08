@@ -4,13 +4,12 @@ import type { ITrackChangesManager, PlatformRange } from '../types';
 export class WpsTrackChangesManager implements ITrackChangesManager {
     public async applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void> {
         if (!window.wps || range._platform !== 'wps') return;
-        const app = window.wps.WpsApplication();
+        const app = window.wps.WpsApplication() as any;
         const doc = app.ActiveDocument;
 
         const info = range._internal as { start: number, end: number };
-        const r = doc.Content;
-        r.Start = info.start;
-        r.End = info.end;
+        // 使用 doc.Range() 代替 doc.Content 以避免构建整个文档的 COM 对象
+        const r = doc.Range(info.start, info.end);
 
         const originalTrackMode = doc.TrackRevisions;
         doc.TrackRevisions = true;  // 开启修订模式
@@ -20,8 +19,8 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
 
     public async insertAfterRange(range: PlatformRange, suggestedText: string): Promise<void> {
         if (!window.wps || range._platform !== 'wps') return;
-        const app = window.wps.WpsApplication();
-        const doc = app.ActiveDocument as any;
+        const app = window.wps.WpsApplication() as any;
+        const doc = app.ActiveDocument;
 
         const info = range._internal as { start: number, end: number };
         const r = doc.Range(info.end, info.end);
@@ -34,36 +33,68 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
 
     public async revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void> {
         if (!window.wps || range._platform !== 'wps') return;
-        const app = window.wps.WpsApplication();
-        const doc = app.ActiveDocument as any;
+        const app = window.wps.WpsApplication() as any;
+        const doc = app.ActiveDocument;
 
         const info = range._internal as { start: number, end: number };
 
-        // 策略：扩展选区范围以确保覆盖到可能在 info.start 之前产生的"删除修订"(Deletion Revision)
+        // 策略：拒绝与此次修订相关的所有 Revision 条目
+        // 扩展查找范围以确保覆盖到关联的"删除修订"（位于实际替换文本之前或之后）
         try {
-            const expandStart = originalText ? originalText.length + 50 : 50;
-            const expandEnd = suggestedText ? suggestedText.length + 50 : 50;
-            const startPos = Math.max(0, info.start - expandStart);
-            const endPos = info.end + expandEnd;
+            const expandChars = Math.max(
+                originalText ? originalText.length : 0,
+                suggestedText ? suggestedText.length : 0,
+                50
+            ) + 80;
+
+            const startPos = Math.max(0, info.start - expandChars);
+            const endPos = Math.min(
+                doc.Content.End || 999999,
+                info.end + expandChars
+            );
+
             const r = doc.Range(startPos, endPos);
-
             const revisions = r.Revisions;
-            if (revisions && revisions.Count > 0) {
-                const orig = (originalText || '').replace(/\s+/g, '');
-                const sugg = (suggestedText || '').replace(/\s+/g, '');
 
+            if (revisions && revisions.Count > 0) {
                 let rejectedCount = 0;
-                // 注意 VBA 集合索引从 1 开始，并且在遍历删除/拒绝时应当倒序遍历
+
+                // 倒序遍历避免索引偏移
                 for (let i = revisions.Count; i >= 1; i--) {
                     try {
                         const rev = revisions.Item(i);
+                        // WPS 修订类型：1=插入(wdRevisionInsert), 2=删除(wdRevisionDelete)
+                        const revType = rev.Type;
                         const revText = (rev.Range.Text || '').replace(/\s+/g, '');
-                        if (revText && (
-                            orig.includes(revText) ||
-                            sugg.includes(revText) ||
-                            revText.includes(orig) ||
-                            revText.includes(sugg)
-                        )) {
+
+                        // 对于「删除型修订」：revText 是被删掉的原文
+                        // 对于「插入型修订」：revText 是新插入的文本
+                        const orig = (originalText || '').replace(/\s+/g, '');
+                        const sugg = (suggestedText || '').replace(/\s+/g, '');
+
+                        let shouldReject = false;
+
+                        if (revType === 2) {
+                            // 删除修订：被删除的文本应该是 originalText 的一部分
+                            shouldReject = revText.length >= 2 && (
+                                orig.includes(revText) ||
+                                revText.includes(orig)
+                            );
+                        } else if (revType === 1) {
+                            // 插入修订：插入的文本应该是 suggestedText 的一部分
+                            shouldReject = revText.length >= 2 && (
+                                sugg.includes(revText) ||
+                                revText.includes(sugg)
+                            );
+                        } else {
+                            // 属性或格式修订：参与文本匹配判断
+                            shouldReject = revText.length >= 2 && (
+                                orig.includes(revText) || sugg.includes(revText) ||
+                                revText.includes(orig) || revText.includes(sugg)
+                            );
+                        }
+
+                        if (shouldReject) {
                             rev.Reject();
                             rejectedCount++;
                         }
@@ -72,10 +103,16 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
                     }
                 }
 
-                if (rejectedCount > 0) return;
+                if (rejectedCount > 0) {
+                    console.log(`[WPS revertEdit] 成功拒绝 ${rejectedCount} 个修订`);
+                    return;
+                }
 
-                // 如果精确匹配失败，兜底拒绝范围内的所有修订，但只缩小到建议文本的确切边界以避免误伤范围过大
-                const fallbackRange = doc.Range(info.start, info.end + (suggestedText ? suggestedText.length : 0) + 10);
+                // 兜底：精确匹配失败时，拒绝范围内的所有修订
+                console.warn('[WPS revertEdit] 精确匹配失败，尝试兜底拒绝范围内所有修订');
+                const fbStart = Math.max(0, info.start - 20);
+                const fbEnd = info.end + (suggestedText ? suggestedText.length : 0) + 20;
+                const fallbackRange = doc.Range(fbStart, Math.min(doc.Content.End || 999999, fbEnd));
                 if (fallbackRange.Revisions && fallbackRange.Revisions.Count > 0) {
                     fallbackRange.Revisions.RejectAll();
                     return;

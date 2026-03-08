@@ -33,12 +33,9 @@ export class WpsNavigationHelper implements INavigationHelper {
     }
 
     private getWpsRange(range: PlatformRange): _wps.Range {
-        const app = window.wps!.WpsApplication();
+        const app = window.wps!.WpsApplication() as any;
         const doc = app.ActiveDocument;
         const info = range._internal as { start: number, end: number };
-        const r = doc.Content;
-        r.Start = info.start;
-        r.End = info.end;
-        return r;
+        return doc.Range(info.start, info.end);
     }
 }

@@ -99,13 +99,15 @@ function normIndexOf(
 }
 
 /**
- * 前缀搜索：在归一化全文中搜索归一化前缀，end 基于原搜索文本长度估算。
+ * 前缀搜索：在归一化全文中搜索归一化前缀。
+ * end 通过在归一化全文映射表中向后延伸 searchNorm 的完整长度来精确计算，
+ * 而非使用 originalLen 估算（后者在零宽字符等场景下会偏移）。
  */
 function normPrefixSearch(
     fullNorm: NormResult,
     searchNorm: NormResult,
     prefixLen: number,
-    originalLen: number,
+    _originalLen: number,
     fullTextLen: number,
 ): { start: number; end: number } | null {
     const prefix = searchNorm.text.slice(0, prefixLen);
@@ -115,10 +117,16 @@ function normPrefixSearch(
     if (idx === -1) return null;
 
     const origStart = fullNorm.map[idx]!;
-    return {
-        start: origStart,
-        end: Math.min(origStart + originalLen, fullTextLen),
-    };
+    // 用搜索文本的归一化长度来推算 end 在全文映射表中的位置
+    const estEndNormIdx = idx + searchNorm.text.length - 1;
+    let origEnd: number;
+    if (estEndNormIdx < fullNorm.map.length) {
+        origEnd = fullNorm.map[estEndNormIdx]! + 1;
+    } else {
+        // 超出映射表范围时回退到末尾
+        origEnd = Math.min(origStart + _originalLen, fullTextLen);
+    }
+    return { start: origStart, end: origEnd };
 }
 
 /* ══════════ WpsRangeMapper ══════════ */
@@ -256,7 +264,14 @@ export class WpsRangeMapper implements IRangeMapper {
                         if (midIdx !== -1) {
                             const origMidStart = cf.map[midIdx]!;
                             const estStart = Math.max(0, origMidStart - midStart);
-                            const estEnd = Math.min(fullText.length, estStart + searchText.length);
+                            // 使用归一化映射表精确计算 end
+                            const estEndNormIdx = midIdx - midStart + cs.text.length - 1;
+                            let estEnd: number;
+                            if (estEndNormIdx < cf.map.length) {
+                                estEnd = cf.map[estEndNormIdx]! + 1;
+                            } else {
+                                estEnd = Math.min(fullText!.length, estStart + searchText.length);
+                            }
                             console.log(`[WPS findRange] 策略5命中 (中段搜索), text: "${searchText.slice(0, 40)}..."`);
                             return hit({ start: estStart, end: estEnd });
                         }

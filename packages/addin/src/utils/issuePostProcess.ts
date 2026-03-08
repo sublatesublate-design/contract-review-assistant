@@ -82,15 +82,10 @@ function extendAtIndex(
 /**
  * 检测并消除 suggestedText 与文档后续文本的重叠
  *
- * 解决的问题：AI 返回的 suggestedText 是整个条款的完整重写版本，
- * 但 originalText 只覆盖条款的一部分。替换后，未被 originalText 覆盖的
- * 原文仍然保留在文档中，导致条款内容重复。
- *
- * 策略：
- * 1. 在文档中定位 originalText
- * 2. 取 originalText 之后的文档文本（最多 2000 字符）
- * 3. 取 suggestedText 的尾部，检查是否与文档后续文本存在重叠
- * 4. 如果存在重叠，将 originalText 向后扩展以覆盖重叠区域
+ * 策略（保守版本，防止误扩展）：
+ * 1. 在文档中精确定位 originalText
+ * 2. 取后续文本（上限为 originalText 长度的 1.5 倍）
+ * 3. 仅当重叠 ≥30 字符 且 ≥suggestedText 的 15% 时才扩展
  */
 export function ensureNoOverlap(
     issue: ReviewIssue,
@@ -99,82 +94,50 @@ export function ensureNoOverlap(
     const ot = issue.originalText?.trim();
     const st = issue.suggestedText?.trim();
     if (!ot || !st) return issue;
-
-    // suggestedText 必须比 originalText 长才可能产生「尾部溢出」重叠
     if (st.length <= ot.length) return issue;
 
-    // 归一化函数：移除空白和零宽字符，便于模糊匹配
-    const norm = (t: string) => t.replace(/[\s\u200b\u200c\u200d\ufeff]/g, '');
-
-    // 在文档中定位 originalText
-    const normDoc = norm(docText);
-    const normOt = norm(ot);
-    const otIdx = normDoc.indexOf(normOt);
-    if (otIdx === -1) return issue;
-
-    // 取 originalText 结束位置之后的文档文本（归一化后）
-    const afterOtStart = otIdx + normOt.length;
-    const trailingDoc = normDoc.slice(afterOtStart, afterOtStart + 2000);
-    if (!trailingDoc) return issue;
-
-    // 取 suggestedText 中超出 originalText 部分的尾部
-    const normSt = norm(st);
-
-    // 贪心查找：suggestedText 的尾部与 trailingDoc 的最长前缀匹配
-    // 即查找 suggestedText 末尾有多少内容与文档后续文本重叠
-    let bestOverlapLen = 0;
-
-    // 从 suggestedText 末尾逐步试探，找到与 trailingDoc 开头匹配的最长片段
-    // 优化：先用短探针快速判断是否存在任何重叠
-    const probeLen = Math.min(15, normSt.length, trailingDoc.length);
-    const probe = trailingDoc.slice(0, probeLen);
-    if (normSt.indexOf(probe) === -1) {
-        // 文档后续文本的开头 15 字不在 suggestedText 中，不存在重叠
-        return issue;
-    }
-
-    // 存在潜在重叠，精确查找最长重叠
-    for (let len = Math.min(trailingDoc.length, normSt.length); len >= probeLen; len--) {
-        const trailingSlice = trailingDoc.slice(0, len);
-        if (normSt.endsWith(trailingSlice)) {
-            bestOverlapLen = len;
-            break;
-        }
-    }
-
-    if (bestOverlapLen < 8) return issue; // 重叠太短，可能是误匹配
-
-    // 将重叠长度映射回原始文档的字符偏移
-    // 在原始 docText 中找到 originalText 的结束位置
     const rawOtIdx = docText.indexOf(ot);
     if (rawOtIdx === -1) return issue;
 
     const rawAfterStart = rawOtIdx + ot.length;
+    const maxExtension = Math.floor(ot.length * 1.5);
+    const trailingDoc = docText.slice(rawAfterStart, rawAfterStart + maxExtension);
+    if (!trailingDoc || trailingDoc.length < 30) return issue;
 
-    // 从原始文档的 afterStart 位置开始，逐字符消费直到归一化后的长度达到 bestOverlapLen
+    const norm = (t: string) => t.replace(/[\s\u200b\u200c\u200d\ufeff]/g, '');
+    const normTrailing = norm(trailingDoc);
+    const normSt = norm(st);
+    if (normTrailing.length < 30) return issue;
+
+    // 长探针快速过滤（30 字符）
+    const probeLen = Math.min(30, normTrailing.length);
+    const probe = normTrailing.slice(0, probeLen);
+    if (!normSt.endsWith(probe) && normSt.indexOf(probe) === -1) {
+        return issue;
+    }
+
+    // 精确查找最长重叠
+    const minOverlap = Math.max(30, Math.floor(normSt.length * 0.15));
+    let bestOverlapLen = 0;
+    for (let len = Math.min(normTrailing.length, normSt.length); len >= minOverlap; len--) {
+        if (normSt.endsWith(normTrailing.slice(0, len))) {
+            bestOverlapLen = len;
+            break;
+        }
+    }
+    if (bestOverlapLen < minOverlap) return issue;
+
+    // 映射回原始文档偏移
     let rawExtendLen = 0;
     let normCount = 0;
     for (let i = rawAfterStart; i < docText.length && normCount < bestOverlapLen; i++) {
         rawExtendLen++;
         const ch = docText[i];
-        if (ch && !/[\s\u200b\u200c\u200d\ufeff]/.test(ch)) {
-            normCount++;
-        }
+        if (ch && !/[\s\u200b\u200c\u200d\ufeff]/.test(ch)) normCount++;
     }
-
-    if (rawExtendLen === 0) return issue;
+    if (rawExtendLen === 0 || rawExtendLen > maxExtension) return issue;
 
     const extension = docText.slice(rawAfterStart, rawAfterStart + rawExtendLen);
-    const extendedOriginal = ot + extension;
-
-    console.log(
-        `[issuePostProcess] 消除重叠：originalText 向后扩展 ${rawExtendLen} 字符，覆盖 suggestedText 尾部重叠区域`,
-        `\n  原始长度: ${ot.length} → 扩展后: ${extendedOriginal.length}`,
-        `\n  扩展内容: "...${extension.slice(0, 60)}${extension.length > 60 ? '...' : ''}"`,
-    );
-
-    return {
-        ...issue,
-        originalText: extendedOriginal,
-    };
+    console.log(`[issuePostProcess] 消除重叠：扩展 ${rawExtendLen} 字符`);
+    return { ...issue, originalText: ot + extension };
 }

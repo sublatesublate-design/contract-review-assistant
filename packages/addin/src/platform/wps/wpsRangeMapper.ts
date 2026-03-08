@@ -148,6 +148,67 @@ export class WpsRangeMapper implements IRangeMapper {
         this._cacheTimestamp = 0;
     }
 
+    /**
+     * 极速切块查找方案：
+     * 不调用极大开销的 doc.Content.Text（全量序列化可能耗时数秒），
+     * 而是利用 WPS 原生 C++ 级的 Find.Execute("探针") 瞬间锁定前缀位置，
+     * 只截取目标及其后几百字的一小块 (Chunk) 拉进 JS 进行精确查找匹配。
+     */
+    private fastChunkFind(doc: any, searchPattern: string, searchText: string): PlatformRange | null {
+        try {
+            // VBA/WPS 原生 Find 支持上限通常为 255 字符，取前 150 即可
+            const probe = searchPattern.substring(0, 150);
+            const searchRange = doc.Content;
+
+            searchRange.Find.ClearFormatting();
+            if ((searchRange.Find as any).Execute(probe)) {
+                const chunkStart = searchRange.Start;
+
+                // 取探针命中位置及其后所需长度的一小块 buffer
+                const fetchLen = searchText.length + 500;
+                let chunkEnd: number;
+                try {
+                    chunkEnd = Math.min(doc.Content.End || 999999, chunkStart + fetchLen);
+                } catch {
+                    chunkEnd = chunkStart + fetchLen;
+                }
+
+                const chunkRange = doc.Range(chunkStart, chunkEnd);
+                const chunkText = chunkRange.Text || "";
+                if (!chunkText) return null;
+
+                const hit = (r: { start: number; end: number }): PlatformRange =>
+                    ({ _internal: { start: chunkStart + r.start, end: chunkStart + r.end }, _platform: 'wps' });
+
+                // 在这块极小的文本里执行三层退化搜索
+                const exactIdx = chunkText.indexOf(searchPattern);
+                if (exactIdx !== -1) {
+                    console.log(`[WPS findRange] FastChunk极速命中 (Exact)`);
+                    return hit({ start: exactIdx, end: exactIdx + searchPattern.length });
+                }
+
+                const normChunk = normalizeWithMap(chunkText, RE_CLEAN_CHAR, true);
+                const normSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true);
+                const rClean = normIndexOf(normChunk, normSearch);
+                if (rClean) {
+                    console.log(`[WPS findRange] FastChunk极速命中 (Clean)`);
+                    return hit(rClean);
+                }
+
+                const punctChunk = normalizeWithMap(chunkText, RE_PUNCT_CHAR, true);
+                const punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true);
+                const rPunct = normIndexOf(punctChunk, punctSearch);
+                if (rPunct) {
+                    console.log(`[WPS findRange] FastChunk极速命中 (Punct)`);
+                    return hit(rPunct);
+                }
+            }
+        } catch (e) {
+            console.warn('[WPS findRange] fastChunkFind 极速模式失败, 回退全文档扫描', e);
+        }
+        return null;
+    }
+
     private getFullText(doc: any): string {
         const now = Date.now();
         if (this._cachedFullText && (now - this._cacheTimestamp) < WpsRangeMapper.CACHE_TTL_MS) {
@@ -170,7 +231,11 @@ export class WpsRangeMapper implements IRangeMapper {
         const searchPattern = searchText.replace(/\r?\n/g, '\r');
 
         try {
-            // 使用带缓存机制的读取
+            // 🔥 第一道防线：极速切块查找（无须跨 COM 传输全量文档，耗时 <0.1秒）
+            const fastRes = this.fastChunkFind(doc, searchPattern, searchText);
+            if (fastRes) return fastRes;
+
+            // 🐢 第二道防线：兜底的全局全量扫描（将传输数百 KB 到数十 MB 的全文档文本给 JS，很慢）
             const fullText: string = this.getFullText(doc);
             if (!fullText) {
                 console.warn('[WPS findRange] 文档内容为空');

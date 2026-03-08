@@ -214,18 +214,8 @@ export class WpsRangeMapper implements IRangeMapper {
 
             // ── 策略 4：前缀递减 fallback (80 → 50 → 30 → 20) ──
             for (const prefixLen of [80, 50, 30, 20]) {
-                if (searchText.length <= prefixLen) continue;
-
-                // 4a: 原始前缀
-                const rawPrefix = searchPattern.substring(0, prefixLen);
-                const rawIdx = fullText.indexOf(rawPrefix);
-                if (rawIdx !== -1) {
-                    console.log(`[WPS findRange] 策略4a命中 (原始前缀${prefixLen}), text: "${searchText.slice(0, 40)}..."`);
-                    return hit({
-                        start: rawIdx,
-                        end: Math.min(rawIdx + searchPattern.length, fullText.length),
-                    });
-                }
+                // 原来的 4a (原始前缀 indexOf) 被移除，因为它在截断后极易发生错配（例如匹配到第一条的 "1、"）
+                // 仅保留基于归一化文档树的 4b 和 4c，它们更严谨并且包含原有的位置信息映射计算
 
                 // 4b: cleanForSearch 前缀
                 {

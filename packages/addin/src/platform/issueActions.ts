@@ -96,10 +96,8 @@ export async function applyIssue(
     //   suggestedText 为补充缺失条款后的完整段落）
     await adapter.trackChangesManager.applySuggestedEdit(range, issue.suggestedText);
 
-    // 应用修改后文档文本已变化，使缓存失效，下次取消时需要重新定位
+    // 仅使当前 issue 的缓存失效
     invalidateRangeCache(adapter, issue.id);
-    // 同时使平台适配器底层的全文映射缓存失效
-    adapter.invalidateMappingCache?.();
     return true;
 }
 
@@ -128,10 +126,9 @@ export async function unapplyIssue(
     }
     if (!range) return false;
     await adapter.trackChangesManager.revertEdit(range, issue.originalText, issue.suggestedText);
-    // 撤销后文本恢复，使缓存失效使下次操作重新定位
+
+    // 仅使当前 issue 的缓存失效
     invalidateRangeCache(adapter, issue.id);
-    // 同时使平台适配器底层的全文映射缓存失效
-    adapter.invalidateMappingCache?.();
     return true;
 }
 

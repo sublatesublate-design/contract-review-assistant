@@ -184,7 +184,7 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
                     {issue.originalText && (
                         <div className="bg-gray-50 border border-gray-200 rounded p-2">
                             <p className="text-xs text-gray-400 mb-1">
-                                {issue.category === 'missing_clause' ? '建议插入位置（锚点）：' : '合同原文：'}
+                                {issue.category === 'missing_clause' ? '缺失条款所在原文：' : '合同原文：'}
                             </p>
                             <p className="text-xs text-gray-700 italic line-clamp-3">
                                 「{issue.originalText}」
@@ -238,12 +238,12 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
                                 onClick={handleApply}
                                 disabled={actionLoading === 'apply'}
                                 className="flex items-center gap-1 text-xs py-1 px-2 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors disabled:opacity-50"
-                                title={issue.status === 'applied' ? '取消修改' : (issue.category === 'missing_clause' ? '在锚点后插入条款' : '应用 AI 修改建议（生成修订标记）')}
+                                title={issue.status === 'applied' ? '取消修改' : (issue.category === 'missing_clause' ? '补充缺失条款（生成修订标记）' : '应用 AI 修改建议（生成修订标记）')}
                             >
                                 <Edit3 size={11} />
                                 {actionLoading === 'apply'
-                                    ? (issue.category === 'missing_clause' ? '插入中...' : (issue.status === 'applied' ? '取消中...' : '应用中...'))
-                                    : (issue.category === 'missing_clause' ? '插入条款' : (issue.status === 'applied' ? '取消修改' : '应用修改'))}
+                                    ? (issue.status === 'applied' ? '取消中...' : '应用中...')
+                                    : (issue.category === 'missing_clause' ? (issue.status === 'applied' ? '取消修改' : '插入条款') : (issue.status === 'applied' ? '取消修改' : '应用修改'))}
                             </button>
                         )}
                         {issue.category === 'missing_clause' && onOpenClauseLibrary && (

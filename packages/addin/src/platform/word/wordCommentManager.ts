@@ -16,15 +16,12 @@ export function createWordCommentManager(): ICommentManager {
                 await context.sync();
                 const originalMode = doc.changeTrackingMode;
 
-                try {
-                    doc.changeTrackingMode = Word.ChangeTrackingMode.off;
-                    await context.sync();
-                    wordRange.insertComment(commentText);
-                    await context.sync();
-                } finally {
-                    doc.changeTrackingMode = originalMode;
-                    await context.sync();
-                }
+                // 性能优化：将关闭修订、插入批注、恢复修订三步合入同一批次
+                // Office.js 代理队列保证同批次内操作按顺序执行
+                doc.changeTrackingMode = Word.ChangeTrackingMode.off;
+                wordRange.insertComment(commentText);
+                doc.changeTrackingMode = originalMode;
+                await context.sync();
             });
         },
 

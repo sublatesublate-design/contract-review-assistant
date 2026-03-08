@@ -16,16 +16,11 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                 await context.sync();
                 const originalMode = doc.changeTrackingMode;
 
+                // 性能优化：将开启修订、替换文本、恢复修订三步合入同一批次
                 doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+                wordRange.insertText(suggestedText, Word.InsertLocation.replace);
+                doc.changeTrackingMode = originalMode;
                 await context.sync();
-
-                try {
-                    wordRange.insertText(suggestedText, Word.InsertLocation.replace);
-                    await context.sync();
-                } finally {
-                    doc.changeTrackingMode = originalMode;
-                    await context.sync();
-                }
             });
         },
 
@@ -40,16 +35,11 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                 await context.sync();
                 const originalMode = doc.changeTrackingMode;
 
+                // 性能优化：将开启修订、插入文本、恢复修订三步合入同一批次
                 doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+                wordRange.insertText('\n' + suggestedText, Word.InsertLocation.after);
+                doc.changeTrackingMode = originalMode;
                 await context.sync();
-
-                try {
-                    wordRange.insertText('\n' + suggestedText, Word.InsertLocation.after);
-                    await context.sync();
-                } finally {
-                    doc.changeTrackingMode = originalMode;
-                    await context.sync();
-                }
             });
         },
 

@@ -22,6 +22,10 @@ export class WpsAdapter implements IPlatformAdapter {
         return this.isAvailable();
     }
 
+    public invalidateMappingCache(): void {
+        this.rangeMapper.invalidateCache();
+    }
+
     public isAvailable(): boolean {
         return typeof window !== 'undefined' && !!window.wps;
     }

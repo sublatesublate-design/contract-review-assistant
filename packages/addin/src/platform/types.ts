@@ -88,6 +88,7 @@ export interface IPlatformAdapter {
     readonly navigationHelper: INavigationHelper;
     readonly reportGenerator: IReportGenerator;
     readonly clauseInserter: IClauseInserter;
+    invalidateMappingCache?(): void;
     initialize(): Promise<boolean>;
     isAvailable(): boolean;
 }

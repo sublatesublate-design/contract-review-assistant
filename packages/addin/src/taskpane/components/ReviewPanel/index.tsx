@@ -13,7 +13,7 @@ import IssueCard from './IssueCard';
 import HistoryPanel from './HistoryPanel';
 import SummaryCard from './SummaryCard';
 import ClauseLibrary from './ClauseLibrary';
-import { ensureSentenceBoundary } from '../../../utils/issuePostProcess';
+import { ensureSentenceBoundary, ensureNoOverlap } from '../../../utils/issuePostProcess';
 import type { ReviewIssue } from '../../../types/review';
 
 const ALL_CATEGORIES = ['risk_clause', 'missing_clause', 'compliance', 'clause_analysis'] as const;
@@ -108,7 +108,10 @@ export default function ReviewPanel() {
                 settings.serverUrl,
                 {
                     onIssue: (issue: ReviewIssue) => addStreamingIssue(
-                        ensureSentenceBoundary(issue, docContent)
+                        ensureNoOverlap(
+                            ensureSentenceBoundary(issue, docContent),
+                            docContent
+                        )
                     ),
                     onSummary: (summary: string, model: string, contractType?: string, contractLabel?: string) => {
                         const finalResult = {

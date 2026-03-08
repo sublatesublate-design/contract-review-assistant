@@ -310,17 +310,9 @@ export function createWordRangeMapper(): IRangeMapper {
         async findRange(originalText: string): Promise<PlatformRange | null> {
             if (!originalText || originalText.trim().length === 0) return null;
 
-            // 安全方式，不返回代理对象
-            const canFind = await Word.run(async (context) => {
-                const range = await resolveWordRange(context, { searchText: originalText });
-                return range !== null;
-            });
-
-            if (!canFind) {
-                console.warn(`[wordRangeMapper] findRange 失败, text: "${originalText.slice(0, 80)}..."`);
-                return null;
-            }
-
+            // 性能优化：直接返回搜索元数据，跳过验证性 Word.run
+            // 实际解析推迟到后续操作 (addComment / applySuggestedEdit 等) 的 Word.run 内一次性完成
+            // 消除了每次操作的双重 Word.run + 双重全文搜索开销
             return {
                 _internal: { searchText: originalText.trim() } as WordRangeRef,
                 _platform: 'word',

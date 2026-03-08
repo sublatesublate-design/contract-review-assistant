@@ -91,14 +91,15 @@ export async function applyIssue(
     const range = await getRange(adapter, issue);
     if (!range) return false;
 
-    if (issue.category === 'missing_clause' && adapter.trackChangesManager.insertAfterRange) {
-        await adapter.trackChangesManager.insertAfterRange(range, issue.suggestedText);
-    } else {
-        await adapter.trackChangesManager.applySuggestedEdit(range, issue.suggestedText);
-    }
+    // 统一使用替换语义：suggestedText 是 originalText 的完整替换版本
+    // （包括 missing_clause —— originalText 为缺失条款所在的已有段落，
+    //   suggestedText 为补充缺失条款后的完整段落）
+    await adapter.trackChangesManager.applySuggestedEdit(range, issue.suggestedText);
 
     // 应用修改后文档文本已变化，使缓存失效，下次取消时需要重新定位
     invalidateRangeCache(adapter, issue.id);
+    // 同时使平台适配器底层的全文映射缓存失效
+    adapter.invalidateMappingCache?.();
     return true;
 }
 
@@ -129,6 +130,8 @@ export async function unapplyIssue(
     await adapter.trackChangesManager.revertEdit(range, issue.originalText, issue.suggestedText);
     // 撤销后文本恢复，使缓存失效使下次操作重新定位
     invalidateRangeCache(adapter, issue.id);
+    // 同时使平台适配器底层的全文映射缓存失效
+    adapter.invalidateMappingCache?.();
     return true;
 }
 
@@ -140,18 +143,45 @@ export async function batchComment(
 ): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
-    for (let i = 0; i < issues.length; i++) {
+    const total = issues.length;
+
+    // 先收集所有能成功查找到原文的 Issue 和对应的 Range
+    const toComment: Array<{ range: PlatformRange; text: string; issueId: string }> = [];
+
+    for (let i = 0; i < total; i++) {
         const issue = issues[i];
         if (!issue) continue;
-        let ok = false;
-        try {
-            ok = await commentIssue(adapter, issue);
-            ok ? success++ : failed++;
-        } catch {
+        const range = await getRange(adapter, issue);
+        if (range) {
+            const riskLabel = RISK_LABEL[issue.riskLevel];
+            const prefix = issue.category === 'missing_clause' ? '[缺失条款] ' : '';
+            const suggested = issue.category === 'missing_clause' && issue.suggestedText ? `\n建议补充内容：\n${issue.suggestedText}` : '';
+            const commentText = `${prefix}[${riskLabel}] ${issue.title}\n${issue.description}${issue.legalBasis ? `\n法律依据：${issue.legalBasis}` : ''}${suggested}`;
+            toComment.push({ range, text: commentText, issueId: issue.id });
+        } else {
             failed++;
+            onProgress?.(i + 1, total, false);
         }
-        onProgress?.(i + 1, issues.length, ok);
     }
+
+    if (toComment.length > 0) {
+        try {
+            // 一次性调用底层平台的批量批注接口 (减少 Word.run 次数和重绘)
+            await adapter.commentManager.addBatchComments(toComment);
+            success = toComment.length;
+            // 通知前端状态更新
+            for (let i = 0; i < toComment.length; i++) {
+                onProgress?.(failed + i + 1, total, true);
+            }
+        } catch (err) {
+            console.error('[batchComment] 批量插入批注失败:', err);
+            failed += toComment.length;
+            for (let i = 0; i < toComment.length; i++) {
+                onProgress?.(failed + i + 1, total, false);
+            }
+        }
+    }
+
     return { success, failed };
 }
 
@@ -172,6 +202,7 @@ export async function batchApply(
         if (!issue) continue;
         let ok = false;
         try {
+            // 复用单条 applyIssue（里面现在已经是单个 Word.run 或 WPS 缓存查找了）
             ok = await applyIssue(adapter, issue);
             ok ? success++ : failed++;
         } catch {

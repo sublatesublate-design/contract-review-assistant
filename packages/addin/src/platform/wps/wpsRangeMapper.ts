@@ -124,6 +124,31 @@ function normPrefixSearch(
 /* ══════════ WpsRangeMapper ══════════ */
 
 export class WpsRangeMapper implements IRangeMapper {
+    private _cachedFullText: string | null = null;
+    private _cachedCleanFull: NormResult | null = null;
+    private _cachedPunctFull: NormResult | null = null;
+    private _cacheTimestamp: number = 0;
+    private static CACHE_TTL_MS = 5000;
+
+    public invalidateCache(): void {
+        this._cachedFullText = null;
+        this._cachedCleanFull = null;
+        this._cachedPunctFull = null;
+        this._cacheTimestamp = 0;
+    }
+
+    private getFullText(doc: any): string {
+        const now = Date.now();
+        if (this._cachedFullText && (now - this._cacheTimestamp) < WpsRangeMapper.CACHE_TTL_MS) {
+            return this._cachedFullText;
+        }
+        this._cachedFullText = doc.Content.Text || '';
+        this._cacheTimestamp = now;
+        this._cachedCleanFull = null;
+        this._cachedPunctFull = null;
+        return this._cachedFullText as string;
+    }
+
     public async findRange(originalText: string): Promise<PlatformRange | null> {
         if (!window.wps) return null;
         const app = window.wps.WpsApplication() as any;
@@ -134,20 +159,19 @@ export class WpsRangeMapper implements IRangeMapper {
         const searchPattern = searchText.replace(/\r?\n/g, '\r');
 
         try {
-            const fullText: string = doc.Content.Text || '';
+            // 使用带缓存机制的读取
+            const fullText: string = this.getFullText(doc);
             if (!fullText) {
                 console.warn('[WPS findRange] 文档内容为空');
                 return null;
             }
 
             /* ── 惰性归一化缓存（避免对整篇文档重复处理） ── */
-            let _cleanFull: NormResult | undefined;
-            let _punctFull: NormResult | undefined;
             let _cleanSearch: NormResult | undefined;
             let _punctSearch: NormResult | undefined;
 
-            const getCleanFull = () => _cleanFull || (_cleanFull = normalizeWithMap(fullText, RE_CLEAN_CHAR, true));
-            const getPunctFull = () => _punctFull || (_punctFull = normalizeWithMap(fullText, RE_PUNCT_CHAR, true));
+            const getCleanFull = () => this._cachedCleanFull || (this._cachedCleanFull = normalizeWithMap(fullText!, RE_CLEAN_CHAR, true));
+            const getPunctFull = () => this._cachedPunctFull || (this._cachedPunctFull = normalizeWithMap(fullText!, RE_PUNCT_CHAR, true));
             const getCleanSearch = () => _cleanSearch || (_cleanSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true));
             const getPunctSearch = () => _punctSearch || (_punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true));
 

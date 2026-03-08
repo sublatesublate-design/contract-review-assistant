@@ -1,6 +1,6 @@
 {
     "name": "addin",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "private": true,
     "description": "合同审查助手 Word Add-in 前端",
     "scripts": {

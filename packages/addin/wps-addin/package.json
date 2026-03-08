@@ -1,6 +1,6 @@
 {
     "name": "contract-review-wps",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "合同审查助手 WPS 插件",
     "main": "main.js",
     "addonType": "wps",

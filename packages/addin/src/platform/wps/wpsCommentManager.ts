@@ -8,9 +8,7 @@ export class WpsCommentManager implements ICommentManager {
         const doc = app.ActiveDocument;
 
         const info = range._internal as { start: number, end: number };
-        const r = doc.Content;
-        r.Start = info.start;
-        r.End = info.end;
+        const r = (doc as any).Range(info.start, info.end);
 
         doc.Comments.Add(r, commentText);
     }

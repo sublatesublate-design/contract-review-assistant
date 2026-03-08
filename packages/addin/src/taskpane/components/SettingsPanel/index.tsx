@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Save, RefreshCw, Eye, EyeOff, Server, Cpu, KeyRound, BookText, Plus, Edit2, Trash2, Check, X, Plug, Unplug, Wrench } from 'lucide-react';
 import clsx from 'clsx';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -27,28 +27,109 @@ const STANDPOINT_OPTIONS: { id: 'neutral' | 'party_a' | 'party_b'; label: string
     { id: 'party_b', label: '乙方视角', description: '聚焦乙方权益保护，防范对乙方过于苛刻的义务' },
 ];
 
-export default function SettingsPanel() {
-    const { settings, updateSettings, updateApiKey, addTemplate, updateTemplate, removeTemplate, resetBuiltinTemplate, updateGlobalInstruction, resetToDefaults } = useSettingsStore();
+/**
+ * 防抖输入框组件：解决 WPS Mac 粘贴长文本触发高频更新导致的界面卡死。
+ * 使用局部 state 承接输入，仅在停顿或失去焦点时同步到全局 Store/LocalStorage。
+ */
+const DebouncedInput = memo(({
+    value,
+    onChange,
+    placeholder,
+    type = 'text',
+    className,
+    list
+}: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    type?: string;
+    className?: string;
+    list?: string;
+}) => {
+    const [localValue, setLocalValue] = useState(value || '');
 
-    // User Template Edit State
-    const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
-    const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-    const [formName, setFormName] = useState('');
-    const [formPrompt, setFormPrompt] = useState('');
-    const [formBoundType, setFormBoundType] = useState<ContractType | 'none'>('none');
-
-    const [showKey, setShowKey] = useState({ anthropic: false, openai: false });
-    const [ollamaModels, setOllamaModels] = useState<string[]>([]);
-    const [saved, setSaved] = useState(false);
+    // 当外部真正更新（如重置/初始化）时同步局部值
     useEffect(() => {
-        if (settings.provider === 'ollama') {
-            apiClient
-                .getModels(settings.serverUrl)
-                .then((models) => setOllamaModels(models.filter((m) => m.provider === 'ollama').map((m) => m.id)))
-                .catch(() => setOllamaModels([]));
-        }
-    }, [settings.provider, settings.serverUrl]);
+        setLocalValue(value || '');
+    }, [value]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localValue !== value) {
+                onChange(localValue);
+            }
+        }, 800); // 增加到 800ms，确保粘贴动作完全通过
+        return () => clearTimeout(timer);
+    }, [localValue, onChange, value]);
+
+    return (
+        <input
+            type={type}
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            onBlur={() => {
+                if (localValue !== value) onChange(localValue);
+            }}
+            placeholder={placeholder}
+            className={className}
+            list={list}
+        />
+    );
+});
+
+/**
+ * 防抖文本域组件：同 DebouncedInput，用于长文本提示词。
+ */
+const DebouncedTextArea = memo(({
+    value,
+    onChange,
+    placeholder,
+    className,
+    rows = 3
+}: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    className?: string;
+    rows?: number;
+}) => {
+    const [localValue, setLocalValue] = useState(value || '');
+
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localValue !== value) {
+                onChange(localValue);
+            }
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [localValue, onChange, value]);
+
+    return (
+        <textarea
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            onBlur={() => {
+                if (localValue !== value) onChange(localValue);
+            }}
+            placeholder={placeholder}
+            className={className}
+            rows={rows}
+        />
+    );
+});
+
+export default function SettingsPanel() {
+    const {
+        settings, updateSettings, updateApiKey, addTemplate,
+        updateTemplate, removeTemplate, resetBuiltinTemplate,
+        updateGlobalInstruction, resetToDefaults
+    } = useSettingsStore();
+
+    const [saved, setSaved] = useState(false);
     const handleSave = () => {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -57,477 +138,49 @@ export default function SettingsPanel() {
     return (
         <div className="flex flex-col h-full overflow-y-auto">
             <div className="p-3 space-y-4">
+                {/* 拆分为子组件以利用组件化渲染隔离性能 */}
+                <ProviderSection provider={settings.provider} updateSettings={updateSettings} />
 
-                {/* === AI 提供商选择 === */}
-                <section>
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">AI 提供商</h2>
-                    <div className="space-y-1.5">
-                        {PROVIDERS.map((p) => (
-                            <label
-                                key={p.id}
-                                className={clsx(
-                                    'flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors',
-                                    settings.provider === p.id
-                                        ? 'border-primary-400 bg-primary-50'
-                                        : 'border-gray-200 bg-white hover:border-gray-300'
-                                )}
-                            >
-                                <input
-                                    type="radio"
-                                    name="provider"
-                                    value={p.id}
-                                    checked={settings.provider === p.id}
-                                    onChange={() => updateSettings({ provider: p.id })}
-                                    className="mt-0.5 accent-primary-600"
-                                />
-                                <div>
-                                    <p className="text-xs font-medium text-gray-800">{p.label}</p>
-                                    <p className="text-xs text-gray-400">{p.description}</p>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                </section>
-
-                {/* === API Key 配置 === */}
                 {settings.provider !== 'ollama' && (
-                    <section>
-                        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">API Key</h2>
-                        {settings.provider === 'claude' && (
-                            <div className="space-y-1.5">
-                                <label className="text-xs text-gray-600">Anthropic API Key</label>
-                                <div className="relative">
-                                    <input
-                                        type={showKey.anthropic ? 'text' : 'password'}
-                                        value={settings.apiKeys.anthropic}
-                                        onChange={(e) => updateApiKey('anthropic', e.target.value)}
-                                        placeholder="sk-ant-..."
-                                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                                    />
-                                    <button
-                                        onClick={() => setShowKey((s) => ({ ...s, anthropic: !s.anthropic }))}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
-                                    >
-                                        {showKey.anthropic ? <EyeOff size={13} /> : <Eye size={13} />}
-                                    </button>
-                                </div>
-                                <div className="mt-2">
-                                    <label className="text-xs text-gray-600">模型</label>
-                                    <input
-                                        type="text"
-                                        value={settings.models.claude}
-                                        onChange={(e) => updateSettings({ models: { ...settings.models, claude: e.target.value } })}
-                                        placeholder="例如：claude-3-7-sonnet-20250219"
-                                        list="claude-models-list"
-                                        className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                                    />
-                                    <datalist id="claude-models-list">
-                                        {CLAUDE_MODELS.map((m) => <option key={m} value={m} />)}
-                                    </datalist>
-                                </div>
-                            </div>
-                        )}
-                        {settings.provider === 'openai' && (
-                            <div className="space-y-1.5">
-                                <label className="text-xs text-gray-600">OpenAI API Key</label>
-                                <div className="relative">
-                                    <input
-                                        type={showKey.openai ? 'text' : 'password'}
-                                        value={settings.apiKeys.openai}
-                                        onChange={(e) => updateApiKey('openai', e.target.value)}
-                                        placeholder="sk-..."
-                                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                                    />
-                                    <button
-                                        onClick={() => setShowKey((s) => ({ ...s, openai: !s.openai }))}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
-                                    >
-                                        {showKey.openai ? <EyeOff size={13} /> : <Eye size={13} />}
-                                    </button>
-                                </div>
-                                <label className="text-xs text-gray-600 mt-2 block">API Base URL（兼容接口）</label>
-                                <input
-                                    type="url"
-                                    value={settings.baseUrl || ''}
-                                    onChange={(e) => updateSettings({ baseUrl: e.target.value })}
-                                    className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                                />
-                                <div className="mt-2">
-                                    <label className="text-xs text-gray-600">模型</label>
-                                    <input
-                                        type="text"
-                                        value={settings.models.openai}
-                                        onChange={(e) => updateSettings({ models: { ...settings.models, openai: e.target.value } })}
-                                        placeholder="例如：gpt-4o 或 deepseek-chat"
-                                        list="openai-models-list"
-                                        className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                                    />
-                                    <datalist id="openai-models-list">
-                                        {OPENAI_MODELS.map((m) => <option key={m} value={m} />)}
-                                    </datalist>
-                                </div>
-                            </div>
-                        )}
-                    </section>
+                    <ApiKeySection
+                        provider={settings.provider}
+                        apiKeys={settings.apiKeys}
+                        models={settings.models}
+                        updateApiKey={updateApiKey}
+                        updateSettings={updateSettings}
+                        rememberApiKeys={settings.rememberApiKeys}
+                        baseUrl={settings.baseUrl}
+                    />
                 )}
 
-                {/* === 记住密钥开关 === */}
-                {settings.provider !== 'ollama' && (
-                    <div className="flex items-center gap-2.5 px-1">
-                        <input
-                            type="checkbox"
-                            id="remember-api-key"
-                            checked={settings.rememberApiKeys}
-                            onChange={(e) => updateSettings({ rememberApiKeys: e.target.checked })}
-                            className="accent-primary-600 w-3.5 h-3.5 cursor-pointer"
-                        />
-                        <label htmlFor="remember-api-key" className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
-                            <KeyRound size={11} className="text-gray-400" />
-                            记住密钥（存储在本机，关闭则刷新后清空）
-                        </label>
-                    </div>
-                )}
-
-                {/* === Ollama 配置 === */}
                 {settings.provider === 'ollama' && (
-                    <section>
-                        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                            <Cpu size={12} />Ollama 本地模型
-                        </h2>
-                        <label className="text-xs text-gray-600">Ollama 地址</label>
-                        <input
-                            type="url"
-                            value={settings.ollamaBaseUrl}
-                            onChange={(e) => updateSettings({ ollamaBaseUrl: e.target.value })}
-                            className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                        />
-                        <div className="mt-2">
-                            <label className="text-xs text-gray-600">本地模型</label>
-                            <input
-                                type="text"
-                                list="ollama-models-list"
-                                value={settings.models.ollama}
-                                onChange={(e) => updateSettings({ models: { ...settings.models, ollama: e.target.value } })}
-                                placeholder="输入模型名称，如 qwen2.5:32b"
-                                className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                            />
-                            {ollamaModels.length > 0 && (
-                                <datalist id="ollama-models-list">
-                                    {ollamaModels.map((m) => <option key={m} value={m} />)}
-                                </datalist>
-                            )}
-                        </div>
-                    </section>
+                    <OllamaSection
+                        ollamaBaseUrl={settings.ollamaBaseUrl}
+                        ollamaModel={settings.models.ollama}
+                        models={settings.models}
+                        serverUrl={settings.serverUrl}
+                        updateSettings={updateSettings}
+                    />
                 )}
 
-                {/* === 审查深度 === */}
-                <section>
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查深度</h2>
-                    <div className="space-y-1.5">
-                        {DEPTH_OPTIONS.map((d) => (
-                            <label
-                                key={d.id}
-                                className={clsx(
-                                    'flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors',
-                                    settings.reviewDepth === d.id
-                                        ? 'border-primary-400 bg-primary-50'
-                                        : 'border-gray-200 bg-white hover:border-gray-300'
-                                )}
-                            >
-                                <input
-                                    type="radio"
-                                    name="depth"
-                                    value={d.id}
-                                    checked={settings.reviewDepth === d.id}
-                                    onChange={() => updateSettings({ reviewDepth: d.id })}
-                                    className="mt-0.5 accent-primary-600"
-                                />
-                                <div>
-                                    <p className="text-xs font-medium text-gray-800">{d.label}</p>
-                                    <p className="text-xs text-gray-400">{d.description}</p>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                </section>
+                <DepthSection reviewDepth={settings.reviewDepth} updateSettings={updateSettings} />
 
-                {/* === 审查立场 === */}
-                <section>
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查立场</h2>
-                    <div className="space-y-1.5">
-                        {STANDPOINT_OPTIONS.map((sp) => (
-                            <label
-                                key={sp.id}
-                                className={clsx(
-                                    'flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors',
-                                    settings.standpoint === sp.id
-                                        ? 'border-primary-400 bg-primary-50'
-                                        : 'border-gray-200 bg-white hover:border-gray-300'
-                                )}
-                            >
-                                <input
-                                    type="radio"
-                                    name="standpoint"
-                                    value={sp.id}
-                                    checked={settings.standpoint === sp.id}
-                                    onChange={() => updateSettings({ standpoint: sp.id })}
-                                    className="mt-0.5 accent-primary-600"
-                                />
-                                <div>
-                                    <p className="text-xs font-medium text-gray-800">{sp.label}</p>
-                                    <p className="text-xs text-gray-400">{sp.description}</p>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                </section>
+                <StandpointSection standpoint={settings.standpoint} updateSettings={updateSettings} />
 
-                {/* === 自定义提示词模板 === */}
-                <section>
-                    <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                            <BookText size={12} />审查模板配置
-                        </h2>
-                    </div>
+                <TemplateSection
+                    reviewTemplates={settings.reviewTemplates}
+                    globalInstruction={settings.globalInstruction}
+                    addTemplate={addTemplate}
+                    updateTemplate={updateTemplate}
+                    removeTemplate={removeTemplate}
+                    resetBuiltinTemplate={resetBuiltinTemplate}
+                    updateGlobalInstruction={updateGlobalInstruction}
+                />
 
-                    <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm mb-4">
-                        <p className="text-[10px] text-gray-400 mb-2 mt-1 italic">
-                            💡 提示：全局指令将始终追加到任何审查提示词中。<br />
-                            绑定了合同类型的模板会在“智能分类”时自动启用。<br />
-                            未绑定的自定义模板可在审查面板手动选择。
-                        </p>
-
-                        <div className="mb-4">
-                            <label className="text-xs font-semibold text-gray-700 block mb-1">全局提示词 (对所有审查生效)</label>
-                            <textarea
-                                value={settings.globalInstruction || ''}
-                                onChange={(e) => updateGlobalInstruction(e.target.value)}
-                                placeholder="例如：请始终以简体中文输出，格式严谨，使用标准的中国法律术语。"
-                                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 min-h-[60px] resize-y focus:outline-none focus:ring-2 focus:ring-primary-400"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mb-2 mt-4">
-                        <h3 className="text-xs font-semibold text-gray-700">模板列表</h3>
-                        {!isCreatingTemplate && (
-                            <button
-                                onClick={() => {
-                                    setIsCreatingTemplate(true);
-                                    setEditingTemplateId(null);
-                                    setFormName('');
-                                    setFormPrompt('');
-                                    setFormBoundType('none');
-                                }}
-                                className="text-[10px] bg-primary-50 text-primary-600 px-2 py-1 rounded hover:bg-primary-100 flex items-center gap-1 font-medium shadow-sm transition-all"
-                            >
-                                <Plus size={10} /> 新建自定义模板
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="space-y-2">
-                        {isCreatingTemplate && (
-                            <div className="border-2 border-primary-400 rounded-lg p-3 bg-primary-50/20 text-xs shadow-sm">
-                                <label className="block text-[10px] text-gray-500 mb-1 font-medium">模板名称</label>
-                                <input
-                                    type="text"
-                                    placeholder="例如：投资协议严查"
-                                    value={formName}
-                                    onChange={e => setFormName(e.target.value)}
-                                    className="w-full border border-gray-300 rounded px-2 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all bg-white"
-                                />
-
-                                <label className="block text-[10px] text-gray-500 mb-1 mt-2 font-medium">绑定类型 (选填)</label>
-                                <select
-                                    value={formBoundType}
-                                    onChange={e => setFormBoundType(e.target.value as ContractType | 'none')}
-                                    className="w-full border border-gray-300 rounded px-2 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all bg-white"
-                                >
-                                    <option value="none">-- 不绑定 (仅手动调用) --</option>
-                                    {CONTRACT_TYPE_OPTIONS.map(opt => (
-                                        <option key={opt.id} value={opt.id}>{opt.label}</option>
-                                    ))}
-                                </select>
-
-                                <label className="block text-[10px] text-gray-500 mb-1 mt-2 font-medium">审查提示词</label>
-                                <textarea
-                                    placeholder="输入具体的审查提示词..."
-                                    value={formPrompt}
-                                    onChange={e => setFormPrompt(e.target.value)}
-                                    className="w-full border border-gray-300 rounded px-2 py-1.5 min-h-[120px] resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all bg-white font-mono"
-                                />
-                                <div className="flex justify-end gap-2 mt-3">
-                                    <button
-                                        onClick={() => setIsCreatingTemplate(false)}
-                                        className="btn-secondary text-xs px-3 py-1.5"
-                                    >取消</button>
-                                    <button
-                                        disabled={!formName.trim() || !formPrompt.trim()}
-                                        onClick={() => {
-                                            const bound = formBoundType === 'none' ? undefined : formBoundType;
-                                            addTemplate(formName.trim(), formPrompt.trim(), bound);
-                                            setIsCreatingTemplate(false);
-                                        }}
-                                        className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1 disabled:opacity-50"
-                                    >
-                                        <Check size={12} /> 保存
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {settings.reviewTemplates && settings.reviewTemplates.map(template => {
-                            const isEditing = editingTemplateId === template.id;
-
-                            if (isEditing) {
-                                return (
-                                    <div key={template.id} className="border-2 border-primary-400 rounded-lg p-3 bg-primary-50/20 text-xs shadow-sm">
-                                        <label className="block text-[10px] text-gray-500 mb-1 font-medium">模板名称</label>
-                                        <input
-                                            type="text"
-                                            value={formName}
-                                            disabled={template.isBuiltin}
-                                            onChange={e => setFormName(e.target.value)}
-                                            className="w-full border border-gray-300 rounded px-2 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all bg-white disabled:bg-gray-100 disabled:text-gray-500"
-                                        />
-
-                                        <label className="block text-[10px] text-gray-500 mb-1 mt-2 font-medium">绑定类型</label>
-                                        <select
-                                            value={formBoundType}
-                                            disabled={template.isBuiltin}
-                                            onChange={e => setFormBoundType(e.target.value as ContractType | 'none')}
-                                            className="w-full border border-gray-300 rounded px-2 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all bg-white disabled:bg-gray-100 disabled:text-gray-500"
-                                        >
-                                            <option value="none">-- 不绑定 --</option>
-                                            {CONTRACT_TYPE_OPTIONS.map(opt => (
-                                                <option key={opt.id} value={opt.id}>{opt.label}</option>
-                                            ))}
-                                        </select>
-
-                                        {template.isBuiltin && (
-                                            <p className="text-[10px] text-amber-600 mb-2 italic">此为系统内置模板，仅可修改提示词内容。</p>
-                                        )}
-
-                                        <label className="block text-[10px] text-gray-500 mb-1 mt-2 font-medium">审查提示词</label>
-                                        <textarea
-                                            value={formPrompt}
-                                            onChange={e => setFormPrompt(e.target.value)}
-                                            className="w-full border border-gray-300 rounded px-2 py-1.5 min-h-[120px] resize-y focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all bg-white font-mono"
-                                        />
-                                        <div className="flex justify-end gap-2 mt-3">
-                                            <button
-                                                onClick={() => setEditingTemplateId(null)}
-                                                className="btn-secondary text-xs px-3 py-1.5"
-                                            >取消</button>
-                                            <button
-                                                disabled={!formName.trim() || !formPrompt.trim()}
-                                                onClick={() => {
-                                                    const patch: Partial<ReviewTemplate> = { prompt: formPrompt.trim() };
-                                                    if (!template.isBuiltin) {
-                                                        patch.name = formName.trim();
-                                                        patch.boundContractType = formBoundType === 'none' ? undefined : formBoundType;
-                                                    }
-                                                    updateTemplate(template.id, patch);
-                                                    setEditingTemplateId(null);
-                                                }}
-                                                className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1 disabled:opacity-50"
-                                            >
-                                                <Check size={12} /> 更新
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            const typeLabel = template.boundContractType
-                                ? CONTRACT_TYPE_OPTIONS.find(o => o.id === template.boundContractType)?.label || template.boundContractType
-                                : '未绑定';
-
-                            const isPromptModified = template.isBuiltin && template.prompt !== getDefaultTemplatePrompt(template.id);
-
-                            return (
-                                <div key={template.id} className="border border-gray-200 rounded-lg p-3 bg-white hover:border-primary-300 hover:shadow-sm transition-all group flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between pointer-events-none">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[13px] font-semibold text-gray-800">{template.name}</span>
-                                            {template.isBuiltin ? (
-                                                <span className="px-1.5 py-0.5 rounded-sm bg-blue-50 text-blue-600 text-[9px] border border-blue-100 font-medium">系统内置</span>
-                                            ) : (
-                                                <span className="px-1.5 py-0.5 rounded-sm bg-purple-50 text-purple-600 text-[9px] border border-purple-100 font-medium">自定义</span>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
-                                            {isPromptModified && (
-                                                <button
-                                                    title="恢复默认"
-                                                    onClick={() => resetBuiltinTemplate(template.id)}
-                                                    className="text-[10px] text-amber-500 hover:text-amber-700 font-medium whitespace-nowrap"
-                                                >
-                                                    恢复默认
-                                                </button>
-                                            )}
-                                            <button
-                                                title="编辑"
-                                                onClick={() => {
-                                                    setEditingTemplateId(template.id);
-                                                    setFormName(template.name);
-                                                    setFormPrompt(template.prompt);
-                                                    setFormBoundType(template.boundContractType as ContractType || 'none');
-                                                    setIsCreatingTemplate(false);
-                                                }}
-                                                className="text-gray-400 hover:text-blue-600 p-0.5 rounded hover:bg-blue-50 transition-colors"
-                                            >
-                                                <Edit2 size={13} />
-                                            </button>
-                                            {!template.isBuiltin && (
-                                                <button
-                                                    title="删除"
-                                                    onClick={() => removeTemplate(template.id)}
-                                                    className="text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors"
-                                                >
-                                                    <Trash2 size={13} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 mb-0.5">
-                                        <span className="text-[10px] text-gray-500">
-                                            绑定分类: <span className={clsx("font-medium", template.boundContractType ? "text-gray-700" : "text-gray-400 italic")}>{typeLabel}</span>
-                                        </span>
-                                    </div>
-
-                                    <div className={clsx(
-                                        "text-[10px] p-2 rounded relative border border-gray-100 max-h-[80px] overflow-y-auto w-full",
-                                        template.isBuiltin && !isPromptModified ? "bg-gray-50/80 text-gray-400 font-mono" : "bg-primary-50/30 text-gray-600 border-primary-100 font-mono"
-                                    )}>
-                                        <pre className="whitespace-pre-wrap font-inherit break-words">{template.prompt}</pre>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
-
-                {/* === MCP 服务器管理 === */}
                 <McpSection serverUrl={settings.serverUrl} />
 
-                {/* === 后端服务地址 === */}
-                <section>
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                        <Server size={12} />后端服务
-                    </h2>
-                    <label className="text-xs text-gray-600">服务地址</label>
-                    <input
-                        type="url"
-                        value={settings.serverUrl}
-                        onChange={(e) => updateSettings({ serverUrl: e.target.value })}
-                        className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                    />
-                </section>
+                <ServerSection serverUrl={settings.serverUrl} updateSettings={updateSettings} />
 
-                {/* 操作按钮 */}
                 <div className="flex gap-2 pt-2 pb-4">
                     <button onClick={handleSave} className={clsx('btn-primary flex-1 text-sm flex items-center justify-center gap-1.5', saved && 'bg-emerald-600 hover:bg-emerald-700')}>
                         <Save size={13} />
@@ -543,8 +196,385 @@ export default function SettingsPanel() {
     );
 }
 
+// ── 子组件拆分 (针对 WPS Mac 渲染性能瓶颈进行隔离) ──────────────────────────
+
+const ProviderSection = memo(({ provider, updateSettings }: any) => (
+    <section>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">AI 提供商</h2>
+        <div className="space-y-1.5">
+            {PROVIDERS.map((p) => (
+                <label
+                    key={p.id}
+                    className={clsx(
+                        'flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors',
+                        provider === p.id
+                            ? 'border-primary-400 bg-primary-50'
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                    )}
+                >
+                    <input
+                        type="radio"
+                        name="provider"
+                        checked={provider === p.id}
+                        onChange={() => updateSettings({ provider: p.id })}
+                        className="mt-0.5 accent-primary-600"
+                    />
+                    <div>
+                        <p className="text-xs font-medium text-gray-800">{p.label}</p>
+                        <p className="text-xs text-gray-400">{p.description}</p>
+                    </div>
+                </label>
+            ))}
+        </div>
+    </section>
+));
+
+const ApiKeySection = memo(({ provider, apiKeys, models, updateApiKey, updateSettings, rememberApiKeys, baseUrl }: any) => {
+    const [showKey, setShowKey] = useState(false);
+
+    return (
+        <section className="space-y-4">
+            <div>
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">API Key 配置</h2>
+                <div className="space-y-3">
+                    {provider === 'claude' ? (
+                        <div className="space-y-1.5">
+                            <label className="text-xs text-gray-600">Anthropic API Key</label>
+                            <div className="relative">
+                                <DebouncedInput
+                                    type={showKey ? 'text' : 'password'}
+                                    value={apiKeys.anthropic}
+                                    onChange={(val) => updateApiKey('anthropic', val)}
+                                    placeholder="sk-ant-..."
+                                    className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                                />
+                                <button onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                                    {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                                </button>
+                            </div>
+                            <div className="mt-2">
+                                <label className="text-xs text-gray-600">模型</label>
+                                <DebouncedInput
+                                    value={models.claude}
+                                    onChange={(val) => updateSettings({ models: { ...models, claude: val } })}
+                                    placeholder="例如：claude-3-7-sonnet-20250219"
+                                    list="claude-models-list"
+                                    className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                                />
+                                <datalist id="claude-models-list">
+                                    {CLAUDE_MODELS.map((m) => <option key={m} value={m} />)}
+                                </datalist>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            <label className="text-xs text-gray-600">OpenAI API Key</label>
+                            <div className="relative">
+                                <DebouncedInput
+                                    type={showKey ? 'text' : 'password'}
+                                    value={apiKeys.openai}
+                                    onChange={(val) => updateApiKey('openai', val)}
+                                    placeholder="sk-..."
+                                    className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                                />
+                                <button onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                                    {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                                </button>
+                            </div>
+                            <label className="text-xs text-gray-600 mt-2 block">API Base URL（兼容接口）</label>
+                            <DebouncedInput
+                                value={baseUrl || ''}
+                                onChange={(val) => updateSettings({ baseUrl: val })}
+                                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                            />
+                            <div className="mt-2">
+                                <label className="text-xs text-gray-600">模型</label>
+                                <DebouncedInput
+                                    value={models.openai}
+                                    onChange={(val) => updateSettings({ models: { ...models, openai: val } })}
+                                    placeholder="例如：gpt-4o 或 deepseek-chat"
+                                    list="openai-models-list"
+                                    className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                                />
+                                <datalist id="openai-models-list">
+                                    {OPENAI_MODELS.map((m) => <option key={m} value={m} />)}
+                                </datalist>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 px-1">
+                <input
+                    type="checkbox"
+                    id="remember-api-key"
+                    checked={rememberApiKeys}
+                    onChange={(e) => updateSettings({ rememberApiKeys: e.target.checked })}
+                    className="accent-primary-600 w-3.5 h-3.5 cursor-pointer"
+                />
+                <label htmlFor="remember-api-key" className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                    <KeyRound size={11} className="text-gray-400" />
+                    记住密钥（存储在本机，关闭则刷新后清空）
+                </label>
+            </div>
+        </section>
+    );
+});
+
+const OllamaSection = memo(({ ollamaBaseUrl, ollamaModel, models, serverUrl, updateSettings }: any) => {
+    const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+
+    useEffect(() => {
+        apiClient.getModels(serverUrl)
+            .then((modelsList) => setOllamaModels(modelsList.filter((m) => m.provider === 'ollama').map((m) => m.id)))
+            .catch(() => setOllamaModels([]));
+    }, [serverUrl]);
+
+    return (
+        <section>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Cpu size={12} />Ollama 本地模型
+            </h2>
+            <label className="text-xs text-gray-600">Ollama 地址</label>
+            <DebouncedInput
+                value={ollamaBaseUrl}
+                onChange={(val) => updateSettings({ ollamaBaseUrl: val })}
+                className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+            />
+            <div className="mt-2">
+                <label className="text-xs text-gray-600">本地模型</label>
+                <DebouncedInput
+                    value={ollamaModel}
+                    onChange={(val) => updateSettings({ models: { ...models, ollama: val } })}
+                    placeholder="输入模型名称，如 qwen2.5:32b"
+                    className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+            </div>
+        </section>
+    );
+});
+
+const DepthSection = memo(({ reviewDepth, updateSettings }: any) => (
+    <section>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查深度</h2>
+        <div className="space-y-1.5">
+            {DEPTH_OPTIONS.map((d) => (
+                <label
+                    key={d.id}
+                    className={clsx(
+                        'flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors',
+                        reviewDepth === d.id ? 'border-primary-400 bg-primary-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    )}
+                >
+                    <input
+                        type="radio"
+                        checked={reviewDepth === d.id}
+                        onChange={() => updateSettings({ reviewDepth: d.id })}
+                        className="mt-0.5 accent-primary-600"
+                    />
+                    <div>
+                        <p className="text-xs font-medium text-gray-800">{d.label}</p>
+                        <p className="text-xs text-gray-400">{d.description}</p>
+                    </div>
+                </label>
+            ))}
+        </div>
+    </section>
+));
+
+const StandpointSection = memo(({ standpoint, updateSettings }: any) => (
+    <section>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查立场</h2>
+        <div className="space-y-1.5">
+            {STANDPOINT_OPTIONS.map((sp) => (
+                <label
+                    key={sp.id}
+                    className={clsx(
+                        'flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors',
+                        standpoint === sp.id ? 'border-primary-400 bg-primary-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    )}
+                >
+                    <input
+                        type="radio"
+                        checked={standpoint === sp.id}
+                        onChange={() => updateSettings({ standpoint: sp.id })}
+                        className="mt-0.5 accent-primary-600"
+                    />
+                    <div>
+                        <p className="text-xs font-medium text-gray-800">{sp.label}</p>
+                        <p className="text-xs text-gray-400">{sp.description}</p>
+                    </div>
+                </label>
+            ))}
+        </div>
+    </section>
+));
+
+const ServerSection = memo(({ serverUrl, updateSettings }: any) => (
+    <section>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Server size={12} />后端服务
+        </h2>
+        <label className="text-xs text-gray-600">服务地址</label>
+        <DebouncedInput
+            value={serverUrl}
+            onChange={(val) => updateSettings({ serverUrl: val })}
+            className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+        />
+    </section>
+));
+
+const TemplateSection = memo(({
+    reviewTemplates, globalInstruction, addTemplate,
+    updateTemplate, removeTemplate, resetBuiltinTemplate,
+    updateGlobalInstruction
+}: any) => {
+    const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+    const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+    const [formName, setFormName] = useState('');
+    const [formPrompt, setFormPrompt] = useState('');
+    const [formBoundType, setFormBoundType] = useState<ContractType | 'none'>('none');
+
+    return (
+        <section>
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                    <BookText size={12} />审查模板配置
+                </h2>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm mb-4">
+                <p className="text-[10px] text-gray-400 mb-2 mt-1 italic">
+                    💡 提示：全局指令将始终追加到任何审查提示词中。<br />
+                    绑定了合同类型的模板会在“智能分类”时自动启用。<br />
+                    未绑定的自定义模板可在审查面板手动选择。
+                </p>
+
+                <div className="mb-4">
+                    <label className="text-xs font-semibold text-gray-700 block mb-1">全局提示词</label>
+                    <DebouncedTextArea
+                        value={globalInstruction || ''}
+                        onChange={(val) => updateGlobalInstruction(val)}
+                        placeholder="例如：请始终以简体中文输出，格式严谨..."
+                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 min-h-[60px] resize-y focus:outline-none focus:ring-2 focus:ring-primary-400"
+                        rows={3}
+                    />
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-2 mt-4">
+                <h3 className="text-xs font-semibold text-gray-700">模板列表</h3>
+                {!isCreatingTemplate && (
+                    <button
+                        onClick={() => {
+                            setIsCreatingTemplate(true);
+                            setEditingTemplateId(null);
+                            setFormName('');
+                            setFormPrompt('');
+                            setFormBoundType('none');
+                        }}
+                        className="text-[10px] bg-primary-50 text-primary-600 px-2 py-1 rounded hover:bg-primary-100 flex items-center gap-1 font-medium shadow-sm"
+                    >
+                        <Plus size={10} /> 新建
+                    </button>
+                )}
+            </div>
+
+            <div className="space-y-2">
+                {isCreatingTemplate && (
+                    <div className="border-2 border-primary-400 rounded-lg p-3 bg-primary-50/20 text-xs shadow-sm">
+                        <input
+                            type="text"
+                            placeholder="名称"
+                            value={formName}
+                            onChange={e => setFormName(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 mb-2 focus:ring-2 focus:ring-primary-400"
+                        />
+                        <select
+                            value={formBoundType}
+                            onChange={e => setFormBoundType(e.target.value as any)}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 mb-2 focus:ring-2 focus:ring-primary-400"
+                        >
+                            <option value="none">-- 不绑定 --</option>
+                            {CONTRACT_TYPE_OPTIONS.map(opt => (
+                                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                            ))}
+                        </select>
+                        <textarea
+                            placeholder="提示词内容..."
+                            value={formPrompt}
+                            onChange={e => setFormPrompt(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 min-h-[120px] resize-y focus:ring-2 focus:ring-primary-400 font-mono"
+                        />
+                        <div className="flex justify-end gap-2 mt-3">
+                            <button onClick={() => setIsCreatingTemplate(false)} className="btn-secondary text-xs px-2 py-1">取消</button>
+                            <button
+                                disabled={!formName.trim() || !formPrompt.trim()}
+                                onClick={() => {
+                                    addTemplate(formName.trim(), formPrompt.trim(), formBoundType === 'none' ? undefined : formBoundType);
+                                    setIsCreatingTemplate(false);
+                                }}
+                                className="btn-primary text-xs px-2 py-1"
+                            >保存</button>
+                        </div>
+                    </div>
+                )}
+
+                {reviewTemplates && reviewTemplates.map((template: any) => {
+                    const isEditing = editingTemplateId === template.id;
+                    if (isEditing) {
+                        return (
+                            <div key={template.id} className="border-2 border-primary-400 rounded-lg p-3 bg-primary-50/20 text-xs">
+                                <input
+                                    type="text"
+                                    value={formName}
+                                    disabled={template.isBuiltin}
+                                    onChange={e => setFormName(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1.5 mb-2 disabled:bg-gray-100"
+                                />
+                                <textarea
+                                    value={formPrompt}
+                                    onChange={e => setFormPrompt(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1.5 min-h-[120px] font-mono"
+                                />
+                                <div className="flex justify-end gap-2 mt-2">
+                                    <button onClick={() => setEditingTemplateId(null)} className="btn-secondary text-xs px-2 py-1">取消</button>
+                                    <button
+                                        onClick={() => {
+                                            updateTemplate(template.id, { name: formName, prompt: formPrompt });
+                                            setEditingTemplateId(null);
+                                        }}
+                                        className="btn-primary text-xs px-2 py-1"
+                                    >更新</button>
+                                </div>
+                            </div>
+                        );
+                    }
+                    return (
+                        <div key={template.id} className="border border-gray-200 rounded-lg p-2.5 bg-white group hover:border-primary-300">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-gray-800">{template.name}</span>
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => {
+                                        setEditingTemplateId(template.id);
+                                        setFormName(template.name);
+                                        setFormPrompt(template.prompt);
+                                    }} className="text-gray-400 hover:text-blue-600"><Edit2 size={12} /></button>
+                                    {!template.isBuiltin && <button onClick={() => removeTemplate(template.id)} className="text-gray-400 hover:text-red-600"><Trash2 size={12} /></button>}
+                                </div>
+                            </div>
+                            <pre className="text-[10px] text-gray-500 mt-1 max-h-[40px] overflow-hidden truncate font-mono bg-gray-50 p-1.5 rounded">{template.prompt}</pre>
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+});
+
 // ── MCP 服务器管理子组件 ────────────────────────────────────────────
-function McpSection({ serverUrl }: { serverUrl: string }) {
+const McpSection = memo(({ serverUrl }: { serverUrl: string }) => {
     const [servers, setServers] = useState<McpServerStatus[]>([]);
     const [loading, setLoading] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
@@ -710,5 +740,5 @@ function McpSection({ serverUrl }: { serverUrl: string }) {
             </div>
         </section>
     );
-}
+});
 

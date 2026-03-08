@@ -346,7 +346,7 @@ export class WpsRangeMapper implements IRangeMapper {
                 }
             }
 
-            // ── 策略 5：中段搜索（取中间 30 字符） ──
+            // ── 策略 5：中段搜索（取中间 30 字符，用于前缀/后缀均已改变的重度修改场景） ──
             {
                 const cs = getCleanSearch();
                 if (cs.text.length > 60) {
@@ -356,18 +356,24 @@ export class WpsRangeMapper implements IRangeMapper {
                         const cf = getCleanFull();
                         const midIdx = cf.text.indexOf(midText);
                         if (midIdx !== -1) {
-                            const origMidStart = cf.map[midIdx]!;
-                            const estStart = Math.max(0, origMidStart - midStart);
-                            // 使用归一化映射表精确计算 end
-                            const estEndNormIdx = midIdx - midStart + cs.text.length - 1;
-                            let estEnd: number;
-                            if (estEndNormIdx < cf.map.length) {
-                                estEnd = cf.map[estEndNormIdx]! + 1;
-                            } else {
-                                estEnd = Math.min(fullText!.length, estStart + searchText.length);
+                            // 核心修正：必须在归一化索引平面计算 fullMatchIdx，再查 map。
+                            // 否则在原文档有大量被 clean 掉的字符（如标点）时，物理偏移减去归一化长度会产生漂移。
+                            const fullMatchIdx = midIdx - midStart;
+                            if (fullMatchIdx >= 0 && fullMatchIdx < cf.map.length) {
+                                const estStart = cf.map[fullMatchIdx]!;
+
+                                // 同理计算结束索引
+                                const estEndNormIdx = fullMatchIdx + cs.text.length - 1;
+                                let estEnd: number;
+                                if (estEndNormIdx >= 0 && estEndNormIdx < cf.map.length) {
+                                    estEnd = cf.map[estEndNormIdx]! + 1;
+                                } else {
+                                    estEnd = Math.min(fullText!.length, estStart + searchText.length);
+                                }
+
+                                console.log(`[WPS findRange] 策略5命中 (中段搜索修正版), text: "${searchText.slice(0, 40)}..."`);
+                                return hit({ start: estStart, end: estEnd });
                             }
-                            console.log(`[WPS findRange] 策略5命中 (中段搜索), text: "${searchText.slice(0, 40)}..."`);
-                            return hit({ start: estStart, end: estEnd });
                         }
                     }
                 }

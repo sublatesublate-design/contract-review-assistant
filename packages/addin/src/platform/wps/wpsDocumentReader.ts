@@ -10,18 +10,24 @@ export class WpsDocumentReader implements IDocumentReader {
 
     public async readParagraphs(): Promise<DocumentSection[]> {
         if (!window.wps) throw new Error('WPS JSAPI not available');
-        const app = window.wps.WpsApplication();
-        const paragraphs = app.ActiveDocument.Paragraphs;
-        const count = paragraphs.Count;
-        const sections: DocumentSection[] = [];
 
-        for (let i = 1; i <= count; i++) {
-            const text = paragraphs.Item(i).Range.Text;
-            if (text && text.trim().length > 0) {
+        // 性能关键优化：禁止逐个遍历 paragraphs.Item(i).Range.Text，这在大文档中是灾难性的。
+        // 改为一次性读取全文并按 \r 拆分，这在大文档下快 10-100 倍。
+        const fullText = await this.readFullText();
+        if (!fullText) return [];
+
+        const sections: DocumentSection[] = [];
+        const lines = fullText.split(/\r/);
+
+        for (let i = 0; i < lines.length; i++) {
+            const text = lines[i];
+            if (text === undefined) continue;
+            const trimmed = text.trim();
+            if (trimmed.length > 0) {
                 sections.push({
                     type: 'paragraph',
-                    text: text.trim(),
-                    index: i - 1
+                    text: trimmed,
+                    index: i // 对应 0-based 索引，与原逻辑 i-1 保持一致
                 });
             }
         }

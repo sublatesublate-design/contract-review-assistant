@@ -156,16 +156,22 @@ export class WpsRangeMapper implements IRangeMapper {
      */
     private fastChunkFind(doc: any, searchPattern: string, searchText: string): PlatformRange | null {
         try {
-            // VBA/WPS 原生 Find 支持上限通常为 255 字符，取前 150 即可
-            const probe = searchPattern.substring(0, 150);
-            const searchRange = doc.Content;
+            // 处理 LLM 返回带省略号的原文 (如 "第一条...第三款")
+            const ellipsisMatch = searchPattern.match(/\.{3,}|…+/);
+            const hasEllipsis = !!ellipsisMatch && ellipsisMatch.index! > 5;
 
+            // 探针一定不能包含省略号（否则原生 Find 肯定找不到原文）
+            let probeStr = hasEllipsis ? searchPattern.substring(0, ellipsisMatch.index) : searchPattern;
+            const probe = probeStr.substring(0, 150);
+
+            const searchRange = doc.Content;
             searchRange.Find.ClearFormatting();
             if ((searchRange.Find as any).Execute(probe)) {
                 const chunkStart = searchRange.Start;
 
                 // 取探针命中位置及其后所需长度的一小块 buffer
-                const fetchLen = searchText.length + 500;
+                // 如果有省略号，跳过的原文可能很长，多截取一些；否则截取 searchText.length + 500 足够
+                const fetchLen = hasEllipsis ? 3000 : searchText.length + 500;
                 let chunkEnd: number;
                 try {
                     chunkEnd = Math.min(doc.Content.End || 999999, chunkStart + fetchLen);
@@ -201,6 +207,36 @@ export class WpsRangeMapper implements IRangeMapper {
                 if (rPunct) {
                     console.log(`[WPS findRange] FastChunk极速命中 (Punct)`);
                     return hit(rPunct);
+                }
+
+                // 常规搜索失败时，如果存在省略号，尝试『劈裂搜索策略』找真实结尾
+                if (hasEllipsis) {
+                    const parts = searchText.split(/\.{3,}|…+/);
+                    if (parts.length >= 2) {
+                        const pPrefix = parts[0]?.trim() || '';
+                        const pSuffix = parts[parts.length - 1]?.trim() || ''; // 取最后一段为后缀
+
+                        if (pPrefix.length >= 5 && pSuffix.length >= 5) {
+                            const preNorm = normalizeWithMap(pPrefix, RE_CLEAN_CHAR, true);
+                            const sufNorm = normalizeWithMap(pSuffix, RE_CLEAN_CHAR, true);
+
+                            const matchPre = normIndexOf(normChunk, preNorm);
+                            if (matchPre) {
+                                // 在前缀命中位置之后寻找后缀
+                                const remainText = chunkText.substring(matchPre.end);
+                                const remainNorm = normalizeWithMap(remainText, RE_CLEAN_CHAR, true);
+                                const matchSuf = normIndexOf(remainNorm, sufNorm);
+
+                                if (matchSuf) {
+                                    console.log(`[WPS findRange] FastChunk极速命中 (Ellipsis Split)`);
+                                    return hit({
+                                        start: matchPre.start,
+                                        end: matchPre.end + matchSuf.end // 偏移要在原匹配基础加上
+                                    });
+                                }
+                            }
+                        }
+                    }
                 }
             }
         } catch (e) {

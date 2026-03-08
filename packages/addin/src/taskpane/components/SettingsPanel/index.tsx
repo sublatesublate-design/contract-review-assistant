@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Save, RefreshCw, Eye, EyeOff, Server, Cpu, KeyRound, BookText, Plus, Edit2, Trash2, Check, X, Plug, Unplug, Wrench } from 'lucide-react';
 import clsx from 'clsx';
 import { useSettingsStore } from '../../../store/settingsStore';
-import type { ProviderType, ReviewDepth, ReviewTemplate } from '../../../types/settings';
+import type { AppSettings, ProviderType, ReviewDepth, ReviewTemplate } from '../../../types/settings';
 import { apiClient } from '../../../services/apiClient';
 import type { McpServerStatus, McpServerConfig } from '../../../services/apiClient';
 import { CONTRACT_TYPE_OPTIONS, ContractType, getDefaultTemplatePrompt } from '../../../constants/defaultTemplates';
@@ -27,101 +27,6 @@ const STANDPOINT_OPTIONS: { id: 'neutral' | 'party_a' | 'party_b'; label: string
     { id: 'party_b', label: '乙方视角', description: '聚焦乙方权益保护，防范对乙方过于苛刻的义务' },
 ];
 
-/**
- * 防抖输入框组件：解决 WPS Mac 粘贴长文本触发高频更新导致的界面卡死。
- * 使用局部 state 承接输入，仅在停顿或失去焦点时同步到全局 Store/LocalStorage。
- */
-const DebouncedInput = memo(({
-    value,
-    onChange,
-    placeholder,
-    type = 'text',
-    className,
-    list
-}: {
-    value: string;
-    onChange: (val: string) => void;
-    placeholder?: string;
-    type?: string;
-    className?: string;
-    list?: string;
-}) => {
-    const [localValue, setLocalValue] = useState(value || '');
-
-    // 当外部真正更新（如重置/初始化）时同步局部值
-    useEffect(() => {
-        setLocalValue(value || '');
-    }, [value]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (localValue !== value) {
-                onChange(localValue);
-            }
-        }, 800); // 增加到 800ms，确保粘贴动作完全通过
-        return () => clearTimeout(timer);
-    }, [localValue, onChange, value]);
-
-    return (
-        <input
-            type={type}
-            value={localValue}
-            onChange={(e) => setLocalValue(e.target.value)}
-            onBlur={() => {
-                if (localValue !== value) onChange(localValue);
-            }}
-            placeholder={placeholder}
-            className={className}
-            list={list}
-        />
-    );
-});
-
-/**
- * 防抖文本域组件：同 DebouncedInput，用于长文本提示词。
- */
-const DebouncedTextArea = memo(({
-    value,
-    onChange,
-    placeholder,
-    className,
-    rows = 3
-}: {
-    value: string;
-    onChange: (val: string) => void;
-    placeholder?: string;
-    className?: string;
-    rows?: number;
-}) => {
-    const [localValue, setLocalValue] = useState(value || '');
-
-    useEffect(() => {
-        setLocalValue(value || '');
-    }, [value]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (localValue !== value) {
-                onChange(localValue);
-            }
-        }, 800);
-        return () => clearTimeout(timer);
-    }, [localValue, onChange, value]);
-
-    return (
-        <textarea
-            value={localValue}
-            onChange={(e) => setLocalValue(e.target.value)}
-            onBlur={() => {
-                if (localValue !== value) onChange(localValue);
-            }}
-            placeholder={placeholder}
-            className={className}
-            rows={rows}
-        />
-    );
-});
-
 export default function SettingsPanel() {
     const {
         settings, updateSettings, updateApiKey, addTemplate,
@@ -129,68 +34,115 @@ export default function SettingsPanel() {
         updateGlobalInstruction, resetToDefaults
     } = useSettingsStore();
 
+    // 🏆 V2 核心改进：引入局部草稿状态，彻底解耦输入与持久化 I/O
+    const [draftSettings, setDraftSettings] = useState<Partial<AppSettings>>({});
     const [saved, setSaved] = useState(false);
+
+    // 初始化草稿
+    useEffect(() => {
+        setDraftSettings(settings);
+    }, [settings]);
+
     const handleSave = () => {
+        // 只有在这里点击才会触发 Zustand 的 set(persist) 逻辑，即 localStorage 写入
+        updateSettings(draftSettings as Partial<AppSettings>); // Cast to AppSettings as draftSettings will be complete on save
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     };
+
+    const updateDraft = (patch: Partial<AppSettings>) => {
+        setDraftSettings(prev => ({ ...prev, ...patch }));
+    };
+
+    const updateDraftApiKey = (provider: 'anthropic' | 'openai', key: string) => {
+        setDraftSettings(prev => ({
+            ...prev,
+            apiKeys: { ...(prev.apiKeys || settings.apiKeys), [provider]: key } as any
+        }));
+    };
+
+    // Use draftSettings values if available, otherwise fallback to global settings
+    const currentProvider = draftSettings.provider || settings.provider;
+    const currentApiKeys = draftSettings.apiKeys || settings.apiKeys;
+    const currentModels = draftSettings.models || settings.models;
+    const currentBaseUrl: string = (draftSettings.baseUrl !== undefined ? draftSettings.baseUrl : settings.baseUrl) || '';
+    const currentRemember: boolean = draftSettings.rememberApiKeys !== undefined ? draftSettings.rememberApiKeys : settings.rememberApiKeys;
 
     return (
         <div className="flex flex-col h-full overflow-y-auto">
             <div className="p-3 space-y-4">
                 {/* 拆分为子组件以利用组件化渲染隔离性能 */}
-                <ProviderSection provider={settings.provider} updateSettings={updateSettings} />
+                <ProviderSection
+                    provider={currentProvider}
+                    onChange={(p: ProviderType) => updateDraft({ provider: p })}
+                />
 
-                {settings.provider !== 'ollama' && (
+                {currentProvider !== 'ollama' && (
                     <ApiKeySection
-                        provider={settings.provider}
-                        apiKeys={settings.apiKeys}
-                        models={settings.models}
-                        updateApiKey={updateApiKey}
-                        updateSettings={updateSettings}
-                        rememberApiKeys={settings.rememberApiKeys}
-                        baseUrl={settings.baseUrl}
+                        provider={currentProvider}
+                        apiKeys={currentApiKeys}
+                        models={currentModels}
+                        baseUrl={currentBaseUrl}
+                        rememberApiKeys={currentRemember}
+                        onApiKeyChange={updateDraftApiKey}
+                        onSettingsChange={updateDraft}
                     />
                 )}
 
-                {settings.provider === 'ollama' && (
+                {currentProvider === 'ollama' && (
                     <OllamaSection
-                        ollamaBaseUrl={settings.ollamaBaseUrl}
-                        ollamaModel={settings.models.ollama}
-                        models={settings.models}
+                        ollamaBaseUrl={(draftSettings.ollamaBaseUrl !== undefined ? draftSettings.ollamaBaseUrl : settings.ollamaBaseUrl) || ''}
+                        ollamaModel={currentModels.ollama || ''}
+                        models={currentModels}
                         serverUrl={settings.serverUrl}
-                        updateSettings={updateSettings}
+                        onSettingsChange={updateDraft}
                     />
                 )}
 
-                <DepthSection reviewDepth={settings.reviewDepth} updateSettings={updateSettings} />
+                <DepthSection
+                    reviewDepth={draftSettings.reviewDepth || settings.reviewDepth}
+                    onChange={(d: ReviewDepth) => updateDraft({ reviewDepth: d })}
+                />
 
-                <StandpointSection standpoint={settings.standpoint} updateSettings={updateSettings} />
+                <StandpointSection
+                    standpoint={draftSettings.standpoint || settings.standpoint}
+                    onChange={(s: 'neutral' | 'party_a' | 'party_b') => updateDraft({ standpoint: s })}
+                />
 
                 <TemplateSection
-                    reviewTemplates={settings.reviewTemplates}
-                    globalInstruction={settings.globalInstruction}
+                    reviewTemplates={settings.reviewTemplates} // Templates are managed directly by Zustand actions
+                    globalInstruction={draftSettings.globalInstruction !== undefined ? draftSettings.globalInstruction : settings.globalInstruction}
                     addTemplate={addTemplate}
                     updateTemplate={updateTemplate}
                     removeTemplate={removeTemplate}
                     resetBuiltinTemplate={resetBuiltinTemplate}
-                    updateGlobalInstruction={updateGlobalInstruction}
+                    onGlobalInstructionChange={(val: string) => updateDraft({ globalInstruction: val })}
                 />
 
-                <McpSection serverUrl={settings.serverUrl} />
+                <McpSection serverUrl={settings.serverUrl} /> {/* MCP section does not use draft settings */}
 
-                <ServerSection serverUrl={settings.serverUrl} updateSettings={updateSettings} />
+                <ServerSection
+                    serverUrl={draftSettings.serverUrl !== undefined ? draftSettings.serverUrl : settings.serverUrl}
+                    onChange={(val: string) => updateDraft({ serverUrl: val })}
+                />
 
-                <div className="flex gap-2 pt-2 pb-4">
-                    <button onClick={handleSave} className={clsx('btn-primary flex-1 text-sm flex items-center justify-center gap-1.5', saved && 'bg-emerald-600 hover:bg-emerald-700')}>
-                        <Save size={13} />
-                        {saved ? '已保存 ✓' : '保存设置'}
+                <div className="sticky bottom-0 bg-white pt-2 pb-4 border-t mt-4 flex gap-2">
+                    <button
+                        onClick={handleSave}
+                        className={clsx(
+                            'btn-primary flex-1 text-sm font-semibold py-2.5 flex items-center justify-center gap-2 shadow-md transition-all active:scale-95',
+                            saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-primary-600 hover:bg-primary-700'
+                        )}
+                    >
+                        <Save size={14} />
+                        {saved ? '已保存已同步 ✓' : '保存设置并同步'}
                     </button>
-                    <button onClick={resetToDefaults} className="btn-secondary text-sm flex items-center gap-1.5">
+                    <button onClick={resetToDefaults} className="btn-secondary text-sm px-4 flex items-center gap-1.5 border-gray-200">
                         <RefreshCw size={13} />
                         重置
                     </button>
                 </div>
+                <p className="text-[10px] text-gray-400 text-center italic">修改后请点击“保存”以确保持久化到本地</p>
             </div>
         </div>
     );
@@ -198,7 +150,7 @@ export default function SettingsPanel() {
 
 // ── 子组件拆分 (针对 WPS Mac 渲染性能瓶颈进行隔离) ──────────────────────────
 
-const ProviderSection = memo(({ provider, updateSettings }: any) => (
+const ProviderSection = memo(({ provider, onChange }: { provider: ProviderType; onChange: (p: ProviderType) => void }) => (
     <section>
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">AI 提供商</h2>
         <div className="space-y-1.5">
@@ -216,7 +168,7 @@ const ProviderSection = memo(({ provider, updateSettings }: any) => (
                         type="radio"
                         name="provider"
                         checked={provider === p.id}
-                        onChange={() => updateSettings({ provider: p.id })}
+                        onChange={() => onChange(p.id)}
                         className="mt-0.5 accent-primary-600"
                     />
                     <div>
@@ -229,7 +181,15 @@ const ProviderSection = memo(({ provider, updateSettings }: any) => (
     </section>
 ));
 
-const ApiKeySection = memo(({ provider, apiKeys, models, updateApiKey, updateSettings, rememberApiKeys, baseUrl }: any) => {
+const ApiKeySection = memo(({ provider, apiKeys, models, baseUrl, rememberApiKeys, onApiKeyChange, onSettingsChange }: {
+    provider: ProviderType;
+    apiKeys: { anthropic: string; openai: string };
+    models: { claude: string; openai: string; ollama: string };
+    baseUrl: string;
+    rememberApiKeys: boolean;
+    onApiKeyChange: (provider: 'anthropic' | 'openai', key: string) => void;
+    onSettingsChange: (patch: Partial<AppSettings>) => void;
+}) => {
     const [showKey, setShowKey] = useState(false);
 
     return (
@@ -241,22 +201,22 @@ const ApiKeySection = memo(({ provider, apiKeys, models, updateApiKey, updateSet
                         <div className="space-y-1.5">
                             <label className="text-xs text-gray-600">Anthropic API Key</label>
                             <div className="relative">
-                                <DebouncedInput
+                                <input
                                     type={showKey ? 'text' : 'password'}
-                                    value={apiKeys.anthropic}
-                                    onChange={(val) => updateApiKey('anthropic', val)}
+                                    value={apiKeys.anthropic || ''}
+                                    onChange={(e) => onApiKeyChange('anthropic', e.target.value)}
                                     placeholder="sk-ant-..."
                                     className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-400"
                                 />
-                                <button onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
                                     {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
                                 </button>
                             </div>
                             <div className="mt-2">
                                 <label className="text-xs text-gray-600">模型</label>
-                                <DebouncedInput
-                                    value={models.claude}
-                                    onChange={(val) => updateSettings({ models: { ...models, claude: val } })}
+                                <input
+                                    value={models.claude || ''}
+                                    onChange={(e) => onSettingsChange({ models: { ...models, claude: e.target.value } })}
                                     placeholder="例如：claude-3-7-sonnet-20250219"
                                     list="claude-models-list"
                                     className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
@@ -270,28 +230,28 @@ const ApiKeySection = memo(({ provider, apiKeys, models, updateApiKey, updateSet
                         <div className="space-y-1.5">
                             <label className="text-xs text-gray-600">OpenAI API Key</label>
                             <div className="relative">
-                                <DebouncedInput
+                                <input
                                     type={showKey ? 'text' : 'password'}
-                                    value={apiKeys.openai}
-                                    onChange={(val) => updateApiKey('openai', val)}
+                                    value={apiKeys.openai || ''}
+                                    onChange={(e) => onApiKeyChange('openai', e.target.value)}
                                     placeholder="sk-..."
                                     className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-400"
                                 />
-                                <button onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
                                     {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
                                 </button>
                             </div>
                             <label className="text-xs text-gray-600 mt-2 block">API Base URL（兼容接口）</label>
-                            <DebouncedInput
+                            <input
                                 value={baseUrl || ''}
-                                onChange={(val) => updateSettings({ baseUrl: val })}
+                                onChange={(e) => onSettingsChange({ baseUrl: e.target.value })}
                                 className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
                             />
                             <div className="mt-2">
                                 <label className="text-xs text-gray-600">模型</label>
-                                <DebouncedInput
-                                    value={models.openai}
-                                    onChange={(val) => updateSettings({ models: { ...models, openai: val } })}
+                                <input
+                                    value={models.openai || ''}
+                                    onChange={(e) => onSettingsChange({ models: { ...models, openai: e.target.value } })}
                                     placeholder="例如：gpt-4o 或 deepseek-chat"
                                     list="openai-models-list"
                                     className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
@@ -309,8 +269,8 @@ const ApiKeySection = memo(({ provider, apiKeys, models, updateApiKey, updateSet
                 <input
                     type="checkbox"
                     id="remember-api-key"
-                    checked={rememberApiKeys}
-                    onChange={(e) => updateSettings({ rememberApiKeys: e.target.checked })}
+                    checked={rememberApiKeys || false}
+                    onChange={(e) => onSettingsChange({ rememberApiKeys: e.target.checked })}
                     className="accent-primary-600 w-3.5 h-3.5 cursor-pointer"
                 />
                 <label htmlFor="remember-api-key" className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
@@ -322,7 +282,13 @@ const ApiKeySection = memo(({ provider, apiKeys, models, updateApiKey, updateSet
     );
 });
 
-const OllamaSection = memo(({ ollamaBaseUrl, ollamaModel, models, serverUrl, updateSettings }: any) => {
+const OllamaSection = memo(({ ollamaBaseUrl, ollamaModel, models, serverUrl, onSettingsChange }: {
+    ollamaBaseUrl: string;
+    ollamaModel: string;
+    models: { claude: string; openai: string; ollama: string };
+    serverUrl: string;
+    onSettingsChange: (patch: Partial<AppSettings>) => void;
+}) => {
     const [ollamaModels, setOllamaModels] = useState<string[]>([]);
 
     useEffect(() => {
@@ -337,16 +303,16 @@ const OllamaSection = memo(({ ollamaBaseUrl, ollamaModel, models, serverUrl, upd
                 <Cpu size={12} />Ollama 本地模型
             </h2>
             <label className="text-xs text-gray-600">Ollama 地址</label>
-            <DebouncedInput
-                value={ollamaBaseUrl}
-                onChange={(val) => updateSettings({ ollamaBaseUrl: val })}
+            <input
+                value={ollamaBaseUrl || ''}
+                onChange={(e) => onSettingsChange({ ollamaBaseUrl: e.target.value })}
                 className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
             />
             <div className="mt-2">
                 <label className="text-xs text-gray-600">本地模型</label>
-                <DebouncedInput
-                    value={ollamaModel}
-                    onChange={(val) => updateSettings({ models: { ...models, ollama: val } })}
+                <input
+                    value={ollamaModel || ''}
+                    onChange={(e) => onSettingsChange({ models: { ...models, ollama: e.target.value } })}
                     placeholder="输入模型名称，如 qwen2.5:32b"
                     className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
@@ -355,7 +321,7 @@ const OllamaSection = memo(({ ollamaBaseUrl, ollamaModel, models, serverUrl, upd
     );
 });
 
-const DepthSection = memo(({ reviewDepth, updateSettings }: any) => (
+const DepthSection = memo(({ reviewDepth, onChange }: { reviewDepth: ReviewDepth; onChange: (d: ReviewDepth) => void }) => (
     <section>
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查深度</h2>
         <div className="space-y-1.5">
@@ -370,7 +336,7 @@ const DepthSection = memo(({ reviewDepth, updateSettings }: any) => (
                     <input
                         type="radio"
                         checked={reviewDepth === d.id}
-                        onChange={() => updateSettings({ reviewDepth: d.id })}
+                        onChange={() => onChange(d.id)}
                         className="mt-0.5 accent-primary-600"
                     />
                     <div>
@@ -383,7 +349,7 @@ const DepthSection = memo(({ reviewDepth, updateSettings }: any) => (
     </section>
 ));
 
-const StandpointSection = memo(({ standpoint, updateSettings }: any) => (
+const StandpointSection = memo(({ standpoint, onChange }: { standpoint: 'neutral' | 'party_a' | 'party_b'; onChange: (s: 'neutral' | 'party_a' | 'party_b') => void }) => (
     <section>
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查立场</h2>
         <div className="space-y-1.5">
@@ -398,7 +364,7 @@ const StandpointSection = memo(({ standpoint, updateSettings }: any) => (
                     <input
                         type="radio"
                         checked={standpoint === sp.id}
-                        onChange={() => updateSettings({ standpoint: sp.id })}
+                        onChange={() => onChange(sp.id)}
                         className="mt-0.5 accent-primary-600"
                     />
                     <div>
@@ -411,15 +377,15 @@ const StandpointSection = memo(({ standpoint, updateSettings }: any) => (
     </section>
 ));
 
-const ServerSection = memo(({ serverUrl, updateSettings }: any) => (
+const ServerSection = memo(({ serverUrl, onChange }: { serverUrl: string; onChange: (val: string) => void }) => (
     <section>
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <Server size={12} />后端服务
         </h2>
         <label className="text-xs text-gray-600">服务地址</label>
-        <DebouncedInput
-            value={serverUrl}
-            onChange={(val) => updateSettings({ serverUrl: val })}
+        <input
+            value={serverUrl || ''}
+            onChange={(e) => onChange(e.target.value)}
             className="mt-1 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
         />
     </section>
@@ -428,8 +394,16 @@ const ServerSection = memo(({ serverUrl, updateSettings }: any) => (
 const TemplateSection = memo(({
     reviewTemplates, globalInstruction, addTemplate,
     updateTemplate, removeTemplate, resetBuiltinTemplate,
-    updateGlobalInstruction
-}: any) => {
+    onGlobalInstructionChange
+}: {
+    reviewTemplates: ReviewTemplate[];
+    globalInstruction: string;
+    addTemplate: (name: string, prompt: string, boundType?: ContractType) => void;
+    updateTemplate: (id: string, patch: Partial<ReviewTemplate>) => void;
+    removeTemplate: (id: string) => void;
+    resetBuiltinTemplate: (id: string) => void;
+    onGlobalInstructionChange: (val: string) => void;
+}) => {
     const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
     const [formName, setFormName] = useState('');
@@ -453,9 +427,9 @@ const TemplateSection = memo(({
 
                 <div className="mb-4">
                     <label className="text-xs font-semibold text-gray-700 block mb-1">全局提示词</label>
-                    <DebouncedTextArea
+                    <textarea
                         value={globalInstruction || ''}
-                        onChange={(val) => updateGlobalInstruction(val)}
+                        onChange={(e) => onGlobalInstructionChange(e.target.value)}
                         placeholder="例如：请始终以简体中文输出，格式严谨..."
                         className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 min-h-[60px] resize-y focus:outline-none focus:ring-2 focus:ring-primary-400"
                         rows={3}
@@ -467,6 +441,7 @@ const TemplateSection = memo(({
                 <h3 className="text-xs font-semibold text-gray-700">模板列表</h3>
                 {!isCreatingTemplate && (
                     <button
+                        type="button"
                         onClick={() => {
                             setIsCreatingTemplate(true);
                             setEditingTemplateId(null);

@@ -15,45 +15,29 @@ const RISK_LABEL: Record<ReviewIssue['riskLevel'], string> = {
 };
 
 /**
- * 内存缓存：issue.id → PlatformRange
- * 避免每次操作都重新扫描全文 (findRange 是最耗时的步骤)
- * Key 格式: `${platform}:${issueId}` 以防跨平台串用
+ * 获取 Range。
+ * 废除原有的全局偏移量缓存！
+ * 在 WPS 这类系统里，一旦文档产生插入、删除或格式变动，全文的所有偏移量立刻改变。
+ * 把绝对偏移量(start, end)长时间缓存在内存里，会导致稍后再点击其它条款时选区疯狂漂移。
  */
-const rangeCache = new Map<string, PlatformRange>();
-
-function getCacheKey(adapter: IPlatformAdapter, issueId: string): string {
-    return `${adapter.platform}:${issueId}`;
-}
-
-/** 获取 Range，优先从缓存中取，缓存未命中时调用 findRange 并存入缓存 */
 async function getRange(
     adapter: IPlatformAdapter,
     issue: ReviewIssue,
     overrideText?: string
 ): Promise<PlatformRange | null> {
-    const key = getCacheKey(adapter, issue.id);
-
-    // 只有精确搜索（使用 originalText）时才使用缓存
-    if (!overrideText && rangeCache.has(key)) {
-        return rangeCache.get(key)!;
-    }
-
     const searchText = overrideText ?? issue.originalText;
-    const range = await adapter.rangeMapper.findRange(searchText);
-    if (range && !overrideText) {
-        rangeCache.set(key, range);
-    }
-    return range;
+    return await adapter.rangeMapper.findRange(searchText);
 }
 
-/** 清除某个 Issue 的 Range 缓存（文档内容被修改后需要失效） */
+/** 
+ * 接口保留以兼容老代码调用，但内部已不再需要维护易导致漂移的永久缓存
+ */
 export function invalidateRangeCache(adapter: IPlatformAdapter, issueId: string): void {
-    rangeCache.delete(getCacheKey(adapter, issueId));
+    // No-op
 }
 
-/** 清除所有缓存（切换文档或重新审查时调用） */
 export function clearAllRangeCache(): void {
-    rangeCache.clear();
+    // No-op
 }
 
 /** 在文档中定位到问题原文 */

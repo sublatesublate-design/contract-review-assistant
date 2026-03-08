@@ -136,7 +136,10 @@ export class WpsRangeMapper implements IRangeMapper {
     private _cachedCleanFull: NormResult | null = null;
     private _cachedPunctFull: NormResult | null = null;
     private _cacheTimestamp: number = 0;
-    private static CACHE_TTL_MS = 5000;
+
+    // TTL 缩小至 50ms：只给代码层面的 batch 操作（如 batchApply 循环）提供内存复用，
+    // 绝不跨越任何人工操作或渲染帧缓存旧文档状态，否则会引发严重的选中区漂移。
+    private static CACHE_TTL_MS = 50;
 
     public invalidateCache(): void {
         this._cachedFullText = null;

@@ -49,6 +49,25 @@ interface AnchorPack {
     head: string;
     tail: string;
     mid: string;
+    marker: string;
+}
+
+function extractLeadingMarker(t: string): string {
+    const s = t.replace(/[\r\n]+/g, ' ').trim();
+    if (!s) return '';
+
+    const m = s.match(
+        /^(第[一二三四五六七八九十百千万零〇0-9]+条|[（(]?[0-9一二三四五六七八九十]+[）)]?[、.．]?|[0-9]+[、.．])/,
+    );
+    return (m?.[0] ?? '').replace(/\s+/g, '');
+}
+
+function markerMatchedNearStart(candidateText: string, marker: string): boolean {
+    if (!marker) return true;
+    const c = candidateText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, '');
+    if (!c) return false;
+    const idx = c.indexOf(marker);
+    return idx >= 0 && idx <= 18;
 }
 
 function buildAnchors(targetText: string): AnchorPack {
@@ -61,6 +80,7 @@ function buildAnchors(targetText: string): AnchorPack {
         head: compact.slice(0, anchorLen),
         tail: compact.slice(Math.max(0, compact.length - anchorLen)),
         mid: compact.slice(midStart, midStart + midLen),
+        marker: extractLeadingMarker(targetText),
     };
 }
 
@@ -69,11 +89,13 @@ function hasAnchor(candidateText: string, anchor: string): boolean {
     return compactForCompare(candidateText).includes(anchor);
 }
 
-function calcCoverageScore(candidateText: string, targetText: string): number {
-    const anchors = buildAnchors(targetText);
+function calcCoverageScoreWithAnchors(candidateText: string, targetText: string, anchors: AnchorPack): number {
     const headBonus = hasAnchor(candidateText, anchors.head) ? 1.1 : -0.8;
     const tailBonus = hasAnchor(candidateText, anchors.tail) ? 1.1 : -0.8;
-    return calcTextScore(candidateText, targetText) + headBonus + tailBonus;
+    const markerBonus = anchors.marker
+        ? (markerMatchedNearStart(candidateText, anchors.marker) ? 0.45 : -0.35)
+        : 0;
+    return calcTextScore(candidateText, targetText) + headBonus + tailBonus + markerBonus;
 }
 
 function trimQuery(q: string, maxLen = 255): string {
@@ -114,13 +136,14 @@ async function searchCandidates(
 
 function pickBestCandidate(
     candidates: Word.Range[],
-    targetText: string
+    targetText: string,
+    anchors: AnchorPack
 ): { best: Word.Range | null; score: number } {
     let best: Word.Range | null = null;
     let bestScore = -Infinity;
 
     for (const r of candidates) {
-        const score = calcCoverageScore(r.text || '', targetText);
+        const score = calcCoverageScoreWithAnchors(r.text || '', targetText, anchors);
         if (score > bestScore) {
             bestScore = score;
             best = r;
@@ -129,13 +152,46 @@ function pickBestCandidate(
     return { best, score: bestScore };
 }
 
+interface RangeAcceptancePolicy {
+    minScore: number;
+    minLenRatio: number;
+    requireBothAnchors: boolean;
+    requireMarkerIfPresent: boolean;
+}
+
+interface FinalizedCandidate {
+    range: Word.Range;
+    score: number;
+    accepted: boolean;
+}
+
+function evaluateRangeText(
+    candidateText: string,
+    targetText: string,
+    anchors: AnchorPack
+): {
+    score: number;
+    lenRatio: number;
+    bothAnchors: boolean;
+    markerMatch: boolean;
+} {
+    const score = calcCoverageScoreWithAnchors(candidateText, targetText, anchors);
+    const compactLen = compactForCompare(candidateText).length;
+    const targetLen = Math.max(1, anchors.compact.length);
+    const lenRatio = compactLen / targetLen;
+    const bothAnchors = hasAnchor(candidateText, anchors.head) && hasAnchor(candidateText, anchors.tail);
+    const markerMatch = markerMatchedNearStart(candidateText, anchors.marker);
+    return { score, lenRatio, bothAnchors, markerMatch };
+}
+
 async function ensureCoverageFast(
     context: Word.RequestContext,
     baseRange: Word.Range,
     targetText: string,
-    originalTextLength: number
+    originalTextLength: number,
+    anchorsParam?: AnchorPack
 ): Promise<Word.Range> {
-    const anchors = buildAnchors(targetText);
+    const anchors = anchorsParam ?? buildAnchors(targetText);
     if (anchors.compact.length < 24) return baseRange;
 
     let currentRange = baseRange;
@@ -143,7 +199,7 @@ async function ensureCoverageFast(
     await context.sync();
 
     let bestRange = currentRange;
-    let bestScore = calcCoverageScore(currentRange.text || '', targetText);
+    let bestScore = calcCoverageScoreWithAnchors(currentRange.text || '', targetText, anchors);
     let startPara = currentRange.paragraphs.getFirst();
     let endPara = currentRange.paragraphs.getLast();
 
@@ -159,23 +215,20 @@ async function ensureCoverageFast(
         }
 
         let expanded = false;
-        if (!hasHead) {
-            const prev = startPara.getPreviousOrNullObject();
-            prev.load('isNullObject');
+        const prev = !hasHead ? startPara.getPreviousOrNullObject() : null;
+        const next = !hasTail ? endPara.getNextOrNullObject() : null;
+        if (prev) prev.load('isNullObject');
+        if (next) next.load('isNullObject');
+        if (prev || next) {
             await context.sync();
-            if (!prev.isNullObject) {
-                startPara = prev;
-                expanded = true;
-            }
         }
-        if (!hasTail) {
-            const next = endPara.getNextOrNullObject();
-            next.load('isNullObject');
-            await context.sync();
-            if (!next.isNullObject) {
-                endPara = next;
-                expanded = true;
-            }
+        if (prev && !prev.isNullObject) {
+            startPara = prev;
+            expanded = true;
+        }
+        if (next && !next.isNullObject) {
+            endPara = next;
+            expanded = true;
         }
 
         if (!expanded) break;
@@ -190,7 +243,7 @@ async function ensureCoverageFast(
             break;
         }
 
-        const score = calcCoverageScore(nextText, targetText);
+        const score = calcCoverageScoreWithAnchors(nextText, targetText, anchors);
         if (score > bestScore) {
             bestScore = score;
             bestRange = nextRange;
@@ -201,12 +254,39 @@ async function ensureCoverageFast(
     return bestRange;
 }
 
+async function finalizeCandidate(
+    context: Word.RequestContext,
+    best: Word.Range | null,
+    targetText: string,
+    originalTextLength: number,
+    anchors: AnchorPack,
+    policy: RangeAcceptancePolicy
+): Promise<FinalizedCandidate | null> {
+    if (!best) return null;
+    const covered = await ensureCoverageFast(context, best, targetText, originalTextLength, anchors);
+    covered.load('text');
+    await context.sync();
+
+    const text = covered.text || '';
+    const metrics = evaluateRangeText(text, targetText, anchors);
+    const accepted =
+        metrics.score >= policy.minScore &&
+        metrics.lenRatio >= policy.minLenRatio &&
+        (!policy.requireBothAnchors || metrics.bothAnchors) &&
+        (!policy.requireMarkerIfPresent || !anchors.marker || metrics.markerMatch);
+
+    return {
+        range: covered,
+        score: metrics.score,
+        accepted,
+    };
+}
+
 async function tryAnchorFusion(
     context: Word.RequestContext,
     targetText: string,
-    originalTextLength: number
+    anchors: AnchorPack
 ): Promise<Word.Range | null> {
-    const anchors = buildAnchors(targetText);
     if (anchors.compact.length < 28 || anchors.head.length < 10 || anchors.tail.length < 10) {
         return null;
     }
@@ -245,7 +325,8 @@ async function tryAnchorFusion(
         const lenPenalty =
             Math.abs(compact.length - anchors.compact.length) / Math.max(anchors.compact.length, 1);
         const bothAnchors = hasAnchor(text, anchors.head) && hasAnchor(text, anchors.tail);
-        const score = calcCoverageScore(text, targetText) - lenPenalty * 0.9 + (bothAnchors ? 0.8 : 0);
+        const score =
+            calcCoverageScoreWithAnchors(text, targetText, anchors) - lenPenalty * 0.9 + (bothAnchors ? 0.8 : 0);
 
         if (score > bestScore) {
             bestScore = score;
@@ -254,7 +335,7 @@ async function tryAnchorFusion(
     }
 
     if (!best || bestScore < 0.6) return null;
-    return await ensureCoverageFast(context, best, targetText, originalTextLength);
+    return best;
 }
 
 function makeProbeQueries(cleanText: string, noPunct: string, anchors: AnchorPack): string[] {
@@ -295,19 +376,19 @@ function makeStrictQueries(rawText: string): string[] {
     if (oneLine.length <= 255) {
         queries.push(oneLine);
     } else {
-        queries.push(oneLine.slice(0, 200));
+        queries.push(oneLine.slice(0, 220));
+        queries.push(oneLine.slice(Math.max(0, oneLine.length - 220)));
     }
 
-    if (oneLine.length > 80) {
-        queries.push(oneLine.slice(0, 80));
-        queries.push(oneLine.slice(Math.max(0, oneLine.length - 80)));
+    if (oneLine.length > 180) {
+        queries.push(oneLine.slice(0, 140));
     }
 
     const uniq = new Set<string>();
     const out: string[] = [];
     for (const q of queries) {
         const s = trimQuery(q, 255);
-        if (s.length < 8 || uniq.has(s)) continue;
+        if (s.length < 16 || uniq.has(s)) continue;
         uniq.add(s);
         out.push(s);
     }
@@ -361,47 +442,123 @@ export async function resolveWordRange(
     const cleanText = cleanForSearch(text);
     const noPunct = stripAllPunct(text);
     const originalLen = Math.max(1, text.length);
-    const anchors = buildAnchors(cleanText || text);
+    const targetText = cleanText || text;
+    const anchors = buildAnchors(targetText);
+    const isLongTarget = anchors.compact.length >= 80;
+
+    const strictPolicy: RangeAcceptancePolicy = {
+        minScore: isLongTarget ? 1.1 : 0.7,
+        minLenRatio: isLongTarget ? 0.72 : 0.56,
+        requireBothAnchors: isLongTarget,
+        requireMarkerIfPresent: isLongTarget,
+    };
+    const fuzzyPolicy: RangeAcceptancePolicy = {
+        minScore: isLongTarget ? 0.95 : 0.62,
+        minLenRatio: isLongTarget ? 0.68 : 0.52,
+        requireBothAnchors: isLongTarget,
+        requireMarkerIfPresent: false,
+    };
+    const probePolicy: RangeAcceptancePolicy = {
+        minScore: isLongTarget ? 1.2 : 0.78,
+        minLenRatio: isLongTarget ? 0.76 : 0.56,
+        requireBothAnchors: isLongTarget,
+        requireMarkerIfPresent: isLongTarget,
+    };
+    const fallbackFloor = isLongTarget ? 0.78 : 0.38;
+
+    let bestFallback: FinalizedCandidate | null = null;
 
     // 1) Strict queries first (punctuation/space-sensitive) to reduce wrong clause matches.
     const strictQueries = makeStrictQueries(text);
-    for (const sq of strictQueries.slice(0, 3)) {
+    for (const sq of strictQueries.slice(0, 2)) {
         const strictCandidates = await searchCandidates(context, sq, 6, {
             ignoreSpace: false,
             ignorePunct: false,
         });
         if (strictCandidates.length > 0) {
-            const { best, score } = pickBestCandidate(strictCandidates, cleanText || text);
-            if (best && score > 0.35) {
-                return await ensureCoverageFast(context, best, cleanText || text, originalLen);
+            const { best } = pickBestCandidate(strictCandidates, targetText, anchors);
+            const finalized = await finalizeCandidate(
+                context,
+                best,
+                targetText,
+                originalLen,
+                anchors,
+                strictPolicy
+            );
+            if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
+                bestFallback = finalized;
+            }
+            if (finalized?.accepted) {
+                return finalized.range;
             }
         }
     }
 
     // 2) Full-text fuzzy search when query length is supported.
     if (cleanText.length > 0 && cleanText.length <= 255) {
-        const exactCandidates = await searchCandidates(context, cleanText, 8);
+        const exactCandidates = await searchCandidates(context, cleanText, 6);
         if (exactCandidates.length > 0) {
-            const { best, score } = pickBestCandidate(exactCandidates, cleanText);
-            if (best && score > 0.5) {
-                return await ensureCoverageFast(context, best, cleanText, originalLen);
+            const { best } = pickBestCandidate(exactCandidates, targetText, anchors);
+            const finalized = await finalizeCandidate(
+                context,
+                best,
+                targetText,
+                originalLen,
+                anchors,
+                fuzzyPolicy
+            );
+            if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
+                bestFallback = finalized;
+            }
+            if (finalized?.accepted) {
+                return finalized.range;
             }
         }
     }
 
     // 3) Anchor-fusion search: combine head & tail matches to avoid partial selection.
-    const fused = await tryAnchorFusion(context, cleanText || text, originalLen);
-    if (fused) return fused;
+    const fused = await tryAnchorFusion(context, targetText, anchors);
+    if (fused) {
+        const finalized = await finalizeCandidate(
+            context,
+            fused,
+            targetText,
+            originalLen,
+            anchors,
+            fuzzyPolicy
+        );
+        if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
+            bestFallback = finalized;
+        }
+        if (finalized?.accepted) {
+            return finalized.range;
+        }
+    }
 
     // 4) Probe fallbacks (short list, performance-first).
     const probes = makeProbeQueries(cleanText, noPunct, anchors);
-    for (const probe of probes.slice(0, 4)) {
+    for (const probe of probes.slice(0, 3)) {
         const candidates = await searchCandidates(context, probe, 6);
         if (candidates.length === 0) continue;
-        const { best, score } = pickBestCandidate(candidates, cleanText || text);
-        if (best && score > 0.25) {
-            return await ensureCoverageFast(context, best, cleanText || text, originalLen);
+        const { best } = pickBestCandidate(candidates, targetText, anchors);
+        const finalized = await finalizeCandidate(
+            context,
+            best,
+            targetText,
+            originalLen,
+            anchors,
+            probePolicy
+        );
+        if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
+            bestFallback = finalized;
         }
+        if (finalized?.accepted) {
+            return finalized.range;
+        }
+    }
+
+    if (bestFallback && bestFallback.score >= fallbackFloor) {
+        return bestFallback.range;
     }
 
     // 5) Table fallback (only for explicit table-style text).

@@ -7,6 +7,31 @@ function normalizeForMatch(t: string): string {
     return (t || '').replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9]/g, '');
 }
 
+function safeContains(a: string, b: string): boolean {
+    return a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a));
+}
+
+function hasStrongOverlap(normRange: string, normTarget: string): boolean {
+    if (!normRange || !normTarget) return false;
+    if (safeContains(normRange, normTarget)) return true;
+    if (normTarget.length >= 24) {
+        const edge = Math.min(16, Math.floor(normTarget.length * 0.3));
+        const head = normTarget.slice(0, edge);
+        const tail = normTarget.slice(Math.max(0, normTarget.length - edge));
+        return normRange.includes(head) && normRange.includes(tail);
+    }
+    return false;
+}
+
+function isLikelyTargetRangeText(rangeText: string, originalText: string, suggestedText?: string): boolean {
+    const normRange = normalizeForMatch(rangeText);
+    if (!normRange) return false;
+
+    const normOrig = normalizeForMatch(originalText);
+    const normSugg = normalizeForMatch(suggestedText ?? '');
+    return hasStrongOverlap(normRange, normOrig) || hasStrongOverlap(normRange, normSugg);
+}
+
 function isTypeIncludes(typeValue: unknown, keyword: 'insert' | 'delete'): boolean {
     const s = String(typeValue ?? '').toLowerCase();
     return s.includes(keyword);
@@ -26,8 +51,6 @@ function isRevisionRelevant(
 
     // Empty-text revisions (format/whitespace anchors) around target are still useful to reject.
     if (normRev.length === 0) return true;
-
-    const safeContains = (a: string, b: string) => a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a));
 
     if (isDelete && normOrig) {
         if (normRev === normOrig) return true;
@@ -53,46 +76,14 @@ async function rejectRevisionsInRange(
 
     if (revisions.items.length === 0) return false;
 
-    for (const rev of revisions.items) {
-        (rev as any).load('type');
-        const revRange = (rev as any).range;
-        if (revRange) revRange.load('text');
-    }
+    range.load('text');
     await context.sync();
 
-    const normOrig = normalizeForMatch(originalText);
-    const normSugg = normalizeForMatch(suggestedText ?? '');
-
-    let matchedReject = false;
-    for (let i = revisions.items.length - 1; i >= 0; i--) {
-        const rev = revisions.items[i];
-        if (!rev) continue;
-
-        let revText = '';
-        let revType: unknown = '';
-        try {
-            revText = ((rev as any).range?.text as string) || '';
-            revType = (rev as any).type;
-        } catch {
-            continue;
-        }
-
-        if (isRevisionRelevant(revType, revText, normOrig, normSugg)) {
-            try {
-                rev.reject();
-                matchedReject = true;
-            } catch {
-                // ignore individual failure, keep trying others
-            }
-        }
+    if (!isLikelyTargetRangeText(range.text || '', originalText, suggestedText)) {
+        return false;
     }
 
-    if (matchedReject) {
-        await context.sync();
-        return true;
-    }
-
-    // Fallback: this range has revisions but none matched strongly; reject all in this local scope.
+    // Once local range is deemed reliable, reject all revisions in it to avoid residual marks.
     try {
         revisions.rejectAll();
         await context.sync();
@@ -132,8 +123,6 @@ async function rejectRelevantRevisionsInDocument(
 
     for (const rev of all.items) {
         (rev as any).load('type');
-        const rr = (rev as any).range;
-        if (rr) rr.load('text');
     }
     await context.sync();
 
@@ -141,8 +130,23 @@ async function rejectRelevantRevisionsInDocument(
     const normSugg = normalizeForMatch(suggestedText ?? '');
     let matched = false;
 
-    for (let i = all.items.length - 1; i >= 0; i--) {
-        const rev = all.items[i];
+    const textCandidates: Array<any> = [];
+    for (const rev of all.items) {
+        const revType = (rev as any).type;
+        const isInsert = isTypeIncludes(revType, 'insert') || revType === (Word as any).RevisionType?.insert;
+        const isDelete = isTypeIncludes(revType, 'delete') || revType === (Word as any).RevisionType?.delete;
+        if (!isInsert && !isDelete) continue;
+        const rr = (rev as any).range;
+        if (rr) {
+            rr.load('text');
+            textCandidates.push(rev);
+        }
+    }
+    if (textCandidates.length === 0) return false;
+    await context.sync();
+
+    for (let i = textCandidates.length - 1; i >= 0; i--) {
+        const rev = textCandidates[i];
         if (!rev) continue;
 
         let revText = '';
@@ -172,22 +176,61 @@ async function rejectRelevantRevisionsInDocument(
     return false;
 }
 
-async function buildNeighborExpandedRange(
+async function buildLengthAwareExpandedRange(
     context: Word.RequestContext,
-    wordRange: Word.Range
+    wordRange: Word.Range,
+    originalText: string,
+    suggestedText?: string
 ): Promise<Word.Range | null> {
     try {
-        const firstPara = wordRange.paragraphs.getFirst();
-        const lastPara = wordRange.paragraphs.getLast();
-        const prevPara = firstPara.getPreviousOrNullObject();
-        const nextPara = lastPara.getNextOrNullObject();
-        prevPara.load('isNullObject');
-        nextPara.load('isNullObject');
-        await context.sync();
+        const targetLen = Math.max(
+            normalizeForMatch(originalText).length,
+            normalizeForMatch(suggestedText ?? '').length,
+            1
+        );
+        if (targetLen < 24) return wordRange;
 
-        const start = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
-        const end = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
-        return start.expandTo(end);
+        let current = wordRange;
+        current.load('text');
+        await context.sync();
+        let startPara = current.paragraphs.getFirst();
+        let endPara = current.paragraphs.getLast();
+
+        const maxExpandSteps = 3;
+        for (let step = 0; step < maxExpandSteps; step++) {
+            const currentLen = normalizeForMatch(current.text || '').length;
+            if (currentLen >= Math.floor(targetLen * 0.92)) {
+                break;
+            }
+
+            const prevPara = startPara.getPreviousOrNullObject();
+            const nextPara = endPara.getNextOrNullObject();
+            prevPara.load('isNullObject');
+            nextPara.load('isNullObject');
+            await context.sync();
+
+            if (prevPara.isNullObject && nextPara.isNullObject) {
+                break;
+            }
+            if (!prevPara.isNullObject) {
+                startPara = prevPara;
+            }
+            if (!nextPara.isNullObject) {
+                endPara = nextPara;
+            }
+
+            const expanded = startPara.getRange().expandTo(endPara.getRange());
+            expanded.load('text');
+            await context.sync();
+
+            const expandedLen = normalizeForMatch(expanded.text || '').length;
+            if (expandedLen > Math.max(targetLen * 3 + 120, 260)) {
+                break;
+            }
+            current = expanded;
+        }
+
+        return current;
     } catch {
         return null;
     }
@@ -252,6 +295,8 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                 const originalMode = doc.changeTrackingMode;
 
                 let ok = false;
+                let workingRange: Word.Range | null = null;
+                let localLikely = false;
                 try {
                     // Ensure reverting itself does not create new tracked changes.
                     doc.changeTrackingMode = Word.ChangeTrackingMode.off;
@@ -268,29 +313,50 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                         return ok;
                     }
 
-                    if (await rejectRevisionsInRange(context, wordRange, originalText, suggestedText)) {
-                        ok = true;
+                    workingRange = await buildLengthAwareExpandedRange(
+                        context,
+                        wordRange,
+                        originalText,
+                        suggestedText
+                    );
+                    if (!workingRange) {
+                        workingRange = wordRange;
                     }
 
-                    // One-step local expansion fallback (fast path).
-                    if (!ok) {
-                        const expanded = await buildNeighborExpandedRange(context, wordRange);
-                        if (expanded) {
-                            ok = await rejectRevisionsInRange(
-                                context,
-                                expanded,
-                                originalText,
-                                suggestedText
-                            );
+                    workingRange.load('text');
+                    await context.sync();
+                    localLikely = isLikelyTargetRangeText(
+                        workingRange.text || '',
+                        originalText,
+                        suggestedText
+                    );
+
+                    // Local fast-path: if resolved range is likely the target, revert there first.
+                    if (localLikely) {
+                        ok = await rejectRevisionsInRange(
+                            context,
+                            workingRange,
+                            originalText,
+                            suggestedText
+                        );
+
+                        if (ok) {
+                            await rejectAllRevisionsInRangeSafe(context, workingRange);
+                            workingRange.load('text');
+                            await context.sync();
+                            const normNow = normalizeForMatch(workingRange.text || '');
+                            const normOrig = normalizeForMatch(originalText);
+                            if (normOrig && !hasStrongOverlap(normNow, normOrig)) {
+                                ok = false;
+                            }
                         }
-                    }
 
-                    // Cleanup residual local revision marks after successful match.
-                    if (ok) {
-                        await rejectAllRevisionsInRangeSafe(context, wordRange);
-                        const expanded = await buildNeighborExpandedRange(context, wordRange);
-                        if (expanded) {
-                            await rejectAllRevisionsInRangeSafe(context, expanded);
+                        // If local reject path still cannot fully restore text, hard-reset this verified range.
+                        if (!ok) {
+                            workingRange.insertText(originalText, Word.InsertLocation.replace);
+                            await context.sync();
+                            await rejectAllRevisionsInRangeSafe(context, workingRange);
+                            ok = true;
                         }
                     }
 
@@ -303,22 +369,12 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                         );
                     }
 
-                    // Last fallback: hard reset the resolved range with tracking OFF.
-                    if (!ok) {
-                        wordRange.insertText(originalText, Word.InsertLocation.replace);
+                    // Last local fallback: avoid false-negative by restoring original text in resolved range.
+                    if (!ok && localLikely) {
+                        const fallbackRange = workingRange || wordRange;
+                        fallbackRange.insertText(originalText, Word.InsertLocation.replace);
                         await context.sync();
-
-                        const remained = wordRange.revisions;
-                        remained.load('items');
-                        await context.sync();
-                        if (remained.items.length > 0) {
-                            try {
-                                remained.rejectAll();
-                                await context.sync();
-                            } catch {
-                                // ignore
-                            }
-                        }
+                        await rejectAllRevisionsInRangeSafe(context, fallbackRange);
                         ok = true;
                     }
                 } finally {

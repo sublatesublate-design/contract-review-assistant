@@ -3,6 +3,7 @@ import { FileText, Settings, MessageSquare } from 'lucide-react';
 import ReviewPanel from './components/ReviewPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ChatPanel from './components/ChatPanel';
+import { usePasteShim } from './hooks/usePasteShim';
 
 type TabId = 'review' | 'settings' | 'chat';
 
@@ -26,6 +27,9 @@ const TABS: Tab[] = [
  */
 export default function App() {
     const [activeTab, setActiveTab] = useState<TabId>('review');
+
+    // 🔧 全局粘贴修补：解决 Mac WKWebView/CEF 拦截 Cmd+V 的问题
+    usePasteShim();
 
     return (
         <div className="flex flex-col h-screen bg-gray-50">

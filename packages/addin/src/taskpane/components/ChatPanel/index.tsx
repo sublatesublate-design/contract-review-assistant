@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Send, Trash2, BookOpen, Loader2, Bot, User } from 'lucide-react';
 import clsx from 'clsx';
 import { useChatStore } from '../../../store/chatStore';
@@ -13,7 +13,7 @@ export default function ChatPanel() {
     const { result } = useReviewStore();
     const { settings } = useSettingsStore();
     const platform = usePlatform();
-    const [input, setInput] = useState('');
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     // 自动滚动到底部
@@ -39,10 +39,10 @@ export default function ChatPanel() {
     };
 
     /** 发送消息 */
-    const handleSend = async () => {
-        const text = input.trim();
+    const handleSend = useCallback(async () => {
+        const text = (inputRef.current?.value ?? '').trim();
         if (!text || isStreaming) return;
-        setInput('');
+        if (inputRef.current) inputRef.current.value = '';
 
         addMessage('user', text);
         addMessage('assistant', '');
@@ -81,14 +81,15 @@ export default function ChatPanel() {
             appendToLastMessage(`\n\n[发送失败：${err instanceof Error ? err.message : String(err)}]`);
             finalizeLastMessage();
         }
-    };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isStreaming, session.messages, settings]);
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
         }
-    };
+    }, [handleSend]);
 
     return (
         <div className="flex flex-col h-full">
@@ -169,8 +170,8 @@ export default function ChatPanel() {
             <div className="flex-shrink-0 p-3 border-t border-gray-200 bg-white">
                 <div className="flex gap-2 items-end">
                     <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        ref={inputRef}
+                        defaultValue=""
                         onKeyDown={handleKeyDown}
                         disabled={isStreaming}
                         placeholder="输入问题，Enter 发送，Shift+Enter 换行..."
@@ -179,7 +180,7 @@ export default function ChatPanel() {
                     />
                     <button
                         onClick={handleSend}
-                        disabled={!input.trim() || isStreaming}
+                        disabled={isStreaming}
                         className="btn-primary p-2 flex-shrink-0"
                     >
                         {isStreaming ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}

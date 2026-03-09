@@ -72,14 +72,15 @@ export function createWordCommentManager(): ICommentManager {
             });
         },
 
-        async addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<void> {
-            await Word.run(async (context) => {
+        async addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<boolean[]> {
+            return Word.run(async (context) => {
                 const doc = context.document;
                 doc.load('changeTrackingMode');
                 await context.sync();
                 const originalMode = doc.changeTrackingMode;
                 doc.changeTrackingMode = Word.ChangeTrackingMode.off;
                 await context.sync();
+                const results: boolean[] = [];
 
                 try {
                     for (const { range, text } of comments) {
@@ -87,6 +88,9 @@ export function createWordCommentManager(): ICommentManager {
                         const wordRange = await resolveWordRange(context, ref);
                         if (wordRange) {
                             wordRange.insertComment(text);
+                            results.push(true);
+                        } else {
+                            results.push(false);
                         }
                     }
                     await context.sync();
@@ -94,6 +98,8 @@ export function createWordCommentManager(): ICommentManager {
                     doc.changeTrackingMode = originalMode;
                     await context.sync();
                 }
+
+                return results;
             });
         },
     };

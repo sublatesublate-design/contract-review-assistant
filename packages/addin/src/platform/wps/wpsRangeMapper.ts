@@ -1,18 +1,18 @@
 import type { IRangeMapper, PlatformRange } from '../types';
 /// <reference path="./wps-jsapi.d.ts" />
 
-/* ══════════ 文本归一化工具（与 wordRangeMapper 保持一致） ══════════ */
+/* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 鏂囨湰褰掍竴鍖栧伐鍏凤紙涓?wordRangeMapper 淇濇寔涓€鑷达級 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 */
 
-/** 移除特殊字符，合并空白 */
+/** 绉婚櫎鐗规畩瀛楃锛屽悎骞剁┖鐧?*/
 function cleanForSearch(t: string): string {
     return t
-        .replace(/[*?<>|\\/~「」【】〖〗]/g, '')
+        .replace(/[\*\?<>|\\/~]/g, '')
+        .replace(/[“”‘’「」『』【】]/g, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 }
-
-/** 移除所有中英文标点，只保留 CJK + 字母 + 数字 + 空白 */
+/** 绉婚櫎鎵€鏈変腑鑻辨枃鏍囩偣锛屽彧淇濈暀 CJK + 瀛楁瘝 + 鏁板瓧 + 绌虹櫧 */
 function stripAllPunct(t: string): string {
     return t
         .replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/g, '')
@@ -62,21 +62,19 @@ function hasAnchor(candidateText: string, anchor: string): boolean {
     return compactForCompare(candidateText).includes(anchor);
 }
 
-/* ══════════ 偏移量映射引擎 ══════════ */
+/* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 鍋忕Щ閲忔槧灏勫紩鎿?鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 */
 
 interface NormResult {
     text: string;
-    /** map[i] = 归一化文本第 i 个字符在原文中的索引 */
+    /** map[i] = 褰掍竴鍖栨枃鏈 i 涓瓧绗﹀湪鍘熸枃涓殑绱㈠紩 */
     map: number[];
 }
 
 /**
- * 对文本执行归一化，同时构建 归一化位置 → 原文位置 的映射表。
- *
- * @param text       原始文本
- * @param removeRe   要移除的字符正则（每个字符独立测试）
- * @param keepSpaces true = 折叠空白后保留一个空格；false = 彻底移除所有空白
- */
+ * 瀵规枃鏈墽琛屽綊涓€鍖栵紝鍚屾椂鏋勫缓 褰掍竴鍖栦綅缃?鈫?鍘熸枃浣嶇疆 鐨勬槧灏勮〃銆? *
+ * @param text       鍘熷鏂囨湰
+ * @param removeRe   瑕佺Щ闄ょ殑瀛楃姝ｅ垯锛堟瘡涓瓧绗︾嫭绔嬫祴璇曪級
+ * @param keepSpaces true = 鎶樺彔绌虹櫧鍚庝繚鐣欎竴涓┖鏍硷紱false = 褰诲簳绉婚櫎鎵€鏈夌┖鐧? */
 function normalizeWithMap(
     text: string,
     removeRe: RegExp,
@@ -84,19 +82,18 @@ function normalizeWithMap(
 ): NormResult {
     const result: string[] = [];
     const map: number[] = [];
-    let prevSpace = true; // 初始 true → 自动 trim 首部空白
+    let prevSpace = true; // 鍒濆 true 鈫?鑷姩 trim 棣栭儴绌虹櫧
 
     for (let i = 0; i < text.length; i++) {
         let ch = text.charAt(i);
-        // 换行 → 空格
+        // 鎹㈣ 鈫?绌烘牸
         if (ch === '\r' || ch === '\n') ch = ' ';
-        // 移除命中字符
+        // 绉婚櫎鍛戒腑瀛楃
         if (removeRe.test(ch)) continue;
 
         const isSpace = /\s/.test(ch);
         if (isSpace) {
-            if (!keepSpaces) continue;   // 彻底去空白
-            if (prevSpace) continue;     // 折叠连续空白
+            if (!keepSpaces) continue;   // 褰诲簳鍘荤┖鐧?            if (prevSpace) continue;     // 鎶樺彔杩炵画绌虹櫧
             result.push(' ');
             map.push(i);
             prevSpace = true;
@@ -107,7 +104,7 @@ function normalizeWithMap(
         }
     }
 
-    // trim 尾部空白
+    // trim 灏鹃儴绌虹櫧
     while (result.length > 0 && result[result.length - 1] === ' ') {
         result.pop();
         map.pop();
@@ -116,13 +113,12 @@ function normalizeWithMap(
     return { text: result.join(''), map };
 }
 
-// 预编译单字符正则
-const RE_CLEAN_CHAR = /[*?<>|\\/~「」【】〖〗]/;
+// 棰勭紪璇戝崟瀛楃姝ｅ垯
+const RE_CLEAN_CHAR = /[\\*\\?<>|\\\\/~“”’「」『』【】]/;
 const RE_PUNCT_CHAR = /[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/;
 
 /**
- * 在归一化全文中搜索归一化模式，返回原文 {start, end}。
- */
+ * 鍦ㄥ綊涓€鍖栧叏鏂囦腑鎼滅储褰掍竴鍖栨ā寮忥紝杩斿洖鍘熸枃 {start, end}銆? */
 function normIndexOf(
     fullNorm: NormResult,
     searchNorm: NormResult,
@@ -171,10 +167,7 @@ function normIndexOfNearest(
 }
 
 /**
- * 前缀搜索：在归一化全文中搜索归一化前缀。
- * end 通过在归一化全文映射表中向后延伸 searchNorm 的完整长度来精确计算，
- * 而非使用 originalLen 估算（后者在零宽字符等场景下会偏移）。
- */
+ * 鍓嶇紑鎼滅储锛氬湪褰掍竴鍖栧叏鏂囦腑鎼滅储褰掍竴鍖栧墠缂€銆? * end 閫氳繃鍦ㄥ綊涓€鍖栧叏鏂囨槧灏勮〃涓悜鍚庡欢浼?searchNorm 鐨勫畬鏁撮暱搴︽潵绮剧‘璁＄畻锛? * 鑰岄潪浣跨敤 originalLen 浼扮畻锛堝悗鑰呭湪闆跺瀛楃绛夊満鏅笅浼氬亸绉伙級銆? */
 function normPrefixSearch(
     fullNorm: NormResult,
     searchNorm: NormResult,
@@ -189,35 +182,35 @@ function normPrefixSearch(
     if (idx === -1) return null;
 
     const origStart = fullNorm.map[idx]!;
-    // 用搜索文本的归一化长度来推算 end 在全文映射表中的位置
+    // 鐢ㄦ悳绱㈡枃鏈殑褰掍竴鍖栭暱搴︽潵鎺ㄧ畻 end 鍦ㄥ叏鏂囨槧灏勮〃涓殑浣嶇疆
     const estEndNormIdx = idx + searchNorm.text.length - 1;
     let origEnd: number;
     if (estEndNormIdx < fullNorm.map.length) {
         origEnd = fullNorm.map[estEndNormIdx]! + 1;
     } else {
-        // 超出映射表范围时回退到末尾
+        // Fallback when normalized index is out of bound.
         origEnd = Math.min(origStart + _originalLen, fullTextLen);
     }
     return { start: origStart, end: origEnd };
 }
 
-/* ══════════ WpsRangeMapper ══════════ */
+/* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 WpsRangeMapper 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 */
 
 export class WpsRangeMapper implements IRangeMapper {
     private _cachedFullText: string | null = null;
     private _cachedCleanFull: NormResult | null = null;
     private _cachedPunctFull: NormResult | null = null;
     private _cacheTimestamp: number = 0;
+    private _cachedDocEnd: number | null = null;
 
-    // TTL 缩小至 50ms：只给代码层面的 batch 操作（如 batchApply 循环）提供内存复用，
-    // 绝不跨越任何人工操作或渲染帧缓存旧文档状态，否则会引发严重的选中区漂移。
-    private static CACHE_TTL_MS = 50;
-
+    // Keep cache long enough for batch actions, and pair it with doc length checks plus explicit invalidation.
+    private static CACHE_TTL_MS = 10000;
     public invalidateCache(): void {
         this._cachedFullText = null;
         this._cachedCleanFull = null;
         this._cachedPunctFull = null;
         this._cacheTimestamp = 0;
+        this._cachedDocEnd = null;
     }
 
     private getDocEnd(doc: any): number {
@@ -300,18 +293,16 @@ export class WpsRangeMapper implements IRangeMapper {
     }
 
     /**
-     * 极速切块查找方案：
-     * 不调用极大开销的 doc.Content.Text（全量序列化可能耗时数秒），
-     * 而是利用 WPS 原生 C++ 级的 Find.Execute("探针") 瞬间锁定前缀位置，
-     * 只截取目标及其后几百字的一小块 (Chunk) 拉进 JS 进行精确查找匹配。
-     */
+     * 鏋侀€熷垏鍧楁煡鎵炬柟妗堬細
+     * 涓嶈皟鐢ㄦ瀬澶у紑閿€鐨?doc.Content.Text锛堝叏閲忓簭鍒楀寲鍙兘鑰楁椂鏁扮锛夛紝
+     * 鑰屾槸鍒╃敤 WPS 鍘熺敓 C++ 绾х殑 Find.Execute("鎺㈤拡") 鐬棿閿佸畾鍓嶇紑浣嶇疆锛?     * 鍙埅鍙栫洰鏍囧強鍏跺悗鍑犵櫨瀛楃殑涓€灏忓潡 (Chunk) 鎷夎繘 JS 杩涜绮剧‘鏌ユ壘鍖归厤銆?     */
     private fastChunkFind(doc: any, searchPattern: string, searchText: string): PlatformRange | null {
         try {
-            // 处理 LLM 返回带省略号的原文 (如 "第一条...第三款")
-            const ellipsisMatch = searchPattern.match(/\.{3,}|…+/);
+            // 澶勭悊 LLM 杩斿洖甯︾渷鐣ュ彿鐨勫師鏂?(濡?"绗竴鏉?..绗笁娆?)
+            const ellipsisMatch = searchPattern.match(/\.{3,}|\u2026+/);
             const hasEllipsis = !!ellipsisMatch && ellipsisMatch.index! > 5;
 
-            // 探针一定不能包含省略号（否则原生 Find 肯定找不到原文）
+            // 鎺㈤拡涓€瀹氫笉鑳藉寘鍚渷鐣ュ彿锛堝惁鍒欏師鐢?Find 鑲畾鎵句笉鍒板師鏂囷級
             let probeStr = hasEllipsis ? searchPattern.substring(0, ellipsisMatch.index) : searchPattern;
             const probe = probeStr.substring(0, 150);
 
@@ -320,8 +311,8 @@ export class WpsRangeMapper implements IRangeMapper {
             if ((searchRange.Find as any).Execute(probe)) {
                 const chunkStart = searchRange.Start;
 
-                // 取探针命中位置及其后所需长度的一小块 buffer
-                // 如果有省略号，跳过的原文可能很长，多截取一些；否则截取 searchText.length + 500 足够
+                // 鍙栨帰閽堝懡涓綅缃強鍏跺悗鎵€闇€闀垮害鐨勪竴灏忓潡 buffer
+                // 濡傛灉鏈夌渷鐣ュ彿锛岃烦杩囩殑鍘熸枃鍙兘寰堥暱锛屽鎴彇涓€浜涳紱鍚﹀垯鎴彇 searchText.length + 500 瓒冲
                 const fetchLen = hasEllipsis ? 3000 : searchText.length + 500;
                 let chunkEnd: number;
                 try {
@@ -337,10 +328,9 @@ export class WpsRangeMapper implements IRangeMapper {
                 const hit = (r: { start: number; end: number }): PlatformRange =>
                     ({ _internal: { start: chunkStart + r.start, end: chunkStart + r.end }, _platform: 'wps' });
 
-                // 在这块极小的文本里执行三层退化搜索
                 const exactIdx = chunkText.indexOf(searchPattern);
                 if (exactIdx !== -1) {
-                    console.log(`[WPS findRange] FastChunk极速命中 (Exact)`);
+                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Exact)`);
                     return hit({ start: exactIdx, end: exactIdx + searchPattern.length });
                 }
 
@@ -348,7 +338,7 @@ export class WpsRangeMapper implements IRangeMapper {
                 const normSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true);
                 const rClean = normIndexOf(normChunk, normSearch);
                 if (rClean) {
-                    console.log(`[WPS findRange] FastChunk极速命中 (Clean)`);
+                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Clean)`);
                     return hit(rClean);
                 }
 
@@ -356,16 +346,16 @@ export class WpsRangeMapper implements IRangeMapper {
                 const punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true);
                 const rPunct = normIndexOf(punctChunk, punctSearch);
                 if (rPunct) {
-                    console.log(`[WPS findRange] FastChunk极速命中 (Punct)`);
+                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Punct)`);
                     return hit(rPunct);
                 }
 
-                // 常规搜索失败时，如果存在省略号，尝试『劈裂搜索策略』找真实结尾
+                // 甯歌鎼滅储澶辫触鏃讹紝濡傛灉瀛樺湪鐪佺暐鍙凤紝灏濊瘯銆庡妶瑁傛悳绱㈢瓥鐣ャ€忔壘鐪熷疄缁撳熬
                 if (hasEllipsis) {
-                    const parts = searchText.split(/\.{3,}|…+/);
+                    const parts = searchText.split(/\.{3,}|\u2026+/);
                     if (parts.length >= 2) {
                         const pPrefix = parts[0]?.trim() || '';
-                        const pSuffix = parts[parts.length - 1]?.trim() || ''; // 取最后一段为后缀
+                        const pSuffix = parts[parts.length - 1]?.trim() || ''; // 鍙栨渶鍚庝竴娈典负鍚庣紑
 
                         if (pPrefix.length >= 5 && pSuffix.length >= 5) {
                             const preNorm = normalizeWithMap(pPrefix, RE_CLEAN_CHAR, true);
@@ -373,16 +363,16 @@ export class WpsRangeMapper implements IRangeMapper {
 
                             const matchPre = normIndexOf(normChunk, preNorm);
                             if (matchPre) {
-                                // 在前缀命中位置之后寻找后缀
+                                // 鍦ㄥ墠缂€鍛戒腑浣嶇疆涔嬪悗瀵绘壘鍚庣紑
                                 const remainText = chunkText.substring(matchPre.end);
                                 const remainNorm = normalizeWithMap(remainText, RE_CLEAN_CHAR, true);
                                 const matchSuf = normIndexOf(remainNorm, sufNorm);
 
                                 if (matchSuf) {
-                                    console.log(`[WPS findRange] FastChunk极速命中 (Ellipsis Split)`);
+                                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Ellipsis Split)`);
                                     return hit({
                                         start: matchPre.start,
-                                        end: matchPre.end + matchSuf.end // 偏移要在原匹配基础加上
+                                        end: matchPre.end + matchSuf.end // 鍋忕Щ瑕佸湪鍘熷尮閰嶅熀纭€鍔犱笂
                                     });
                                 }
                             }
@@ -391,23 +381,28 @@ export class WpsRangeMapper implements IRangeMapper {
                 }
             }
         } catch (e) {
-            console.warn('[WPS findRange] fastChunkFind 极速模式失败, 回退全文档扫描', e);
+            console.warn('[WPS findRange] fastChunkFind failed, fallback to full-scan.', e);
         }
         return null;
     }
 
     private getFullText(doc: any): string {
         const now = Date.now();
-        if (this._cachedFullText && (now - this._cacheTimestamp) < WpsRangeMapper.CACHE_TTL_MS) {
+        const docEnd = this.getDocEnd(doc);
+        const isCacheFresh = (now - this._cacheTimestamp) < WpsRangeMapper.CACHE_TTL_MS;
+        const isDocLengthStable = this._cachedDocEnd !== null && this._cachedDocEnd === docEnd;
+
+        if (this._cachedFullText && isCacheFresh && isDocLengthStable) {
             return this._cachedFullText;
         }
+
         this._cachedFullText = doc.Content.Text || '';
         this._cacheTimestamp = now;
+        this._cachedDocEnd = docEnd;
         this._cachedCleanFull = null;
         this._cachedPunctFull = null;
         return this._cachedFullText as string;
     }
-
     public async findRange(originalText: string): Promise<PlatformRange | null> {
         if (!window.wps) return null;
         const app = window.wps.WpsApplication() as any;
@@ -418,7 +413,7 @@ export class WpsRangeMapper implements IRangeMapper {
         const searchPattern = searchText.replace(/\r?\n/g, '\r');
 
         try {
-            // 🔥 第一道防线：极速切块查找（无须跨 COM 传输全量文档，耗时 <0.1秒）
+            // 馃敟 绗竴閬撻槻绾匡細鏋侀€熷垏鍧楁煡鎵撅紙鏃犻』璺?COM 浼犺緭鍏ㄩ噺鏂囨。锛岃€楁椂 <0.1绉掞級
             const fastRes = this.fastChunkFind(doc, searchPattern, searchText);
             if (fastRes) {
                 const info = fastRes._internal as { start: number; end: number };
@@ -426,14 +421,14 @@ export class WpsRangeMapper implements IRangeMapper {
                 return { _internal: refined, _platform: 'wps' };
             }
 
-            // 🐢 第二道防线：兜底的全局全量扫描（将传输数百 KB 到数十 MB 的全文档文本给 JS，很慢）
+            // 馃悽 绗簩閬撻槻绾匡細鍏滃簳鐨勫叏灞€鍏ㄩ噺鎵弿锛堝皢浼犺緭鏁扮櫨 KB 鍒版暟鍗?MB 鐨勫叏鏂囨。鏂囨湰缁?JS锛屽緢鎱級
             const fullText: string = this.getFullText(doc);
             if (!fullText) {
-                console.warn('[WPS findRange] 文档内容为空');
+                console.warn('[WPS findRange] 鏂囨。鍐呭涓虹┖');
                 return null;
             }
 
-            /* ── 惰性归一化缓存（避免对整篇文档重复处理） ── */
+            /* 鈹€鈹€ 鎯版€у綊涓€鍖栫紦瀛橈紙閬垮厤瀵规暣绡囨枃妗ｉ噸澶嶅鐞嗭級 鈹€鈹€ */
             let _cleanSearch: NormResult | undefined;
             let _punctSearch: NormResult | undefined;
 
@@ -447,7 +442,7 @@ export class WpsRangeMapper implements IRangeMapper {
                 return { _internal: refined, _platform: 'wps' };
             };
 
-            // ── 策略 1：原文精确 indexOf ──
+            // 鈹€鈹€ 绛栫暐 1锛氬師鏂囩簿纭?indexOf 鈹€鈹€
             {
                 const idx = fullText.indexOf(searchPattern);
                 if (idx !== -1) {
@@ -455,55 +450,53 @@ export class WpsRangeMapper implements IRangeMapper {
                 }
             }
 
-            // ── 策略 2：cleanForSearch 归一化 indexOf ──
+            // 鈹€鈹€ 绛栫暐 2锛歝leanForSearch 褰掍竴鍖?indexOf 鈹€鈹€
             {
                 const r = normIndexOf(getCleanFull(), getCleanSearch());
                 if (r) {
-                    console.log(`[WPS findRange] 策略2命中 (cleanForSearch), text: "${searchText.slice(0, 40)}..."`);
+                    console.log(`[WPS findRange] 绛栫暐2鍛戒腑 (cleanForSearch), text: "${searchText.slice(0, 40)}..."`);
                     return hit(r);
                 }
             }
 
-            // ── 策略 3：stripAllPunct 去标点 indexOf ──
+            // 鈹€鈹€ 绛栫暐 3锛歴tripAllPunct 鍘绘爣鐐?indexOf 鈹€鈹€
             {
                 const r = normIndexOf(getPunctFull(), getPunctSearch());
                 if (r) {
-                    console.log(`[WPS findRange] 策略3命中 (stripAllPunct), text: "${searchText.slice(0, 40)}..."`);
+                    console.log(`[WPS findRange] 绛栫暐3鍛戒腑 (stripAllPunct), text: "${searchText.slice(0, 40)}..."`);
                     return hit(r);
                 }
             }
 
-            // ── 策略 4：前缀递减 fallback (80 → 50 → 30 → 20) ──
+            // 鈹€鈹€ 绛栫暐 4锛氬墠缂€閫掑噺 fallback (80 鈫?50 鈫?30 鈫?20) 鈹€鈹€
             for (const prefixLen of [80, 50, 30, 20]) {
-                // 原来的 4a (原始前缀 indexOf) 被移除，因为它在截断后极易发生错配（例如匹配到第一条的 "1、"）
-                // 仅保留基于归一化文档树的 4b 和 4c，它们更严谨并且包含原有的位置信息映射计算
-
-                // 4b: cleanForSearch 前缀
+                // 鍘熸潵鐨?4a (鍘熷鍓嶇紑 indexOf) 琚Щ闄わ紝鍥犱负瀹冨湪鎴柇鍚庢瀬鏄撳彂鐢熼敊閰嶏紙渚嬪鍖归厤鍒扮涓€鏉＄殑 "1銆?锛?                // 浠呬繚鐣欏熀浜庡綊涓€鍖栨枃妗ｆ爲鐨?4b 鍜?4c锛屽畠浠洿涓ヨ皑骞朵笖鍖呭惈鍘熸湁鐨勪綅缃俊鎭槧灏勮绠?
+                // 4b: cleanForSearch 鍓嶇紑
                 {
                     const r = normPrefixSearch(
                         getCleanFull(), getCleanSearch(),
                         prefixLen, searchText.length, fullText.length,
                     );
                     if (r) {
-                        console.log(`[WPS findRange] 策略4b命中 (clean前缀${prefixLen}), text: "${searchText.slice(0, 40)}..."`);
+                        console.log(`[WPS findRange] 绛栫暐4b鍛戒腑 (clean鍓嶇紑${prefixLen}), text: "${searchText.slice(0, 40)}..."`);
                         return hit(r);
                     }
                 }
 
-                // 4c: stripAllPunct 前缀
+                // 4c: stripAllPunct 鍓嶇紑
                 {
                     const r = normPrefixSearch(
                         getPunctFull(), getPunctSearch(),
                         prefixLen, searchText.length, fullText.length,
                     );
                     if (r) {
-                        console.log(`[WPS findRange] 策略4c命中 (noPunct前缀${prefixLen}), text: "${searchText.slice(0, 40)}..."`);
+                        console.log(`[WPS findRange] 绛栫暐4c鍛戒腑 (noPunct鍓嶇紑${prefixLen}), text: "${searchText.slice(0, 40)}..."`);
                         return hit(r);
                     }
                 }
             }
 
-            // ── 策略 5：中段搜索（取中间 30 字符，用于前缀/后缀均已改变的重度修改场景） ──
+            // 鈹€鈹€ 绛栫暐 5锛氫腑娈垫悳绱紙鍙栦腑闂?30 瀛楃锛岀敤浜庡墠缂€/鍚庣紑鍧囧凡鏀瑰彉鐨勯噸搴︿慨鏀瑰満鏅級 鈹€鈹€
             {
                 const cs = getCleanSearch();
                 if (cs.text.length > 60) {
@@ -513,13 +506,12 @@ export class WpsRangeMapper implements IRangeMapper {
                         const cf = getCleanFull();
                         const midIdx = cf.text.indexOf(midText);
                         if (midIdx !== -1) {
-                            // 核心修正：必须在归一化索引平面计算 fullMatchIdx，再查 map。
-                            // 否则在原文档有大量被 clean 掉的字符（如标点）时，物理偏移减去归一化长度会产生漂移。
+                            // Calculate match index in normalized coordinate, then map back to original text.
                             const fullMatchIdx = midIdx - midStart;
                             if (fullMatchIdx >= 0 && fullMatchIdx < cf.map.length) {
                                 const estStart = cf.map[fullMatchIdx]!;
 
-                                // 同理计算结束索引
+                                // 鍚岀悊璁＄畻缁撴潫绱㈠紩
                                 const estEndNormIdx = fullMatchIdx + cs.text.length - 1;
                                 let estEnd: number;
                                 if (estEndNormIdx >= 0 && estEndNormIdx < cf.map.length) {
@@ -528,7 +520,7 @@ export class WpsRangeMapper implements IRangeMapper {
                                     estEnd = Math.min(fullText!.length, estStart + searchText.length);
                                 }
 
-                                console.log(`[WPS findRange] 策略5命中 (中段搜索修正版), text: "${searchText.slice(0, 40)}..."`);
+                                console.log(`[WPS findRange] strategy5 hit, text: "${searchText.slice(0, 40)}..."`);
                                 return hit({ start: estStart, end: estEnd });
                             }
                         }
@@ -536,24 +528,30 @@ export class WpsRangeMapper implements IRangeMapper {
                 }
             }
 
-            // ── 策略 6：API Find.Execute 兜底 ──
+            // 鈹€鈹€ 绛栫暐 6锛欰PI Find.Execute 鍏滃簳 鈹€鈹€
             if (searchText.length <= 200) {
                 try {
                     const searchRange = doc.Content;
                     if ((searchRange.Find as any).Execute(searchText)) {
-                        console.log(`[WPS findRange] 策略6命中 (Find.Execute), text: "${searchText.slice(0, 40)}..."`);
+                        console.log(`[WPS findRange] 绛栫暐6鍛戒腑 (Find.Execute), text: "${searchText.slice(0, 40)}..."`);
                         return hit({ start: searchRange.Start, end: searchRange.End });
                     }
-                } catch { /* Find.Execute 不可用 */ }
+                } catch { /* Find.Execute 涓嶅彲鐢?*/ }
             }
 
             console.warn(
-                `[WPS findRange] 全部 6 个策略均失败, text: "${searchText.slice(0, 60)}${searchText.length > 60 ? '...' : ''}"`,
+                `[WPS findRange] 鍏ㄩ儴 6 涓瓥鐣ュ潎澶辫触, text: "${searchText.slice(0, 60)}${searchText.length > 60 ? '...' : ''}"`,
             );
         } catch (err) {
-            console.error('[WPS findRange] 异常:', err);
+            console.error('[WPS findRange] 寮傚父:', err);
         }
 
         return null;
     }
 }
+
+
+
+
+
+

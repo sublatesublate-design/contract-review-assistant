@@ -43,13 +43,16 @@ export interface IRangeMapper {
 /** 批注管理 */
 export interface ICommentManager {
     addComment(range: PlatformRange, commentText: string): Promise<void>;
-    addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<void>;
+    addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<boolean[]>;
     removeComment(range: PlatformRange, commentText: string): Promise<void>;
 }
 
 /** 修订追踪 */
 export interface ITrackChangesManager {
     applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void>;
+    applyBatchSuggestedEdits?(
+        edits: Array<{ range: PlatformRange; suggestedText: string }>
+    ): Promise<boolean[]>;
     insertAfterRange(range: PlatformRange, suggestedText: string): Promise<void>;
     revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void>;
 }

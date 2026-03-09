@@ -15,6 +15,8 @@ import type {
 import type { ReviewResult } from '../../types/review';
 import type { ContractSummary } from '../../types/summary';
 
+const MOCK_TEXT = `租赁合同\n甲方（出租方）：Mock Company A\n乙方（承租方）：Mock Company B\n\n1. 租赁期限为100年。\n2. 乙方如违约，需赔偿甲方一千万元人民币。`;
+
 export class MockAdapter implements IPlatformAdapter {
     platform: PlatformType = 'unknown';
 
@@ -29,82 +31,90 @@ export class MockAdapter implements IPlatformAdapter {
 
     documentReader: IDocumentReader = {
         async readFullText() {
-            return "租 赁 合 同\n甲方（出租方）：Mock Company A\n乙方（承租方）：Mock Company B\n\n1. 租赁期限为100年。\n2. 乙方如违约，需赔偿甲方一千万元人民币。本款为不可撤销条款。";
+            return MOCK_TEXT;
         },
         async readParagraphs() {
-            return [
-                { type: 'paragraph', text: "租 赁 合 同", index: 0 },
-                { type: 'paragraph', text: "甲方（出租方）：Mock Company A", index: 1 },
-                { type: 'paragraph', text: "乙方（承租方）：Mock Company B", index: 2 },
-                { type: 'paragraph', text: "1. 租赁期限为100年。", index: 3 },
-                { type: 'paragraph', text: "2. 乙方如违约，需赔偿甲方一千万元人民币。本款为不可撤销条款。", index: 4 }
-            ];
+            const lines = MOCK_TEXT.split(/\n/);
+            const sections: DocumentSection[] = [];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (!line) continue;
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                sections.push({ type: 'paragraph', text: trimmed, index: i });
+            }
+            return sections;
         },
         async readStructured() {
             return this.readParagraphs();
         },
         async getWordCount() {
-            return 100;
+            return MOCK_TEXT.replace(/\s+/g, '').length;
         },
         async readSelection() {
-            return "2. 乙方如违约，需赔偿甲方一千万元人民币。本款为不可撤销条款。";
+            return '2. 乙方如违约，需赔偿甲方一千万元人民币。';
         }
     };
 
     rangeMapper: IRangeMapper = {
         async findRange(originalText) {
             console.log('[MockAdapter] findRange:', originalText);
-            return { _internal: 'mock_range', _platform: 'unknown' };
+            return { _internal: { start: 0, end: 1 }, _platform: 'unknown' } as PlatformRange;
         }
     };
 
     commentManager: ICommentManager = {
-        async addComment(range, text) {
+        async addComment(_range, text) {
             console.log('[MockAdapter] addComment:', text);
         },
         async addBatchComments(comments) {
             console.log('[MockAdapter] addBatchComments:', comments.length, 'comments');
+            return comments.map(() => true);
         },
-        async removeComment(range, text) {
+        async removeComment(_range, text) {
             console.log('[MockAdapter] removeComment:', text);
         }
     };
 
     trackChangesManager: ITrackChangesManager = {
-        async applySuggestedEdit(range, suggestedText) {
+        async applySuggestedEdit(_range, suggestedText) {
             console.log('[MockAdapter] applySuggestedEdit:', suggestedText);
-            // 这里可以加一个延迟动画模拟
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 120));
         },
-        async insertAfterRange(range, suggestedText) {
+        async applyBatchSuggestedEdits(edits) {
+            console.log('[MockAdapter] applyBatchSuggestedEdits:', edits.length, 'edits');
+            await new Promise((r) => setTimeout(r, 120));
+            return edits.map(() => true);
+        },
+        async insertAfterRange(_range, suggestedText) {
             console.log('[MockAdapter] insertAfterRange:', suggestedText);
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 120));
         },
-        async revertEdit(range, originalText, suggestedText) {
+        async revertEdit(_range, originalText, _suggestedText) {
             console.log('[MockAdapter] revertEdit:', originalText);
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 120));
         }
     };
 
     navigationHelper: INavigationHelper = {
-        async navigateToRange(range) {
+        async navigateToRange(_range) {
             console.log('[MockAdapter] navigateToRange');
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise((r) => setTimeout(r, 80));
         },
-        async highlightRange(range, color) {
+        async highlightRange(_range, color) {
             console.log('[MockAdapter] highlightRange color:', color);
         },
-        async clearHighlight(range) {
+        async clearHighlight(_range) {
             console.log('[MockAdapter] clearHighlight');
         },
-        async navigateAndHighlight(range) {
+        async navigateAndHighlight(_range) {
             console.log('[MockAdapter] navigateAndHighlight');
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 80));
         }
     };
 
     reportGenerator: IReportGenerator = {
-        async generateReport(result, summary, contractTypeLabel) {
+        async generateReport(_result: ReviewResult, _summary: ContractSummary | null, _contractTypeLabel?: string) {
             console.log('[MockAdapter] generateReport');
         }
     };
@@ -112,7 +122,7 @@ export class MockAdapter implements IPlatformAdapter {
     clauseInserter: IClauseInserter = {
         async insertTextAtSelection(content) {
             console.log('[MockAdapter] insertTextAtSelection:', content);
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 120));
         }
     };
 }

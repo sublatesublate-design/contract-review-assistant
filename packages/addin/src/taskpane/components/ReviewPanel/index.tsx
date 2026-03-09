@@ -136,7 +136,7 @@ export default function ReviewPanel() {
 
     /** 全文审查 */
     const handleStartReview = useCallback(async () => {
-        clearAllRangeCache();
+        clearAllRangeCache(platform);
         reset();
         isNewReview.current = false;
         setSelectionMode(false);
@@ -157,7 +157,7 @@ export default function ReviewPanel() {
 
     /** 局部审查（选中段落） */
     const handleSelectionReview = useCallback(async () => {
-        clearAllRangeCache();
+        clearAllRangeCache(platform);
         reset();
         isNewReview.current = false;
         setSelectionMode(true);

@@ -13,10 +13,17 @@ export class WpsCommentManager implements ICommentManager {
         doc.Comments.Add(r, commentText);
     }
 
-    public async addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<void> {
+    public async addBatchComments(comments: Array<{ range: PlatformRange; text: string }>): Promise<boolean[]> {
+        const results: boolean[] = [];
         for (const c of comments) {
-            await this.addComment(c.range, c.text);
+            try {
+                await this.addComment(c.range, c.text);
+                results.push(true);
+            } catch {
+                results.push(false);
+            }
         }
+        return results;
     }
 
     public async removeComment(range: PlatformRange, commentText: string): Promise<void> {

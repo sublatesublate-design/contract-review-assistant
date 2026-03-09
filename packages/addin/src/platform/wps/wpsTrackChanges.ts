@@ -19,6 +19,38 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
         }
     }
 
+    public async applyBatchSuggestedEdits(
+        edits: Array<{ range: PlatformRange; suggestedText: string }>
+    ): Promise<boolean[]> {
+        if (!window.wps) return edits.map(() => false);
+        const app = window.wps.WpsApplication() as any;
+        const doc = app.ActiveDocument;
+        const originalTrackMode = doc.TrackRevisions;
+        const results: boolean[] = [];
+
+        try {
+            doc.TrackRevisions = true;
+            for (const edit of edits) {
+                if (edit.range._platform !== 'wps') {
+                    results.push(false);
+                    continue;
+                }
+                try {
+                    const info = edit.range._internal as { start: number; end: number };
+                    const r = doc.Range(info.start, info.end);
+                    r.Text = edit.suggestedText;
+                    results.push(true);
+                } catch {
+                    results.push(false);
+                }
+            }
+        } finally {
+            doc.TrackRevisions = originalTrackMode;
+        }
+
+        return results;
+    }
+
     public async insertAfterRange(range: PlatformRange, suggestedText: string): Promise<void> {
         if (!window.wps || range._platform !== 'wps') return;
         const app = window.wps.WpsApplication() as any;

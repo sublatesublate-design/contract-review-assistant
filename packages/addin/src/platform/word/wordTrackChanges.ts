@@ -275,16 +275,55 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
 
                 try {
                     doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
-                    await context.sync();
                     wordRange.insertText(suggestedText, Word.InsertLocation.replace);
-                    await context.sync();
-                } finally {
                     doc.changeTrackingMode = originalMode;
                     await context.sync();
+                } catch (err) {
+                    doc.changeTrackingMode = originalMode;
+                    await context.sync();
+                    throw err;
                 }
             });
         },
 
+        async applyBatchSuggestedEdits(
+            edits: Array<{ range: PlatformRange; suggestedText: string }>
+        ): Promise<boolean[]> {
+            return Word.run(async (context) => {
+                const doc = context.document;
+                doc.load('changeTrackingMode');
+                await context.sync();
+                const originalMode = doc.changeTrackingMode;
+                const results: boolean[] = [];
+
+                try {
+                    doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
+                    await context.sync();
+
+                    for (const edit of edits) {
+                        const ref = edit.range._internal as WordRangeRef;
+                        const wordRange = await resolveWordRange(context, ref);
+                        if (!wordRange) {
+                            results.push(false);
+                            continue;
+                        }
+
+                        try {
+                            wordRange.insertText(edit.suggestedText, Word.InsertLocation.replace);
+                            await context.sync();
+                            results.push(true);
+                        } catch {
+                            results.push(false);
+                        }
+                    }
+                } finally {
+                    doc.changeTrackingMode = originalMode;
+                    await context.sync();
+                }
+
+                return results;
+            });
+        },
         async insertAfterRange(range: PlatformRange, suggestedText: string): Promise<void> {
             const ref = range._internal as WordRangeRef;
             await Word.run(async (context) => {
@@ -298,16 +337,16 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
 
                 try {
                     doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
-                    await context.sync();
                     wordRange.insertText('\n' + suggestedText, Word.InsertLocation.after);
-                    await context.sync();
-                } finally {
                     doc.changeTrackingMode = originalMode;
                     await context.sync();
+                } catch (err) {
+                    doc.changeTrackingMode = originalMode;
+                    await context.sync();
+                    throw err;
                 }
             });
         },
-
         async revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void> {
             const ref = range._internal as WordRangeRef;
 

@@ -6,11 +6,12 @@ import { useEffect } from 'react';
  * Goals:
  * 1) Keep paste inside the focused input/editor in the taskpane.
  * 2) Support remote-control keyboards (Ctrl+V sent to mac host).
- * 3) Avoid taskpane freeze from paste-time exceptions.
+ * 3) Keep context-menu paste on native path to reduce WPS freeze risk.
  */
 export function usePasteShim() {
     useEffect(() => {
-        let suppressNextPaste = false;
+        let suppressNativePasteUntil = 0;
+        let manualInsertInFlight = false;
 
         function isEditableTarget(el: Element | null): el is HTMLElement {
             if (!el) return false;
@@ -28,7 +29,6 @@ export function usePasteShim() {
             const end = target.selectionEnd ?? target.value.length;
             target.setRangeText(text, start, end, 'end');
             target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         function insertTextIntoContentEditable(target: HTMLElement, text: string) {
@@ -70,12 +70,10 @@ export function usePasteShim() {
 
             e.preventDefault();
             e.stopPropagation();
-            e.stopImmediatePropagation();
 
-            suppressNextPaste = true;
-            setTimeout(() => {
-                suppressNextPaste = false;
-            }, 80);
+            // Some hosts will still emit a native paste event after keydown.
+            // Swallow it briefly to avoid duplicate insertion / UI instability.
+            suppressNativePasteUntil = Date.now() + 240;
 
             if (!navigator.clipboard?.readText) return;
 
@@ -83,14 +81,18 @@ export function usePasteShim() {
                 const text = await navigator.clipboard.readText();
                 const active = document.activeElement;
                 if (!text || !isEditableTarget(active)) return;
+                manualInsertInFlight = true;
                 insertTextToElement(active, text);
             } catch (err) {
                 console.warn('[PasteShim] Clipboard API readText failed:', err);
+            } finally {
+                manualInsertInFlight = false;
             }
         }
 
         function handlePaste(e: ClipboardEvent) {
-            if (suppressNextPaste) {
+            const now = Date.now();
+            if (now <= suppressNativePasteUntil) {
                 e.preventDefault();
                 e.stopPropagation();
                 return;
@@ -99,16 +101,11 @@ export function usePasteShim() {
             const target = document.activeElement;
             if (!isEditableTarget(target)) return;
 
-            const text = e.clipboardData?.getData('text/plain');
-            if (!text) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-
-            try {
-                insertTextToElement(target, text);
-            } catch (err) {
-                console.error('[PasteShim] insert failed:', err);
+            // For context-menu paste in WPS/Word webview, prefer native path.
+            // It is more stable than synthetic insertion in some hosts.
+            if (manualInsertInFlight) {
+                e.preventDefault();
+                e.stopPropagation();
             }
         }
 

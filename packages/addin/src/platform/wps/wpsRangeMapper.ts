@@ -246,6 +246,7 @@ function buildSmartProbes(probeStr: string): string[] {
 
 export class WpsRangeMapper implements IRangeMapper {
     private _cachedFullText: string | null = null;
+    private _cachedRawFull: NormResult | null = null;
     private _cachedCleanFull: NormResult | null = null;
     private _cachedPunctFull: NormResult | null = null;
     private _cacheTimestamp: number = 0;
@@ -255,6 +256,7 @@ export class WpsRangeMapper implements IRangeMapper {
     private static CACHE_TTL_MS = 10000;
     public invalidateCache(): void {
         this._cachedFullText = null;
+        this._cachedRawFull = null;
         this._cachedCleanFull = null;
         this._cachedPunctFull = null;
         this._cacheTimestamp = 0;
@@ -296,7 +298,10 @@ export class WpsRangeMapper implements IRangeMapper {
         const targetLen = Math.max(searchText.length, 1);
 
         const windowStart = Math.max(0, safe.start - 120);
-        const windowEnd = Math.min(docEnd, safe.start + Math.max(targetLen * 2 + 320, 640));
+        const windowEnd = Math.min(
+            docEnd,
+            Math.max(safe.end + 120, safe.start + Math.max(targetLen * 2 + 320, 640))
+        );
         if (windowEnd <= windowStart + 1) return safe;
 
         const windowText = doc.Range(windowStart, windowEnd).Text || '';
@@ -325,11 +330,18 @@ export class WpsRangeMapper implements IRangeMapper {
             });
         }
 
+        const getTextFromWindow = (normalized: { start: number; end: number }): string => {
+            const localStart = Math.max(0, normalized.start - windowStart);
+            const localEnd = Math.max(localStart, Math.min(windowText.length, normalized.end - windowStart));
+            if (localEnd <= localStart) return '';
+            return windowText.slice(localStart, localEnd);
+        };
+
         let best = safe;
         let bestScore = -Infinity;
         for (const opt of options) {
             const normalized = this.sanitizeRange(doc, opt);
-            const text = doc.Range(normalized.start, normalized.end).Text || '';
+            const text = getTextFromWindow(normalized);
             const score = this.scoreRangeText(text, searchText);
             if (score > bestScore) {
                 bestScore = score;
@@ -351,6 +363,7 @@ export class WpsRangeMapper implements IRangeMapper {
             const probeStr = hasEllipsis ? searchPattern.substring(0, ellipsisMatch.index) : searchPattern;
             const probes = buildSmartProbes(probeStr);
             const parts = hasEllipsis ? searchText.split(/\.{3,}|\u2026+/) : [];
+            const normalizedSearchPattern = normalizeLineBreaksToSpace(searchPattern);
 
             for (const probe of probes) {
                 const searchRange = doc.Content;
@@ -382,8 +395,7 @@ export class WpsRangeMapper implements IRangeMapper {
                     return hit({ start: exactIdx, end: exactIdx + searchPattern.length });
                 }
 
-                const normalizedChunkIdx = normalizeLineBreaksToSpace(chunkText)
-                    .indexOf(normalizeLineBreaksToSpace(searchPattern));
+                const normalizedChunkIdx = normalizeLineBreaksToSpace(chunkText).indexOf(normalizedSearchPattern);
                 if (normalizedChunkIdx !== -1) {
                     const rawNorm = normalizeWithMap(chunkText, RE_MATCH_NOTHING, true);
                     const searchNorm = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true);
@@ -448,6 +460,7 @@ export class WpsRangeMapper implements IRangeMapper {
         this._cachedFullText = doc.Content.Text || '';
         this._cacheTimestamp = now;
         this._cachedDocEnd = docEnd;
+        this._cachedRawFull = null;
         this._cachedCleanFull = null;
         this._cachedPunctFull = null;
         return this._cachedFullText as string;
@@ -474,7 +487,7 @@ export class WpsRangeMapper implements IRangeMapper {
             return hit({ start: exactIdx, end: exactIdx + searchPattern.length });
         }
 
-        const rawFull = normalizeWithMap(fullText, RE_MATCH_NOTHING, true);
+        const rawFull = this._cachedRawFull || (this._cachedRawFull = normalizeWithMap(fullText, RE_MATCH_NOTHING, true));
         const rawSearch = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true);
         const rRaw = normIndexOf(rawFull, rawSearch);
         if (rRaw) {
@@ -508,155 +521,118 @@ export class WpsRangeMapper implements IRangeMapper {
         const searchPattern = searchText.replace(/\r?\n/g, '\r');
 
         try {
-            // 馃敟 绗竴閬撻槻绾匡細鏋侀€熷垏鍧楁煡鎵撅紙鏃犻』璺?COM 浼犺緭鍏ㄩ噺鏂囨。锛岃€楁椂 <0.1绉掞級
             const fastRes = this.fastChunkFind(doc, searchPattern, searchText);
-            if (fastRes) {
-                const info = fastRes._internal as { start: number; end: number };
-                const refined = this.expandHitToBestRange(doc, info, searchText);
-                return { _internal: refined, _platform: 'wps' };
-            }
+            if (fastRes) return fastRes;
 
-            // 馃悽 绗簩閬撻槻绾匡細鍏滃簳鐨勫叏灞€鍏ㄩ噺鎵弿锛堝皢浼犺緭鏁扮櫨 KB 鍒版暟鍗?MB 鐨勫叏鏂囨。鏂囨湰缁?JS锛屽緢鎱級
-            const fullText: string = this.getFullText(doc);
+            const fullText = this.getFullText(doc);
             if (!fullText) {
-                console.warn('[WPS findRange] 鏂囨。鍐呭涓虹┖');
+                console.warn('[WPS findRange] full text is empty.');
                 return null;
             }
 
-            /* 鈹€鈹€ 鎯版€у綊涓€鍖栫紦瀛橈紙閬垮厤瀵规暣绡囨枃妗ｉ噸澶嶅鐞嗭級 鈹€鈹€ */
-            let _cleanSearch: NormResult | undefined;
-            let _punctSearch: NormResult | undefined;
+            let rawSearch: NormResult | undefined;
+            let cleanSearch: NormResult | undefined;
+            let punctSearch: NormResult | undefined;
 
-            const getCleanFull = () => this._cachedCleanFull || (this._cachedCleanFull = normalizeWithMap(fullText!, RE_CLEAN_CHAR, true));
-            const getPunctFull = () => this._cachedPunctFull || (this._cachedPunctFull = normalizeWithMap(fullText!, RE_PUNCT_CHAR, true));
-            const getCleanSearch = () => _cleanSearch || (_cleanSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true));
-            const getPunctSearch = () => _punctSearch || (_punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true));
+            const getRawFull = () => this._cachedRawFull || (this._cachedRawFull = normalizeWithMap(fullText, RE_MATCH_NOTHING, true));
+            const getCleanFull = () => this._cachedCleanFull || (this._cachedCleanFull = normalizeWithMap(fullText, RE_CLEAN_CHAR, true));
+            const getPunctFull = () => this._cachedPunctFull || (this._cachedPunctFull = normalizeWithMap(fullText, RE_PUNCT_CHAR, true));
+            const getRawSearch = () => rawSearch || (rawSearch = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true));
+            const getCleanSearch = () => cleanSearch || (cleanSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true));
+            const getPunctSearch = () => punctSearch || (punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true));
 
-            const hit = (r: { start: number; end: number }): PlatformRange => {
-                const refined = this.expandHitToBestRange(doc, r, searchText);
+            const hit = (r: { start: number; end: number }, shouldRefine = true): PlatformRange => {
+                const normalized = this.sanitizeRange(doc, r);
+                if (!shouldRefine) {
+                    return { _internal: normalized, _platform: 'wps' };
+                }
+                const refined = this.expandHitToBestRange(doc, normalized, searchText);
                 return { _internal: refined, _platform: 'wps' };
             };
 
-            // 鈹€鈹€ 绛栫暐 1锛氬師鏂囩簿纭?indexOf 鈹€鈹€
-            {
-                const idx = fullText.indexOf(searchPattern);
-                if (idx !== -1) {
-                    return hit({ start: idx, end: idx + searchPattern.length });
-                }
+            const exactIdx = fullText.indexOf(searchPattern);
+            if (exactIdx !== -1) {
+                return hit({ start: exactIdx, end: exactIdx + searchPattern.length }, false);
             }
 
-            // strategy 1b: normalize line breaks to spaces to handle paragraph-boundary drift.
-            {
-                const rawFull = normalizeWithMap(fullText, RE_MATCH_NOTHING, true);
-                const rawSearch = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true);
-                const r = normIndexOf(rawFull, rawSearch);
-                if (r) {
-                    return hit(r);
-                }
+            const rawHit = normIndexOf(getRawFull(), getRawSearch());
+            if (rawHit) {
+                return hit(rawHit);
             }
 
-            // 鈹€鈹€ 绛栫暐 2锛歝leanForSearch 褰掍竴鍖?indexOf 鈹€鈹€
-            {
-                const r = normIndexOf(getCleanFull(), getCleanSearch());
-                if (r) {
-                    console.log(`[WPS findRange] 绛栫暐2鍛戒腑 (cleanForSearch), text: "${searchText.slice(0, 40)}..."`);
-                    return hit(r);
-                }
+            const cleanHit = normIndexOf(getCleanFull(), getCleanSearch());
+            if (cleanHit) {
+                return hit(cleanHit);
             }
 
-            // 鈹€鈹€ 绛栫暐 3锛歴tripAllPunct 鍘绘爣鐐?indexOf 鈹€鈹€
-            {
-                const r = normIndexOf(getPunctFull(), getPunctSearch());
-                if (r) {
-                    console.log(`[WPS findRange] 绛栫暐3鍛戒腑 (stripAllPunct), text: "${searchText.slice(0, 40)}..."`);
-                    return hit(r);
-                }
+            const punctHit = normIndexOf(getPunctFull(), getPunctSearch());
+            if (punctHit) {
+                return hit(punctHit);
             }
 
-            // 鈹€鈹€ 绛栫暐 4锛氬墠缂€閫掑噺 fallback (80 鈫?50 鈫?30 鈫?20) 鈹€鈹€
             for (const prefixLen of [80, 50, 30, 20]) {
-                // 鍘熸潵鐨?4a (鍘熷鍓嶇紑 indexOf) 琚Щ闄わ紝鍥犱负瀹冨湪鎴柇鍚庢瀬鏄撳彂鐢熼敊閰嶏紙渚嬪鍖归厤鍒扮涓€鏉＄殑 "1銆?锛?                // 浠呬繚鐣欏熀浜庡綊涓€鍖栨枃妗ｆ爲鐨?4b 鍜?4c锛屽畠浠洿涓ヨ皑骞朵笖鍖呭惈鍘熸湁鐨勪綅缃俊鎭槧灏勮绠?
-                // 4b: cleanForSearch 鍓嶇紑
-                {
-                    const r = normPrefixSearch(
-                        getCleanFull(), getCleanSearch(),
-                        prefixLen, searchText.length, fullText.length,
-                    );
-                    if (r) {
-                        console.log(`[WPS findRange] 绛栫暐4b鍛戒腑 (clean鍓嶇紑${prefixLen}), text: "${searchText.slice(0, 40)}..."`);
-                        return hit(r);
-                    }
+                const cleanPrefixHit = normPrefixSearch(
+                    getCleanFull(),
+                    getCleanSearch(),
+                    prefixLen,
+                    searchText.length,
+                    fullText.length
+                );
+                if (cleanPrefixHit) {
+                    return hit(cleanPrefixHit);
                 }
 
-                // 4c: stripAllPunct 鍓嶇紑
-                {
-                    const r = normPrefixSearch(
-                        getPunctFull(), getPunctSearch(),
-                        prefixLen, searchText.length, fullText.length,
-                    );
-                    if (r) {
-                        console.log(`[WPS findRange] 绛栫暐4c鍛戒腑 (noPunct鍓嶇紑${prefixLen}), text: "${searchText.slice(0, 40)}..."`);
-                        return hit(r);
-                    }
+                const punctPrefixHit = normPrefixSearch(
+                    getPunctFull(),
+                    getPunctSearch(),
+                    prefixLen,
+                    searchText.length,
+                    fullText.length
+                );
+                if (punctPrefixHit) {
+                    return hit(punctPrefixHit);
                 }
             }
 
-            // 鈹€鈹€ 绛栫暐 5锛氫腑娈垫悳绱紙鍙栦腑闂?30 瀛楃锛岀敤浜庡墠缂€/鍚庣紑鍧囧凡鏀瑰彉鐨勯噸搴︿慨鏀瑰満鏅級 鈹€鈹€
-            {
-                const cs = getCleanSearch();
-                if (cs.text.length > 60) {
-                    const midStart = Math.floor(cs.text.length / 2) - 15;
-                    const midText = cs.text.slice(midStart, midStart + 30).trim();
-                    if (midText.length >= 10) {
-                        const cf = getCleanFull();
-                        const midIdx = cf.text.indexOf(midText);
-                        if (midIdx !== -1) {
-                            // Calculate match index in normalized coordinate, then map back to original text.
-                            const fullMatchIdx = midIdx - midStart;
-                            if (fullMatchIdx >= 0 && fullMatchIdx < cf.map.length) {
-                                const estStart = cf.map[fullMatchIdx]!;
-
-                                // 鍚岀悊璁＄畻缁撴潫绱㈠紩
-                                const estEndNormIdx = fullMatchIdx + cs.text.length - 1;
-                                let estEnd: number;
-                                if (estEndNormIdx >= 0 && estEndNormIdx < cf.map.length) {
-                                    estEnd = cf.map[estEndNormIdx]! + 1;
-                                } else {
-                                    estEnd = Math.min(fullText!.length, estStart + searchText.length);
-                                }
-
-                                console.log(`[WPS findRange] strategy5 hit, text: "${searchText.slice(0, 40)}..."`);
-                                return hit({ start: estStart, end: estEnd });
-                            }
+            const cs = getCleanSearch();
+            if (cs.text.length > 60) {
+                const midStart = Math.floor(cs.text.length / 2) - 15;
+                const midText = cs.text.slice(midStart, midStart + 30).trim();
+                if (midText.length >= 10) {
+                    const cf = getCleanFull();
+                    const midIdx = cf.text.indexOf(midText);
+                    if (midIdx !== -1) {
+                        const fullMatchIdx = midIdx - midStart;
+                        if (fullMatchIdx >= 0 && fullMatchIdx < cf.map.length) {
+                            const estStart = cf.map[fullMatchIdx]!;
+                            const estEndNormIdx = fullMatchIdx + cs.text.length - 1;
+                            const estEnd = estEndNormIdx >= 0 && estEndNormIdx < cf.map.length
+                                ? cf.map[estEndNormIdx]! + 1
+                                : Math.min(fullText.length, estStart + searchText.length);
+                            return hit({ start: estStart, end: estEnd });
                         }
                     }
                 }
             }
 
-            // 鈹€鈹€ 绛栫暐 6锛欰PI Find.Execute 鍏滃簳 鈹€鈹€
             if (searchText.length <= 200) {
                 try {
                     const searchRange = doc.Content;
                     if ((searchRange.Find as any).Execute(searchText)) {
-                        console.log(`[WPS findRange] 绛栫暐6鍛戒腑 (Find.Execute), text: "${searchText.slice(0, 40)}..."`);
-                        return hit({ start: searchRange.Start, end: searchRange.End });
+                        return hit({ start: searchRange.Start, end: searchRange.End }, false);
                     }
-                } catch { /* Find.Execute 涓嶅彲鐢?*/ }
+                } catch {
+                    // ignore find fallback error
+                }
             }
 
             console.warn(
-                `[WPS findRange] 鍏ㄩ儴 6 涓瓥鐣ュ潎澶辫触, text: "${searchText.slice(0, 60)}${searchText.length > 60 ? '...' : ''}"`,
+                `[WPS findRange] no match for: "${searchText.slice(0, 60)}${searchText.length > 60 ? '...' : ''}"`
             );
         } catch (err) {
-            console.error('[WPS findRange] 寮傚父:', err);
+            console.error('[WPS findRange] failed:', err);
         }
 
         return null;
     }
 }
-
-
-
-
-
-

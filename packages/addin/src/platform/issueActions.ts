@@ -349,6 +349,7 @@ async function getRange(
     const directCandidates = buildLocateTextVariants(options?.overrideText ?? issue.originalText);
 
     if (adapter.platform === 'wps' && adapter.rangeMapper.findRangeFromCache) {
+        await adapter.rangeMapper.preloadFullText?.();
         const cacheTake = budget === 'compact' ? 3 : 8;
         for (const candidate of directCandidates.slice(0, cacheTake)) {
             const cachedHit = adapter.rangeMapper.findRangeFromCache(candidate);

@@ -11,15 +11,6 @@ import { useEffect } from 'react';
 export function usePasteShim() {
     useEffect(() => {
         const isWpsHost = typeof (window as any).wps !== 'undefined';
-        // In WPS, global capture-phase keyboard/paste interception can freeze docked taskpane webviews.
-        // Keep WPS on fully native paste behavior for both document and taskpane inputs.
-        if (isWpsHost) {
-            console.log('[PasteShim] WPS host detected, shim disabled (native paste only).');
-            return;
-        }
-        let shortcutToken = 0;
-        let shortcutHandledToken = 0;
-        let shortcutTarget: HTMLElement | null = null;
 
         function isEditableTarget(el: Element | null): el is HTMLElement {
             if (!el) return false;
@@ -29,6 +20,15 @@ export function usePasteShim() {
                 return editableTypes.includes(el.type) && !el.disabled && !el.readOnly;
             }
             return el instanceof HTMLElement && el.isContentEditable;
+        }
+
+        function resolveEditableTarget(source?: EventTarget | null): HTMLElement | null {
+            const fromEventTarget = source instanceof Element ? source : null;
+            if (isEditableTarget(fromEventTarget)) return fromEventTarget;
+
+            const active = document.activeElement;
+            if (isEditableTarget(active)) return active;
+            return null;
         }
 
         function insertTextIntoInputLike(target: HTMLInputElement | HTMLTextAreaElement, text: string) {
@@ -68,6 +68,60 @@ export function usePasteShim() {
                 insertTextIntoContentEditable(target, text);
             }
         }
+
+        if (isWpsHost) {
+            const handleWpsKeyDown = (e: KeyboardEvent) => {
+                const key = (e.key || '').toLowerCase();
+                const isPasteShortcut = (e.metaKey || e.ctrlKey) && (key === 'v' || e.keyCode === 86);
+                if (!isPasteShortcut) return;
+                if (!resolveEditableTarget(e.target)) return;
+
+                // Keep host editor from receiving Ctrl/Cmd+V while preserving native paste event in taskpane.
+                e.stopPropagation();
+                (e as any).stopImmediatePropagation?.();
+            };
+
+            const handleWpsPaste = (e: ClipboardEvent) => {
+                const target = resolveEditableTarget(e.target);
+                if (!target) return;
+
+                const textFromEvent = e.clipboardData?.getData('text/plain') || '';
+                if (textFromEvent) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e as any).stopImmediatePropagation?.();
+                    insertTextToElement(target, textFromEvent);
+                    return;
+                }
+
+                if (navigator.clipboard?.readText) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e as any).stopImmediatePropagation?.();
+                    void navigator.clipboard.readText()
+                        .then((text) => {
+                            if (!text) return;
+                            insertTextToElement(target, text);
+                        })
+                        .catch((err) => {
+                            console.warn('[PasteShim][WPS] Clipboard API fallback failed:', err);
+                        });
+                }
+            };
+
+            console.log('[PasteShim] WPS host detected, using taskpane-safe paste interception.');
+            document.addEventListener('keydown', handleWpsKeyDown, true);
+            document.addEventListener('paste', handleWpsPaste, true);
+
+            return () => {
+                document.removeEventListener('keydown', handleWpsKeyDown, true);
+                document.removeEventListener('paste', handleWpsPaste, true);
+            };
+        }
+
+        let shortcutToken = 0;
+        let shortcutHandledToken = 0;
+        let shortcutTarget: HTMLElement | null = null;
 
         async function fallbackReadClipboardAndInsert(token: number, releaseOnFailure = false) {
             if (token !== shortcutToken || token === shortcutHandledToken) return;

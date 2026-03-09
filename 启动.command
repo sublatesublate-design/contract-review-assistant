@@ -40,6 +40,28 @@ if [ ! -z "$NODE_MAJOR" ] && [ "$NODE_MAJOR" -ge 24 ]; then
     echo -e "${YELLOW}提示: 检测到 Node.js $NODE_MAJOR。WPS 调试工具在部分机器上与 Node 24 存在兼容波动。${NC}"
 fi
 
+# 固定安装 office-addin 工具，避免 npx 临时缓存导致随机失败
+RUNTIME_ROOT="$HOME/.contract-review-assistant"
+OFFICE_RUNTIME_DIR="$RUNTIME_ROOT/office-addin-runtime"
+OFFICE_CERTS_BIN="$OFFICE_RUNTIME_DIR/node_modules/.bin/office-addin-dev-certs"
+OFFICE_SETTINGS_BIN="$OFFICE_RUNTIME_DIR/node_modules/.bin/office-addin-dev-settings"
+
+ensure_office_addin_tools() {
+    mkdir -p "$OFFICE_RUNTIME_DIR"
+    if [ ! -f "$OFFICE_RUNTIME_DIR/package.json" ]; then
+        printf '{\n  "name": "office-addin-runtime",\n  "private": true\n}\n' > "$OFFICE_RUNTIME_DIR/package.json"
+    fi
+
+    if [ ! -x "$OFFICE_CERTS_BIN" ] || [ ! -x "$OFFICE_SETTINGS_BIN" ]; then
+        echo -e "${YELLOW}正在安装 Office 调试工具（首次约 10-30 秒）...${NC}"
+        npm --prefix "$OFFICE_RUNTIME_DIR" install office-addin-dev-certs office-addin-dev-settings --no-audit --no-fund
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Office 调试工具安装失败，请检查网络后重试。${NC}"
+            exit 1
+        fi
+    fi
+}
+
 
 
 # ─── npm 缓存权限检测 (防老版本遗留 EACCES) ────────────────────────
@@ -91,7 +113,8 @@ if [ "$CHOICE" = "P" ]; then
 
     # 安装 HTTPS 开发证书（WPS 的 dev server 同样需要 HTTPS）
     echo -e "${YELLOW}正在检查安全证书...${NC}"
-    npx office-addin-dev-certs install --machine 2>/dev/null
+    ensure_office_addin_tools
+    "$OFFICE_CERTS_BIN" install --machine 2>/dev/null
     echo -e "✅ 安全证书已配置"
 
     # 释放可能占用的端口
@@ -177,7 +200,8 @@ else
 
     # 安装 HTTPS 开发证书
     echo -e "${YELLOW}正在检查安全证书...${NC}"
-    npx office-addin-dev-certs install --machine
+    ensure_office_addin_tools
+    "$OFFICE_CERTS_BIN" install --machine
     if [ $? -eq 0 ]; then
         echo -e "✅ 安全证书已配置"
     else
@@ -196,7 +220,13 @@ else
 
     # 加载 Word 插件
     echo -e "${YELLOW}正在唤起 Word 并加载插件...${NC}"
-    npx office-addin-dev-settings sideload manifest.xml &
+    WORD_SIDELOAD_LOG="$DIR/.word-sideload.log"
+    "$OFFICE_SETTINGS_BIN" sideload manifest.xml > "$WORD_SIDELOAD_LOG" 2>&1
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Word 加载项注册失败。最近日志如下：${NC}"
+        tail -n 30 "$WORD_SIDELOAD_LOG"
+        exit 1
+    fi
 
     echo ""
     echo -e "${GREEN}========================================${NC}"

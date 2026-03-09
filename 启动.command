@@ -35,6 +35,10 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 echo -e "✅ Node.js 已安装: $(node -v)"
+NODE_MAJOR=$(node -p "parseInt(process.versions.node.split('.')[0], 10)" 2>/dev/null)
+if [ ! -z "$NODE_MAJOR" ] && [ "$NODE_MAJOR" -ge 24 ]; then
+    echo -e "${YELLOW}提示: 检测到 Node.js $NODE_MAJOR。WPS 调试工具在部分机器上与 Node 24 存在兼容波动。${NC}"
+fi
 
 
 
@@ -99,13 +103,39 @@ if [ "$CHOICE" = "P" ]; then
         fi
     done
 
-    # 在后台启动 wpsjs debug（端口 3889），改用 npx 免全局安装防 EACCES
+    # 固定安装并后台启动 wpsjs debug（端口 3889），避免 npx 临时目录依赖损坏
     echo -e "${YELLOW}正在启动 WPS 插件服务（端口 3889）...${NC}"
+    WPSJS_RUNTIME_DIR="$HOME/.contract-review-assistant/wpsjs-runtime"
+    WPSJS_BIN="$WPSJS_RUNTIME_DIR/node_modules/.bin/wpsjs"
+    WPSJS_LOG="$DIR/.wpsjs-debug.log"
+    mkdir -p "$WPSJS_RUNTIME_DIR"
+
+    if [ ! -f "$WPSJS_RUNTIME_DIR/package.json" ]; then
+        printf '{\n  "name": "wpsjs-runtime",\n  "private": true\n}\n' > "$WPSJS_RUNTIME_DIR/package.json"
+    fi
+
+    if [ ! -x "$WPSJS_BIN" ]; then
+        echo -e "${YELLOW}首次运行 WPS 模式，正在安装 wpsjs（约 10-30 秒）...${NC}"
+        npm --prefix "$WPSJS_RUNTIME_DIR" install wpsjs@2.2.3 --no-audit --no-fund
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}wpsjs 安装失败，请检查网络后重试。${NC}"
+            exit 1
+        fi
+    fi
+
     cd "$DIR/packages/addin/wps-addin"
-    npx wpsjs debug --nolaunch &
+    "$WPSJS_BIN" debug --nolaunch > "$WPSJS_LOG" 2>&1 &
     WPSJS_PID=$!
     cd "$DIR"
     sleep 2
+
+    if ! kill -0 "$WPSJS_PID" 2>/dev/null; then
+        echo -e "${RED}WPS 插件服务启动失败。最近日志如下：${NC}"
+        tail -n 20 "$WPSJS_LOG"
+        echo -e "${YELLOW}可尝试：rm -rf ~/.npm/_npx ~/.contract-review-assistant/wpsjs-runtime 后重试。${NC}"
+        exit 1
+    fi
+
     echo -e "✅ WPS 插件服务已启动 (PID: $WPSJS_PID)"
 
     echo ""

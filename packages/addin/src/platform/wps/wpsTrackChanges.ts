@@ -2,18 +2,59 @@ import type { ITrackChangesManager, PlatformRange } from '../types';
 /// <reference path="./wps-jsapi.d.ts" />
 
 export class WpsTrackChangesManager implements ITrackChangesManager {
+    private tryBuildClauseRange(
+        doc: any,
+        info: { start: number; end: number },
+        suggestedText: string
+    ): { start: number; end: number } | null {
+        const heading = (suggestedText || '').trim().match(/^\s*(第[\u4e00-\u9fa5\d]+条)/)?.[1];
+        if (!heading) return null;
+
+        const fullText = (doc?.Content?.Text as string) || '';
+        if (!fullText) return null;
+
+        const nearStart = Math.max(0, info.start - 800);
+        const nearEnd = Math.min(fullText.length, info.end + 2400);
+        const nearText = fullText.slice(nearStart, nearEnd);
+
+        let clauseStart = -1;
+        const nearIdx = nearText.indexOf(heading);
+        if (nearIdx !== -1) {
+            clauseStart = nearStart + nearIdx;
+        } else {
+            const globalIdx = fullText.indexOf(heading);
+            if (globalIdx === -1) return null;
+            if (Math.abs(globalIdx - info.start) > 3200) return null;
+            clauseStart = globalIdx;
+        }
+
+        if (clauseStart < 0) return null;
+
+        const tail = fullText.slice(clauseStart + heading.length);
+        const nextHeading = tail.match(/\r\s*第[\u4e00-\u9fa5\d]+条/);
+        const clauseEnd = nextHeading
+            ? clauseStart + heading.length + (nextHeading.index ?? 0)
+            : fullText.length;
+
+        if (clauseEnd <= clauseStart + heading.length) return null;
+        return { start: clauseStart, end: clauseEnd };
+    }
+
     public async applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void> {
         if (!window.wps || range._platform !== 'wps') return;
         const app = window.wps.WpsApplication() as any;
         const doc = app.ActiveDocument;
 
         const info = range._internal as { start: number; end: number };
-        const r = doc.Range(info.start, info.end);
+        const clauseRange = this.tryBuildClauseRange(doc, info, suggestedText);
+        const target = clauseRange
+            ? doc.Range(clauseRange.start, clauseRange.end)
+            : doc.Range(info.start, info.end);
 
         const originalTrackMode = doc.TrackRevisions;
         try {
             doc.TrackRevisions = true;
-            r.Text = suggestedText;
+            target.Text = suggestedText;
         } finally {
             doc.TrackRevisions = originalTrackMode;
         }

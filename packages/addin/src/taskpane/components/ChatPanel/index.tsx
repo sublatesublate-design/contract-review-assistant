@@ -18,7 +18,10 @@ export default function ChatPanel() {
 
     // 自动滚动到底部
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const rafId = window.requestAnimationFrame(() => {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        });
+        return () => window.cancelAnimationFrame(rafId);
     }, [session.messages]);
 
     /** 注入合同内容作为上下文 */

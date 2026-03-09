@@ -300,6 +300,7 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                     doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
                     await context.sync();
 
+                    const stagedApplyIndexes: number[] = [];
                     for (const edit of edits) {
                         const ref = edit.range._internal as WordRangeRef;
                         const wordRange = await resolveWordRange(context, ref);
@@ -310,10 +311,20 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
 
                         try {
                             wordRange.insertText(edit.suggestedText, Word.InsertLocation.replace);
-                            await context.sync();
+                            stagedApplyIndexes.push(results.length);
                             results.push(true);
                         } catch {
                             results.push(false);
+                        }
+                    }
+
+                    if (stagedApplyIndexes.length > 0) {
+                        try {
+                            await context.sync();
+                        } catch {
+                            for (const index of stagedApplyIndexes) {
+                                results[index] = false;
+                            }
                         }
                     }
                 } finally {

@@ -28,6 +28,47 @@ interface CachedIssueRange {
 const issueRangeCache = new Map<string, CachedIssueRange>();
 let rangeMutationVersion = 0;
 
+interface WpsBatchGuard {
+    app: any | null;
+    previousScreenUpdating?: boolean;
+}
+
+async function beginWpsBatchOptimization(adapter: IPlatformAdapter): Promise<WpsBatchGuard> {
+    if (adapter.platform !== 'wps') {
+        return { app: null };
+    }
+
+    await adapter.rangeMapper.preloadFullText?.();
+
+    if (typeof window === 'undefined') {
+        return { app: null };
+    }
+
+    const wpsApi = (window as any).wps;
+    if (!wpsApi?.WpsApplication) {
+        return { app: null };
+    }
+
+    const app = wpsApi.WpsApplication();
+    try {
+        const previous = app.ScreenUpdating;
+        app.ScreenUpdating = false;
+        return { app, previousScreenUpdating: previous };
+    } catch {
+        return { app };
+    }
+}
+
+function endWpsBatchOptimization(guard: WpsBatchGuard): void {
+    if (!guard.app) return;
+    if (typeof guard.previousScreenUpdating !== 'boolean') return;
+    try {
+        guard.app.ScreenUpdating = guard.previousScreenUpdating;
+    } catch {
+        // ignore restore failure
+    }
+}
+
 function normalizeQuery(text?: string): string {
     return (text || '')
         .replace(/[\r\n]+/g, ' ')
@@ -250,10 +291,10 @@ function collectLocateQueries(
     budget: QueryBudget
 ): string[] {
     const perTextLimit = budget === 'compact'
-        ? (adapter.platform === 'wps' ? 2 : 3)
+        ? (adapter.platform === 'wps' ? 3 : 3)
         : (adapter.platform === 'wps' ? 4 : 6);
     const totalLimit = budget === 'compact'
-        ? (adapter.platform === 'wps' ? 4 : 6)
+        ? (adapter.platform === 'wps' ? 6 : 6)
         : (adapter.platform === 'wps' ? 9 : 14);
 
     const all: string[] = [];
@@ -306,7 +347,23 @@ async function getRange(
     }
 
     const directCandidates = buildLocateTextVariants(options?.overrideText ?? issue.originalText);
-    const directTake = budget === 'compact' ? 1 : (adapter.platform === 'wps' ? 3 : 2);
+
+    if (adapter.platform === 'wps' && adapter.rangeMapper.findRangeFromCache) {
+        const cacheTake = budget === 'compact' ? 3 : 8;
+        for (const candidate of directCandidates.slice(0, cacheTake)) {
+            const cachedHit = adapter.rangeMapper.findRangeFromCache(candidate);
+            if (cachedHit) {
+                if (useIssueCache) {
+                    setCachedRange(adapter, issue.id, cachedHit);
+                }
+                return cachedHit;
+            }
+        }
+    }
+
+    const directTake = budget === 'compact'
+        ? (adapter.platform === 'wps' ? 3 : 1)
+        : (adapter.platform === 'wps' ? 4 : 2);
     for (const candidate of directCandidates.slice(0, directTake)) {
         const direct = await adapter.rangeMapper.findRange(candidate);
         if (direct) {
@@ -348,6 +405,13 @@ async function getRangeWithFallback(
         useCache?: boolean;
     }
 ): Promise<PlatformRange | null> {
+    if (adapter.platform === 'wps') {
+        return getRange(adapter, issue, {
+            ...options,
+            budget: 'full',
+        });
+    }
+
     const compact = await getRange(adapter, issue, {
         ...options,
         budget: 'compact',
@@ -522,6 +586,9 @@ export async function batchComment(
     const total = issues.length;
     if (total === 0) return { success: 0, failed: 0 };
 
+    const wpsGuard = await beginWpsBatchOptimization(adapter);
+    try {
+
     const prepared: Array<{ index: number; range: PlatformRange; text: string; issueId: string }> = [];
     const progressSent = Array<boolean>(total).fill(false);
     let success = 0;
@@ -592,7 +659,10 @@ export async function batchComment(
         }
     }
 
-    return { success, failed };
+        return { success, failed };
+    } finally {
+        endWpsBatchOptimization(wpsGuard);
+    }
 }
 
 /** 批量应用修改建议 */
@@ -604,6 +674,9 @@ export async function batchApply(
     const applicableIssues = issues.filter((i) => i.suggestedText && i.status !== 'applied');
     const total = applicableIssues.length;
     if (total === 0) return { success: 0, failed: 0 };
+
+    const wpsGuard = await beginWpsBatchOptimization(adapter);
+    try {
 
     // WPS ranges are offset-based and can drift after each replacement.
     // Keep sequential locate+apply for WPS to avoid positional drift.
@@ -693,5 +766,8 @@ export async function batchApply(
         }
     }
 
-    return { success, failed };
+        return { success, failed };
+    } finally {
+        endWpsBatchOptimization(wpsGuard);
+    }
 }

@@ -14,6 +14,7 @@ export function usePasteShim() {
         // In WPS, global capture-phase keyboard/paste interception can freeze docked taskpane webviews.
         // Keep WPS on fully native paste behavior for both document and taskpane inputs.
         if (isWpsHost) {
+            console.log('[PasteShim] WPS host detected, shim disabled (native paste only).');
             return;
         }
         let shortcutToken = 0;

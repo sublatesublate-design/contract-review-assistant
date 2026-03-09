@@ -110,6 +110,7 @@ declare namespace _wps {
         Documents: Documents;
         Selection: Selection;
         CustomTaskPanes: CustomTaskPanes;
+        ScreenUpdating: boolean;
     }
 }
 

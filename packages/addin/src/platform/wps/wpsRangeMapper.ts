@@ -116,6 +116,7 @@ function normalizeWithMap(
 // 棰勭紪璇戝崟瀛楃姝ｅ垯
 const RE_CLEAN_CHAR = /[\*\?<>|\\/~\u3010\u3011\[\]\u3008\u3009\u300c\u300d\u201c\u201d\u2018\u2019]/;
 const RE_PUNCT_CHAR = /[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/;
+const RE_MATCH_NOTHING = /$a/;
 
 /**
  * 鍦ㄥ綊涓€鍖栧叏鏂囦腑鎼滅储褰掍竴鍖栨ā寮忥紝杩斿洖鍘熸枃 {start, end}銆? */
@@ -192,6 +193,53 @@ function normPrefixSearch(
         origEnd = Math.min(origStart + _originalLen, fullTextLen);
     }
     return { start: origStart, end: origEnd };
+}
+
+function normalizeLineBreaksToSpace(text: string): string {
+    return text
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function buildSmartProbes(probeStr: string): string[] {
+    const base = normalizeLineBreaksToSpace(probeStr);
+    if (!base) return [];
+
+    const probes: string[] = [];
+    const pushProbe = (src?: string) => {
+        const oneLine = normalizeLineBreaksToSpace(src || '');
+        if (!oneLine) return;
+        const clipped = oneLine.slice(0, 150).trim();
+        if (clipped.length < 6) return;
+        if (!probes.includes(clipped)) {
+            probes.push(clipped);
+        }
+    };
+
+    // 1) Original head probe.
+    pushProbe(base);
+
+    // 2) First sentence before punctuation.
+    const firstSentence = base.split(/[\u3002\uff1b;\uff01\uff1f!?]/)[0];
+    pushProbe(firstSentence);
+
+    // 3) Skip "第X条 ..." heading and probe正文首句.
+    const bodyWithoutHeading = base.replace(
+        /^\s*\u7b2c[\u4e00-\u9fa5\d]+\u6761(?:\s*[^\r\n\u3002\uff1b;]{0,24})?\s*/,
+        ''
+    );
+    const bodyFirstSentence = bodyWithoutHeading.split(/[\u3002\uff1b;\uff01\uff1f!?]/)[0];
+    pushProbe(bodyFirstSentence || bodyWithoutHeading);
+
+    // 4) Remove bracket forms often rewritten by model.
+    const withoutBrackets = base.replace(/[\u3010\u3011\[\]]/g, '');
+    pushProbe(withoutBrackets);
+
+    // 5) Keep old behavior as fallback.
+    pushProbe(probeStr);
+
+    return probes;
 }
 
 /* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 WpsRangeMapper 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 */
@@ -298,21 +346,20 @@ export class WpsRangeMapper implements IRangeMapper {
      * 鑰屾槸鍒╃敤 WPS 鍘熺敓 C++ 绾х殑 Find.Execute("鎺㈤拡") 鐬棿閿佸畾鍓嶇紑浣嶇疆锛?     * 鍙埅鍙栫洰鏍囧強鍏跺悗鍑犵櫨瀛楃殑涓€灏忓潡 (Chunk) 鎷夎繘 JS 杩涜绮剧‘鏌ユ壘鍖归厤銆?     */
     private fastChunkFind(doc: any, searchPattern: string, searchText: string): PlatformRange | null {
         try {
-            // 澶勭悊 LLM 杩斿洖甯︾渷鐣ュ彿鐨勫師鏂?(濡?"绗竴鏉?..绗笁娆?)
             const ellipsisMatch = searchPattern.match(/\.{3,}|\u2026+/);
             const hasEllipsis = !!ellipsisMatch && ellipsisMatch.index! > 5;
+            const probeStr = hasEllipsis ? searchPattern.substring(0, ellipsisMatch.index) : searchPattern;
+            const probes = buildSmartProbes(probeStr);
+            const parts = hasEllipsis ? searchText.split(/\.{3,}|\u2026+/) : [];
 
-            // 鎺㈤拡涓€瀹氫笉鑳藉寘鍚渷鐣ュ彿锛堝惁鍒欏師鐢?Find 鑲畾鎵句笉鍒板師鏂囷級
-            let probeStr = hasEllipsis ? searchPattern.substring(0, ellipsisMatch.index) : searchPattern;
-            const probe = probeStr.substring(0, 150);
+            for (const probe of probes) {
+                const searchRange = doc.Content;
+                searchRange.Find.ClearFormatting();
+                if (!(searchRange.Find as any).Execute(probe)) {
+                    continue;
+                }
 
-            const searchRange = doc.Content;
-            searchRange.Find.ClearFormatting();
-            if ((searchRange.Find as any).Execute(probe)) {
                 const chunkStart = searchRange.Start;
-
-                // 鍙栨帰閽堝懡涓綅缃強鍏跺悗鎵€闇€闀垮害鐨勪竴灏忓潡 buffer
-                // 濡傛灉鏈夌渷鐣ュ彿锛岃烦杩囩殑鍘熸枃鍙兘寰堥暱锛屽鎴彇涓€浜涳紱鍚﹀垯鎴彇 searchText.length + 500 瓒冲
                 const fetchLen = hasEllipsis ? 3000 : searchText.length + 500;
                 let chunkEnd: number;
                 try {
@@ -322,23 +369,34 @@ export class WpsRangeMapper implements IRangeMapper {
                 }
 
                 const chunkRange = doc.Range(chunkStart, chunkEnd);
-                const chunkText = chunkRange.Text || "";
-                if (!chunkText) return null;
+                const chunkText = chunkRange.Text || '';
+                if (!chunkText) {
+                    continue;
+                }
 
                 const hit = (r: { start: number; end: number }): PlatformRange =>
                     ({ _internal: { start: chunkStart + r.start, end: chunkStart + r.end }, _platform: 'wps' });
 
                 const exactIdx = chunkText.indexOf(searchPattern);
                 if (exactIdx !== -1) {
-                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Exact)`);
                     return hit({ start: exactIdx, end: exactIdx + searchPattern.length });
+                }
+
+                const normalizedChunkIdx = normalizeLineBreaksToSpace(chunkText)
+                    .indexOf(normalizeLineBreaksToSpace(searchPattern));
+                if (normalizedChunkIdx !== -1) {
+                    const rawNorm = normalizeWithMap(chunkText, RE_MATCH_NOTHING, true);
+                    const searchNorm = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true);
+                    const mapped = normIndexOf(rawNorm, searchNorm);
+                    if (mapped) {
+                        return hit(mapped);
+                    }
                 }
 
                 const normChunk = normalizeWithMap(chunkText, RE_CLEAN_CHAR, true);
                 const normSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true);
                 const rClean = normIndexOf(normChunk, normSearch);
                 if (rClean) {
-                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Clean)`);
                     return hit(rClean);
                 }
 
@@ -346,35 +404,26 @@ export class WpsRangeMapper implements IRangeMapper {
                 const punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true);
                 const rPunct = normIndexOf(punctChunk, punctSearch);
                 if (rPunct) {
-                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Punct)`);
                     return hit(rPunct);
                 }
 
-                // 甯歌鎼滅储澶辫触鏃讹紝濡傛灉瀛樺湪鐪佺暐鍙凤紝灏濊瘯銆庡妶瑁傛悳绱㈢瓥鐣ャ€忔壘鐪熷疄缁撳熬
-                if (hasEllipsis) {
-                    const parts = searchText.split(/\.{3,}|\u2026+/);
-                    if (parts.length >= 2) {
-                        const pPrefix = parts[0]?.trim() || '';
-                        const pSuffix = parts[parts.length - 1]?.trim() || ''; // 鍙栨渶鍚庝竴娈典负鍚庣紑
+                if (parts.length >= 2) {
+                    const pPrefix = parts[0]?.trim() || '';
+                    const pSuffix = parts[parts.length - 1]?.trim() || '';
 
-                        if (pPrefix.length >= 5 && pSuffix.length >= 5) {
-                            const preNorm = normalizeWithMap(pPrefix, RE_CLEAN_CHAR, true);
-                            const sufNorm = normalizeWithMap(pSuffix, RE_CLEAN_CHAR, true);
-
-                            const matchPre = normIndexOf(normChunk, preNorm);
-                            if (matchPre) {
-                                // 鍦ㄥ墠缂€鍛戒腑浣嶇疆涔嬪悗瀵绘壘鍚庣紑
-                                const remainText = chunkText.substring(matchPre.end);
-                                const remainNorm = normalizeWithMap(remainText, RE_CLEAN_CHAR, true);
-                                const matchSuf = normIndexOf(remainNorm, sufNorm);
-
-                                if (matchSuf) {
-                                    console.log(`[WPS findRange] FastChunk鏋侀€熷懡涓?(Ellipsis Split)`);
-                                    return hit({
-                                        start: matchPre.start,
-                                        end: matchPre.end + matchSuf.end // 鍋忕Щ瑕佸湪鍘熷尮閰嶅熀纭€鍔犱笂
-                                    });
-                                }
+                    if (pPrefix.length >= 5 && pSuffix.length >= 5) {
+                        const preNorm = normalizeWithMap(pPrefix, RE_CLEAN_CHAR, true);
+                        const sufNorm = normalizeWithMap(pSuffix, RE_CLEAN_CHAR, true);
+                        const matchPre = normIndexOf(normChunk, preNorm);
+                        if (matchPre) {
+                            const remainText = chunkText.substring(matchPre.end);
+                            const remainNorm = normalizeWithMap(remainText, RE_CLEAN_CHAR, true);
+                            const matchSuf = normIndexOf(remainNorm, sufNorm);
+                            if (matchSuf) {
+                                return hit({
+                                    start: matchPre.start,
+                                    end: matchPre.end + matchSuf.end,
+                                });
                             }
                         }
                     }
@@ -403,6 +452,52 @@ export class WpsRangeMapper implements IRangeMapper {
         this._cachedPunctFull = null;
         return this._cachedFullText as string;
     }
+
+    public async preloadFullText(): Promise<void> {
+        if (!window.wps) return;
+        const app = window.wps.WpsApplication() as any;
+        const doc = app.ActiveDocument;
+        this.getFullText(doc);
+    }
+
+    public findRangeFromCache(originalText: string): PlatformRange | null {
+        const searchText = originalText.trim();
+        const fullText = this._cachedFullText;
+        if (!searchText || !fullText) return null;
+
+        const searchPattern = searchText.replace(/\r?\n/g, '\r');
+        const hit = (r: { start: number; end: number }): PlatformRange =>
+            ({ _internal: { start: r.start, end: r.end }, _platform: 'wps' });
+
+        const exactIdx = fullText.indexOf(searchPattern);
+        if (exactIdx !== -1) {
+            return hit({ start: exactIdx, end: exactIdx + searchPattern.length });
+        }
+
+        const rawFull = normalizeWithMap(fullText, RE_MATCH_NOTHING, true);
+        const rawSearch = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true);
+        const rRaw = normIndexOf(rawFull, rawSearch);
+        if (rRaw) {
+            return hit(rRaw);
+        }
+
+        const cleanFull = this._cachedCleanFull || (this._cachedCleanFull = normalizeWithMap(fullText, RE_CLEAN_CHAR, true));
+        const cleanSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true);
+        const rClean = normIndexOf(cleanFull, cleanSearch);
+        if (rClean) {
+            return hit(rClean);
+        }
+
+        const punctFull = this._cachedPunctFull || (this._cachedPunctFull = normalizeWithMap(fullText, RE_PUNCT_CHAR, true));
+        const punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true);
+        const rPunct = normIndexOf(punctFull, punctSearch);
+        if (rPunct) {
+            return hit(rPunct);
+        }
+
+        return null;
+    }
+
     public async findRange(originalText: string): Promise<PlatformRange | null> {
         if (!window.wps) return null;
         const app = window.wps.WpsApplication() as any;
@@ -447,6 +542,16 @@ export class WpsRangeMapper implements IRangeMapper {
                 const idx = fullText.indexOf(searchPattern);
                 if (idx !== -1) {
                     return hit({ start: idx, end: idx + searchPattern.length });
+                }
+            }
+
+            // strategy 1b: normalize line breaks to spaces to handle paragraph-boundary drift.
+            {
+                const rawFull = normalizeWithMap(fullText, RE_MATCH_NOTHING, true);
+                const rawSearch = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true);
+                const r = normIndexOf(rawFull, rawSearch);
+                if (r) {
+                    return hit(r);
                 }
             }
 

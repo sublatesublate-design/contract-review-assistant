@@ -85,7 +85,10 @@ function pushUniqueText(target: string[], value?: string): void {
 }
 
 function stripLeadingLocateLabel(text: string): string {
-    return text.replace(/^\s*(合同原文|原文|条款原文|原条款|条款)\s*[:：]\s*/, '').trim();
+    return text.replace(
+        /^\s*(缺失条款所在原文|缺失条款原文|合同原文|原文|条款原文|原条款|条款)\s*[:：]\s*/,
+        ''
+    ).trim();
 }
 
 function stripOuterQuotes(text: string): string {
@@ -291,11 +294,11 @@ function collectLocateQueries(
     budget: QueryBudget
 ): string[] {
     const perTextLimit = budget === 'compact'
-        ? (adapter.platform === 'wps' ? 3 : 3)
-        : (adapter.platform === 'wps' ? 4 : 6);
+        ? (adapter.platform === 'wps' ? 4 : 3)
+        : (adapter.platform === 'wps' ? 7 : 6);
     const totalLimit = budget === 'compact'
-        ? (adapter.platform === 'wps' ? 6 : 6)
-        : (adapter.platform === 'wps' ? 9 : 14);
+        ? (adapter.platform === 'wps' ? 8 : 6)
+        : (adapter.platform === 'wps' ? 14 : 14);
 
     const all: string[] = [];
 
@@ -317,6 +320,17 @@ async function findRangeByTexts(
     skipRefinement?: boolean
 ): Promise<{ range: PlatformRange; query: string } | null> {
     const queries = collectLocateQueries(adapter, texts, budget);
+
+    if (adapter.platform === 'wps' && adapter.rangeMapper.findRangeFromCache) {
+        await adapter.rangeMapper.preloadFullText?.();
+        for (const query of queries) {
+            const cached = adapter.rangeMapper.findRangeFromCache(query);
+            if (cached) {
+                return { range: cached, query };
+            }
+        }
+    }
+
     const mapperOptions = skipRefinement ? { skipRefinement: true } : undefined;
 
     for (const query of queries) {
@@ -353,7 +367,7 @@ async function getRange(
 
     if (adapter.platform === 'wps' && adapter.rangeMapper.findRangeFromCache) {
         await adapter.rangeMapper.preloadFullText?.();
-        const cacheTake = budget === 'compact' ? 3 : 8;
+        const cacheTake = budget === 'compact' ? 4 : 12;
         for (const candidate of directCandidates.slice(0, cacheTake)) {
             const cachedHit = adapter.rangeMapper.findRangeFromCache(candidate);
             if (cachedHit) {

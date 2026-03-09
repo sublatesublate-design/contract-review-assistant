@@ -220,23 +220,27 @@ function buildSmartProbes(probeStr: string): string[] {
     // 1) Original head probe.
     pushProbe(base);
 
-    // 2) First sentence before punctuation.
+    // 2) Clause heading only probe: robust when body is slightly rewritten.
+    const headingOnly = base.match(/^\s*第\s*[\u4e00-\u9fa5\d]{1,12}\s*条(?:\s+[\u4e00-\u9fa5]{1,20})?/);
+    pushProbe(headingOnly?.[0]);
+
+    // 3) First sentence before punctuation.
     const firstSentence = base.split(/[\u3002\uff1b;\uff01\uff1f!?]/)[0];
     pushProbe(firstSentence);
 
-    // 3) Skip "第X条 ..." heading and probe正文首句.
+    // 4) Skip "第X条 ..." heading and probe正文首句.
     const bodyWithoutHeading = base.replace(
-        /^\s*\u7b2c[\u4e00-\u9fa5\d]+\u6761(?:\s+[\u4e00-\u9fa5]{1,20})?\s*/,
+        /^\s*\u7b2c\s*[\u4e00-\u9fa5\d]{1,12}\s*\u6761(?:\s+[\u4e00-\u9fa5]{1,20})?\s*/,
         ''
     );
     const bodyFirstSentence = bodyWithoutHeading.split(/[\u3002\uff1b;\uff01\uff1f!?]/)[0];
     pushProbe(bodyFirstSentence || bodyWithoutHeading);
 
-    // 4) Remove bracket forms often rewritten by model.
+    // 5) Remove bracket forms often rewritten by model.
     const withoutBrackets = base.replace(/[\u3010\u3011\[\]]/g, '');
     pushProbe(withoutBrackets);
 
-    // 5) Keep old behavior as fallback.
+    // 6) Keep old behavior as fallback.
     pushProbe(probeStr);
 
     return probes;
@@ -269,6 +273,65 @@ export class WpsRangeMapper implements IRangeMapper {
         } catch {
             return 999999;
         }
+    }
+
+    private escapeRegExp(text: string): string {
+        return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    private extractClauseNumber(text: string): string | null {
+        const source = normalizeLineBreaksToSpace(text || '');
+        const match = source.match(/第\s*([\u4e00-\u9fa5\d]{1,12})\s*条/);
+        if (!match?.[1]) return null;
+        return match[1].replace(/\s+/g, '');
+    }
+
+    private buildClauseHeadingRegex(clauseNo: string, global = false): RegExp {
+        const seq = clauseNo
+            .split('')
+            .map((ch) => this.escapeRegExp(ch))
+            .join('\\s*');
+        return new RegExp(`第\\s*${seq}\\s*条`, global ? 'g' : '');
+    }
+
+    private findClauseRangeByHeading(
+        fullText: string,
+        clauseNo: string,
+        preferRawStart = 0
+    ): { start: number; end: number } | null {
+        if (!fullText || !clauseNo) return null;
+
+        const regex = this.buildClauseHeadingRegex(clauseNo, true);
+        let bestStart = -1;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        let match: RegExpExecArray | null;
+
+        while ((match = regex.exec(fullText)) !== null) {
+            const idx = match.index ?? -1;
+            if (idx >= 0) {
+                const distance = Math.abs(idx - preferRawStart);
+                if (bestStart < 0 || distance < bestDistance) {
+                    bestStart = idx;
+                    bestDistance = distance;
+                }
+            }
+
+            if (regex.lastIndex === match.index) {
+                regex.lastIndex += 1;
+            }
+        }
+
+        if (bestStart < 0) return null;
+
+        const tailStart = Math.min(fullText.length, bestStart + 1);
+        const tail = fullText.slice(tailStart);
+        const nextHeading = tail.match(/(?:\r\n|\n|\r)\s*第\s*[\u4e00-\u9fa5\d]{1,12}\s*条/);
+        const clauseEnd = nextHeading
+            ? tailStart + (nextHeading.index ?? 0)
+            : fullText.length;
+
+        if (clauseEnd <= bestStart + 4) return null;
+        return { start: bestStart, end: clauseEnd };
     }
 
     private sanitizeRange(doc: any, r: { start: number; end: number }): { start: number; end: number } {
@@ -508,6 +571,14 @@ export class WpsRangeMapper implements IRangeMapper {
             return hit(rPunct);
         }
 
+        const clauseNo = this.extractClauseNumber(searchText);
+        if (clauseNo) {
+            const clauseHit = this.findClauseRangeByHeading(fullText, clauseNo);
+            if (clauseHit) {
+                return hit(clauseHit);
+            }
+        }
+
         return null;
     }
 
@@ -627,6 +698,14 @@ export class WpsRangeMapper implements IRangeMapper {
                     }
                 } catch {
                     // ignore find fallback error
+                }
+            }
+
+            const clauseNo = this.extractClauseNumber(searchText);
+            if (clauseNo) {
+                const clauseHit = this.findClauseRangeByHeading(fullText, clauseNo);
+                if (clauseHit) {
+                    return hit(clauseHit, false);
                 }
             }
 

@@ -1,6 +1,9 @@
 import type { ITrackChangesManager, PlatformRange } from '../types';
 /// <reference path="./wps-jsapi.d.ts" />
 
+// Unified strategy: always prefer minimal replacement range.
+const WPS_REWRITE_MODE: 'minimal' | 'full' = 'minimal';
+
 export class WpsTrackChangesManager implements ITrackChangesManager {
     private escapeRegExp(text: string): string {
         return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -100,7 +103,9 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
         const doc = app.ActiveDocument;
 
         const info = range._internal as { start: number; end: number };
-        const clauseRange = this.tryBuildClauseRange(doc, info, suggestedText);
+        const clauseRange = WPS_REWRITE_MODE === 'full'
+            ? this.tryBuildClauseRange(doc, info, suggestedText)
+            : null;
         const target = clauseRange
             ? doc.Range(clauseRange.start, clauseRange.end)
             : doc.Range(info.start, info.end);
@@ -132,7 +137,9 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
                 }
                 try {
                     const info = edit.range._internal as { start: number; end: number };
-                    const clauseRange = this.tryBuildClauseRange(doc, info, edit.suggestedText);
+                    const clauseRange = WPS_REWRITE_MODE === 'full'
+                        ? this.tryBuildClauseRange(doc, info, edit.suggestedText)
+                        : null;
                     const target = clauseRange
                         ? doc.Range(clauseRange.start, clauseRange.end)
                         : doc.Range(info.start, info.end);

@@ -14,6 +14,19 @@ const RISK_LABEL: Record<ReviewIssue['riskLevel'], string> = {
 };
 
 const MIN_PROBE_LEN = 10;
+const ISSUE_RANGE_CACHE_TTL_MS = 120000;
+
+type QueryBudget = 'compact' | 'full';
+
+interface CachedIssueRange {
+    range: PlatformRange;
+    platform: IPlatformAdapter['platform'];
+    mutationVersion: number;
+    savedAt: number;
+}
+
+const issueRangeCache = new Map<string, CachedIssueRange>();
+let rangeMutationVersion = 0;
 
 function normalizeQuery(text?: string): string {
     return (text || '')
@@ -32,7 +45,7 @@ function uniquePush(target: string[], value: string, minLen = MIN_PROBE_LEN): vo
 
 function splitByEllipsis(text: string): string[] {
     return text
-        .split(/\.{3,}|…+/)
+        .split(/\.{3,}|\u2026+/)
         .map((s) => normalizeQuery(s))
         .filter((s) => s.length >= 14);
 }
@@ -42,6 +55,35 @@ function splitBySentence(text: string): string[] {
         .split(/[。！？；;.!?]/)
         .map((s) => normalizeQuery(s))
         .filter((s) => s.length >= 20);
+}
+
+function hasEllipsis(text?: string): boolean {
+    if (!text) return false;
+    return /\.{3,}|\u2026+/.test(text);
+}
+
+function countClauseMarkers(text?: string): number {
+    const src = normalizeQuery(text);
+    if (!src) return 0;
+    const matches = src.match(/第[一二三四五六七八九十百千万零〇\d]+条/g);
+    return matches?.length ?? 0;
+}
+
+function isLikelyNonContiguousExcerpt(text?: string): boolean {
+    const src = normalizeQuery(text);
+    if (!src) return false;
+    if (!hasEllipsis(src)) return false;
+
+    if (countClauseMarkers(src) >= 2) {
+        return true;
+    }
+
+    const longParts = splitByEllipsis(src).filter((p) => p.length >= 24);
+    return longParts.length >= 2;
+}
+
+function cannotApplyAsSingleRange(issue: ReviewIssue): boolean {
+    return isLikelyNonContiguousExcerpt(issue.originalText);
 }
 
 function buildFallbackLocateQueries(text?: string): string[] {
@@ -89,9 +131,69 @@ function buildFallbackLocateQueries(text?: string): string[] {
     return queries;
 }
 
-function collectLocateQueries(adapter: IPlatformAdapter, texts: Array<string | undefined>): string[] {
-    const perTextLimit = adapter.platform === 'wps' ? 3 : 6;
-    const totalLimit = adapter.platform === 'wps' ? 7 : 14;
+function cloneRange(range: PlatformRange): PlatformRange {
+    if (range._internal && typeof range._internal === 'object') {
+        return {
+            _platform: range._platform,
+            _internal: { ...(range._internal as Record<string, unknown>) },
+        } as PlatformRange;
+    }
+
+    return {
+        _platform: range._platform,
+        _internal: range._internal,
+    } as PlatformRange;
+}
+
+function getCachedRange(adapter: IPlatformAdapter, issueId: string): PlatformRange | null {
+    const hit = issueRangeCache.get(issueId);
+    if (!hit) return null;
+
+    if (hit.platform !== adapter.platform) {
+        issueRangeCache.delete(issueId);
+        return null;
+    }
+
+    if (hit.mutationVersion !== rangeMutationVersion) {
+        issueRangeCache.delete(issueId);
+        return null;
+    }
+
+    if (Date.now() - hit.savedAt > ISSUE_RANGE_CACHE_TTL_MS) {
+        issueRangeCache.delete(issueId);
+        return null;
+    }
+
+    return cloneRange(hit.range);
+}
+
+function setCachedRange(adapter: IPlatformAdapter, issueId: string, range: PlatformRange): void {
+    issueRangeCache.set(issueId, {
+        range: cloneRange(range),
+        platform: adapter.platform,
+        mutationVersion: rangeMutationVersion,
+        savedAt: Date.now(),
+    });
+}
+
+function bumpMutation(adapter: IPlatformAdapter): void {
+    rangeMutationVersion += 1;
+    issueRangeCache.clear();
+    adapter.invalidateMappingCache?.();
+}
+
+function collectLocateQueries(
+    adapter: IPlatformAdapter,
+    texts: Array<string | undefined>,
+    budget: QueryBudget
+): string[] {
+    const perTextLimit = budget === 'compact'
+        ? (adapter.platform === 'wps' ? 2 : 3)
+        : (adapter.platform === 'wps' ? 3 : 6);
+    const totalLimit = budget === 'compact'
+        ? (adapter.platform === 'wps' ? 4 : 6)
+        : (adapter.platform === 'wps' ? 7 : 14);
+
     const all: string[] = [];
 
     for (const text of texts) {
@@ -107,13 +209,18 @@ function collectLocateQueries(adapter: IPlatformAdapter, texts: Array<string | u
 
 async function findRangeByTexts(
     adapter: IPlatformAdapter,
-    texts: Array<string | undefined>
-): Promise<PlatformRange | null> {
-    const queries = collectLocateQueries(adapter, texts);
+    texts: Array<string | undefined>,
+    budget: QueryBudget
+): Promise<{ range: PlatformRange; query: string } | null> {
+    const queries = collectLocateQueries(adapter, texts, budget);
+
     for (const query of queries) {
         const range = await adapter.rangeMapper.findRange(query);
-        if (range) return range;
+        if (range) {
+            return { range, query };
+        }
     }
+
     return null;
 }
 
@@ -123,8 +230,19 @@ async function getRange(
     options?: {
         overrideText?: string;
         includeSuggestedFallback?: boolean;
+        useCache?: boolean;
+        budget?: QueryBudget;
     }
 ): Promise<PlatformRange | null> {
+    const allowCache = options?.useCache !== false;
+    const budget = options?.budget ?? 'full';
+    const useIssueCache = allowCache && !options?.overrideText;
+
+    if (useIssueCache) {
+        const cached = getCachedRange(adapter, issue.id);
+        if (cached) return cached;
+    }
+
     const texts: Array<string | undefined> = [];
 
     if (options?.overrideText) {
@@ -137,7 +255,35 @@ async function getRange(
         texts.push(issue.suggestedText);
     }
 
-    return findRangeByTexts(adapter, texts);
+    const found = await findRangeByTexts(adapter, texts, budget);
+    if (!found) return null;
+
+    if (useIssueCache) {
+        setCachedRange(adapter, issue.id, found.range);
+    }
+
+    return found.range;
+}
+
+async function getRangeWithFallback(
+    adapter: IPlatformAdapter,
+    issue: ReviewIssue,
+    options?: {
+        overrideText?: string;
+        includeSuggestedFallback?: boolean;
+        useCache?: boolean;
+    }
+): Promise<PlatformRange | null> {
+    const compact = await getRange(adapter, issue, {
+        ...options,
+        budget: 'compact',
+    });
+    if (compact) return compact;
+
+    return getRange(adapter, issue, {
+        ...options,
+        budget: 'full',
+    });
 }
 
 function buildCommentText(issue: ReviewIssue): string {
@@ -150,11 +296,14 @@ function buildCommentText(issue: ReviewIssue): string {
     return `${prefix}[${riskLabel}] ${issue.title}\n${issue.description}${issue.legalBasis ? `\n法律依据：${issue.legalBasis}` : ''}${suggested}`;
 }
 
-export function invalidateRangeCache(adapter: IPlatformAdapter, _issueId: string): void {
+export function invalidateRangeCache(adapter: IPlatformAdapter, issueId: string): void {
+    issueRangeCache.delete(issueId);
     adapter.invalidateMappingCache?.();
 }
 
 export function clearAllRangeCache(adapter?: IPlatformAdapter): void {
+    rangeMutationVersion += 1;
+    issueRangeCache.clear();
     adapter?.invalidateMappingCache?.();
 }
 
@@ -163,8 +312,14 @@ export async function locateIssue(
     adapter: IPlatformAdapter,
     issue: ReviewIssue
 ): Promise<boolean> {
-    const range = await getRange(adapter, issue, { includeSuggestedFallback: true });
+    const range = await getRangeWithFallback(adapter, issue, {
+        includeSuggestedFallback: true,
+        useCache: true,
+    });
+
     if (!range) return false;
+
+    setCachedRange(adapter, issue.id, range);
     await adapter.navigationHelper.navigateAndHighlight(range);
     return true;
 }
@@ -174,8 +329,14 @@ export async function commentIssue(
     adapter: IPlatformAdapter,
     issue: ReviewIssue
 ): Promise<boolean> {
-    const range = await getRange(adapter, issue, { includeSuggestedFallback: true });
+    const range = await getRangeWithFallback(adapter, issue, {
+        includeSuggestedFallback: true,
+        useCache: true,
+    });
+
     if (!range) return false;
+
+    setCachedRange(adapter, issue.id, range);
     await adapter.commentManager.addComment(range, buildCommentText(issue));
     return true;
 }
@@ -186,11 +347,21 @@ export async function applyIssue(
     issue: ReviewIssue
 ): Promise<boolean> {
     if (!issue.suggestedText) return false;
-    const range = await getRange(adapter, issue, { includeSuggestedFallback: false });
+
+    // 跨条款拼接原文无法作为单一连续 range 替换，直接快速失败，避免长时间卡顿。
+    if (cannotApplyAsSingleRange(issue)) {
+        return false;
+    }
+
+    const range = await getRangeWithFallback(adapter, issue, {
+        includeSuggestedFallback: false,
+        useCache: true,
+    });
+
     if (!range) return false;
 
     await adapter.trackChangesManager.applySuggestedEdit(range, issue.suggestedText);
-    invalidateRangeCache(adapter, issue.id);
+    bumpMutation(adapter);
     return true;
 }
 
@@ -199,7 +370,11 @@ export async function uncommentIssue(
     adapter: IPlatformAdapter,
     issue: ReviewIssue
 ): Promise<boolean> {
-    const range = await getRange(adapter, issue, { includeSuggestedFallback: true });
+    const range = await getRangeWithFallback(adapter, issue, {
+        includeSuggestedFallback: true,
+        useCache: true,
+    });
+
     if (!range) return false;
 
     const riskLabel = RISK_LABEL[issue.riskLevel];
@@ -213,16 +388,33 @@ export async function unapplyIssue(
     adapter: IPlatformAdapter,
     issue: ReviewIssue
 ): Promise<boolean> {
+    if (cannotApplyAsSingleRange(issue)) {
+        return false;
+    }
+
     let range = issue.suggestedText
-        ? await getRange(adapter, issue, { overrideText: issue.suggestedText, includeSuggestedFallback: false })
+        ? await getRangeWithFallback(adapter, issue, {
+            overrideText: issue.suggestedText,
+            includeSuggestedFallback: false,
+            useCache: false,
+        })
         : null;
 
     if (!range) {
-        range = await getRange(adapter, issue, { includeSuggestedFallback: true });
+        range = await getRangeWithFallback(adapter, issue, {
+            includeSuggestedFallback: true,
+            useCache: false,
+        });
     }
 
     if (!range && adapter.platform === 'word') {
-        const fallbackSearchText = normalizeQuery(issue.suggestedText || issue.originalText || '');
+        const fallbackCandidates = collectLocateQueries(
+            adapter,
+            [issue.suggestedText, issue.originalText],
+            'compact'
+        );
+        const fallbackSearchText = normalizeQuery(fallbackCandidates[0]);
+
         if (fallbackSearchText) {
             range = {
                 _internal: { searchText: fallbackSearchText },
@@ -233,14 +425,17 @@ export async function unapplyIssue(
 
     if (!range) return false;
 
+    // Use the same resolved range to remove comment first, avoid duplicate range resolution.
     try {
-        await uncommentIssue(adapter, issue);
+        const riskLabel = RISK_LABEL[issue.riskLevel];
+        const commentText = `[${riskLabel}] ${issue.title}`;
+        await adapter.commentManager.removeComment(range, commentText);
     } catch {
         // comment may not exist, continue reverting changes.
     }
 
     await adapter.trackChangesManager.revertEdit(range, issue.originalText, issue.suggestedText);
-    invalidateRangeCache(adapter, issue.id);
+    bumpMutation(adapter);
     return true;
 }
 
@@ -253,7 +448,7 @@ export async function batchComment(
     const total = issues.length;
     if (total === 0) return { success: 0, failed: 0 };
 
-    const prepared: Array<{ index: number; range: PlatformRange; text: string }> = [];
+    const prepared: Array<{ index: number; range: PlatformRange; text: string; issueId: string }> = [];
     const progressSent = Array<boolean>(total).fill(false);
     let success = 0;
     let failed = 0;
@@ -267,7 +462,11 @@ export async function batchComment(
             continue;
         }
 
-        const range = await getRange(adapter, issue, { includeSuggestedFallback: true });
+        const range = await getRangeWithFallback(adapter, issue, {
+            includeSuggestedFallback: true,
+            useCache: true,
+        });
+
         if (!range) {
             failed++;
             progressSent[i] = true;
@@ -275,10 +474,12 @@ export async function batchComment(
             continue;
         }
 
+        setCachedRange(adapter, issue.id, range);
         prepared.push({
             index: i,
             range,
             text: buildCommentText(issue),
+            issueId: issue.id,
         });
     }
 
@@ -292,8 +493,12 @@ export async function batchComment(
                 const preparedItem = prepared[i];
                 if (!preparedItem) continue;
                 const ok = !!results[i];
-                if (ok) success++;
-                else failed++;
+                if (ok) {
+                    success++;
+                } else {
+                    failed++;
+                    issueRangeCache.delete(preparedItem.issueId);
+                }
 
                 if (!progressSent[preparedItem.index]) {
                     progressSent[preparedItem.index] = true;
@@ -304,6 +509,7 @@ export async function batchComment(
             console.error('[batchComment] 批量插入批注失败:', err);
             for (const preparedItem of prepared) {
                 failed++;
+                issueRangeCache.delete(preparedItem.issueId);
                 if (!progressSent[preparedItem.index]) {
                     progressSent[preparedItem.index] = true;
                     onProgress?.(preparedItem.index + 1, total, false);
@@ -361,19 +567,24 @@ export async function batchApply(
 
     for (let i = 0; i < total; i++) {
         const issue = applicableIssues[i];
-        if (!issue || !issue.suggestedText) {
+        if (!issue || !issue.suggestedText || cannotApplyAsSingleRange(issue)) {
             failed++;
             onProgress?.(i + 1, total, false);
             continue;
         }
 
-        const range = await getRange(adapter, issue, { includeSuggestedFallback: false });
+        const range = await getRangeWithFallback(adapter, issue, {
+            includeSuggestedFallback: false,
+            useCache: true,
+        });
+
         if (!range) {
             failed++;
             onProgress?.(i + 1, total, false);
             continue;
         }
 
+        setCachedRange(adapter, issue.id, range);
         prepared.push({ index: i, range, suggestedText: issue.suggestedText, issueId: issue.id });
     }
 
@@ -390,15 +601,20 @@ export async function batchApply(
             const ok = !!results[i];
             if (ok) {
                 success++;
-                invalidateRangeCache(adapter, item.issueId);
             } else {
                 failed++;
+                issueRangeCache.delete(item.issueId);
             }
             onProgress?.(item.index + 1, total, ok);
+        }
+
+        if (success > 0) {
+            bumpMutation(adapter);
         }
     } catch {
         for (const item of prepared) {
             failed++;
+            issueRangeCache.delete(item.issueId);
             onProgress?.(item.index + 1, total, false);
         }
     }

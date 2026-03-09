@@ -2,13 +2,57 @@ import type { ITrackChangesManager, PlatformRange } from '../types';
 /// <reference path="./wps-jsapi.d.ts" />
 
 export class WpsTrackChangesManager implements ITrackChangesManager {
+    private escapeRegExp(text: string): string {
+        return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    private extractClauseNumber(suggestedText: string): string | null {
+        const match = (suggestedText || '')
+            .trim()
+            .match(/^\s*第\s*([\u4e00-\u9fa5\d]{1,12})\s*条/);
+        if (!match?.[1]) return null;
+        return match[1].replace(/\s+/g, '');
+    }
+
+    private buildClauseHeadingRegex(clauseNo: string, global = false): RegExp {
+        const seq = clauseNo
+            .split('')
+            .map((ch) => this.escapeRegExp(ch))
+            .join('\\s*');
+        return new RegExp(`第\\s*${seq}\\s*条`, global ? 'g' : '');
+    }
+
+    private findClosestMatchStart(
+        text: string,
+        regex: RegExp,
+        anchor: number,
+        offset = 0
+    ): { index: number; distance: number } | null {
+        let best: { index: number; distance: number } | null = null;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(text)) !== null) {
+            const localIndex = match.index ?? -1;
+            if (localIndex < 0) continue;
+            const index = offset + localIndex;
+            const distance = Math.abs(index - anchor);
+            if (!best || distance < best.distance) {
+                best = { index, distance };
+            }
+
+            if (regex.lastIndex === localIndex) {
+                regex.lastIndex += 1;
+            }
+        }
+        return best;
+    }
+
     private tryBuildClauseRange(
         doc: any,
         info: { start: number; end: number },
         suggestedText: string
     ): { start: number; end: number } | null {
-        const heading = (suggestedText || '').trim().match(/^\s*(第[\u4e00-\u9fa5\d]+条)/)?.[1];
-        if (!heading) return null;
+        const clauseNo = this.extractClauseNumber(suggestedText);
+        if (!clauseNo) return null;
 
         const fullText = (doc?.Content?.Text as string) || '';
         if (!fullText) return null;
@@ -18,25 +62,35 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
         const nearText = fullText.slice(nearStart, nearEnd);
 
         let clauseStart = -1;
-        const nearIdx = nearText.indexOf(heading);
-        if (nearIdx !== -1) {
-            clauseStart = nearStart + nearIdx;
+        const nearMatch = this.findClosestMatchStart(
+            nearText,
+            this.buildClauseHeadingRegex(clauseNo, true),
+            info.start,
+            nearStart
+        );
+        if (nearMatch) {
+            clauseStart = nearMatch.index;
         } else {
-            const globalIdx = fullText.indexOf(heading);
-            if (globalIdx === -1) return null;
-            if (Math.abs(globalIdx - info.start) > 3200) return null;
-            clauseStart = globalIdx;
+            const globalMatch = this.findClosestMatchStart(
+                fullText,
+                this.buildClauseHeadingRegex(clauseNo, true),
+                info.start
+            );
+            if (!globalMatch) return null;
+            if (globalMatch.distance > 4800) return null;
+            clauseStart = globalMatch.index;
         }
 
         if (clauseStart < 0) return null;
 
-        const tail = fullText.slice(clauseStart + heading.length);
-        const nextHeading = tail.match(/\r\s*第[\u4e00-\u9fa5\d]+条/);
+        const tailStart = Math.min(fullText.length, clauseStart + 1);
+        const tail = fullText.slice(tailStart);
+        const nextHeading = tail.match(/(?:\r\n|\n|\r)\s*第\s*[\u4e00-\u9fa5\d]{1,12}\s*条/);
         const clauseEnd = nextHeading
-            ? clauseStart + heading.length + (nextHeading.index ?? 0)
+            ? tailStart + (nextHeading.index ?? 0)
             : fullText.length;
 
-        if (clauseEnd <= clauseStart + heading.length) return null;
+        if (clauseEnd <= Math.max(info.end, clauseStart + 6)) return null;
         return { start: clauseStart, end: clauseEnd };
     }
 
@@ -78,8 +132,11 @@ export class WpsTrackChangesManager implements ITrackChangesManager {
                 }
                 try {
                     const info = edit.range._internal as { start: number; end: number };
-                    const r = doc.Range(info.start, info.end);
-                    r.Text = edit.suggestedText;
+                    const clauseRange = this.tryBuildClauseRange(doc, info, edit.suggestedText);
+                    const target = clauseRange
+                        ? doc.Range(clauseRange.start, clauseRange.end)
+                        : doc.Range(info.start, info.end);
+                    target.Text = edit.suggestedText;
                     results.push(true);
                 } catch {
                     results.push(false);

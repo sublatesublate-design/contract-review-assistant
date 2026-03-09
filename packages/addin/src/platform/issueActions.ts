@@ -87,10 +87,14 @@ function cannotApplyAsSingleRange(issue: ReviewIssue): boolean {
 }
 
 function buildFallbackLocateQueries(text?: string): string[] {
+    const raw = (text || '').trim();
     const src = normalizeQuery(text);
-    if (!src) return [];
+    if (!src && !raw) return [];
 
     const queries: string[] = [];
+    if (raw.length >= 2 && !queries.includes(raw)) {
+        queries.push(raw);
+    }
     uniquePush(queries, src, 2);
 
     const parts = splitByEllipsis(src);
@@ -241,6 +245,17 @@ async function getRange(
     if (useIssueCache) {
         const cached = getCachedRange(adapter, issue.id);
         if (cached) return cached;
+    }
+
+    const primaryText = (options?.overrideText ?? issue.originalText ?? '').trim();
+    if (primaryText.length > 0) {
+        const direct = await adapter.rangeMapper.findRange(primaryText);
+        if (direct) {
+            if (useIssueCache) {
+                setCachedRange(adapter, issue.id, direct);
+            }
+            return direct;
+        }
     }
 
     const texts: Array<string | undefined> = [];

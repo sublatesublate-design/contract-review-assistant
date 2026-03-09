@@ -85,7 +85,11 @@ function trimQuery(q: string, maxLen = 255): string {
 async function searchCandidates(
     context: Word.RequestContext,
     query: string,
-    limit = 8
+    limit = 8,
+    options?: {
+        ignoreSpace?: boolean;
+        ignorePunct?: boolean;
+    }
 ): Promise<Word.Range[]> {
     const q = trimQuery(query);
     if (q.length < 2) return [];
@@ -93,8 +97,8 @@ async function searchCandidates(
     const results = context.document.body.search(q, {
         matchCase: false,
         matchWholeWord: false,
-        ignoreSpace: true,
-        ignorePunct: true,
+        ignoreSpace: options?.ignoreSpace ?? true,
+        ignorePunct: options?.ignorePunct ?? true,
     });
     results.load('items');
     await context.sync();
@@ -134,61 +138,64 @@ async function ensureCoverageFast(
     const anchors = buildAnchors(targetText);
     if (anchors.compact.length < 24) return baseRange;
 
-    baseRange.load('text');
-    await context.sync();
-    const baseText = baseRange.text || '';
-    if (hasAnchor(baseText, anchors.head) && hasAnchor(baseText, anchors.tail)) {
-        return baseRange;
-    }
-
-    const firstPara = baseRange.paragraphs.getFirst();
-    const lastPara = baseRange.paragraphs.getLast();
-    const prevPara = firstPara.getPreviousOrNullObject();
-    const nextPara = lastPara.getNextOrNullObject();
-    prevPara.load('isNullObject');
-    nextPara.load('isNullObject');
+    let currentRange = baseRange;
+    currentRange.load('text');
     await context.sync();
 
-    let bestRange = baseRange;
-    let bestScore = calcCoverageScore(baseText, targetText);
+    let bestRange = currentRange;
+    let bestScore = calcCoverageScore(currentRange.text || '', targetText);
+    let startPara = currentRange.paragraphs.getFirst();
+    let endPara = currentRange.paragraphs.getLast();
 
-    const candidates: Word.Range[] = [];
-    try {
-        if (!prevPara.isNullObject) {
-            const expandPrev = prevPara.getRange().expandTo(lastPara.getRange());
-            expandPrev.load('text');
-            candidates.push(expandPrev);
-        }
-        if (!nextPara.isNullObject) {
-            const expandNext = firstPara.getRange().expandTo(nextPara.getRange());
-            expandNext.load('text');
-            candidates.push(expandNext);
-        }
-        if (!prevPara.isNullObject || !nextPara.isNullObject) {
-            const start = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
-            const end = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
-            const expandBoth = start.expandTo(end);
-            expandBoth.load('text');
-            candidates.push(expandBoth);
-        }
-    } catch {
-        return baseRange;
-    }
+    const maxExpandSteps = 4;
+    for (let step = 0; step < maxExpandSteps; step++) {
+        const currentText = currentRange.text || '';
+        const hasHead = hasAnchor(currentText, anchors.head);
+        const hasTail = hasAnchor(currentText, anchors.tail);
+        const compactLen = compactForCompare(currentText).length;
 
-    if (candidates.length === 0) return baseRange;
-    await context.sync();
-
-    for (const c of candidates) {
-        const text = c.text || '';
-        const compact = compactForCompare(text);
-        if (compact.length > Math.max(120, Math.floor(originalTextLength * 2.6))) {
-            continue;
+        if (hasHead && hasTail && compactLen >= Math.floor(anchors.compact.length * 0.92)) {
+            return currentRange;
         }
-        const score = calcCoverageScore(text, targetText);
+
+        let expanded = false;
+        if (!hasHead) {
+            const prev = startPara.getPreviousOrNullObject();
+            prev.load('isNullObject');
+            await context.sync();
+            if (!prev.isNullObject) {
+                startPara = prev;
+                expanded = true;
+            }
+        }
+        if (!hasTail) {
+            const next = endPara.getNextOrNullObject();
+            next.load('isNullObject');
+            await context.sync();
+            if (!next.isNullObject) {
+                endPara = next;
+                expanded = true;
+            }
+        }
+
+        if (!expanded) break;
+
+        const nextRange = startPara.getRange().expandTo(endPara.getRange());
+        nextRange.load('text');
+        await context.sync();
+
+        const nextText = nextRange.text || '';
+        const nextCompactLen = compactForCompare(nextText).length;
+        if (nextCompactLen > Math.max(160, Math.floor(originalTextLength * 3.1))) {
+            break;
+        }
+
+        const score = calcCoverageScore(nextText, targetText);
         if (score > bestScore) {
             bestScore = score;
-            bestRange = c;
+            bestRange = nextRange;
         }
+        currentRange = nextRange;
     }
 
     return bestRange;
@@ -280,6 +287,33 @@ function makeProbeQueries(cleanText: string, noPunct: string, anchors: AnchorPac
     return out;
 }
 
+function makeStrictQueries(rawText: string): string[] {
+    const oneLine = rawText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!oneLine) return [];
+
+    const queries: string[] = [];
+    if (oneLine.length <= 255) {
+        queries.push(oneLine);
+    } else {
+        queries.push(oneLine.slice(0, 200));
+    }
+
+    if (oneLine.length > 80) {
+        queries.push(oneLine.slice(0, 80));
+        queries.push(oneLine.slice(Math.max(0, oneLine.length - 80)));
+    }
+
+    const uniq = new Set<string>();
+    const out: string[] = [];
+    for (const q of queries) {
+        const s = trimQuery(q, 255);
+        if (s.length < 8 || uniq.has(s)) continue;
+        uniq.add(s);
+        out.push(s);
+    }
+    return out;
+}
+
 async function tryTableFallback(
     context: Word.RequestContext,
     text: string
@@ -329,7 +363,22 @@ export async function resolveWordRange(
     const originalLen = Math.max(1, text.length);
     const anchors = buildAnchors(cleanText || text);
 
-    // 1) Full-text search when query length is supported.
+    // 1) Strict queries first (punctuation/space-sensitive) to reduce wrong clause matches.
+    const strictQueries = makeStrictQueries(text);
+    for (const sq of strictQueries.slice(0, 3)) {
+        const strictCandidates = await searchCandidates(context, sq, 6, {
+            ignoreSpace: false,
+            ignorePunct: false,
+        });
+        if (strictCandidates.length > 0) {
+            const { best, score } = pickBestCandidate(strictCandidates, cleanText || text);
+            if (best && score > 0.35) {
+                return await ensureCoverageFast(context, best, cleanText || text, originalLen);
+            }
+        }
+    }
+
+    // 2) Full-text fuzzy search when query length is supported.
     if (cleanText.length > 0 && cleanText.length <= 255) {
         const exactCandidates = await searchCandidates(context, cleanText, 8);
         if (exactCandidates.length > 0) {
@@ -340,11 +389,11 @@ export async function resolveWordRange(
         }
     }
 
-    // 2) Anchor-fusion search: combine head & tail matches to avoid partial selection.
+    // 3) Anchor-fusion search: combine head & tail matches to avoid partial selection.
     const fused = await tryAnchorFusion(context, cleanText || text, originalLen);
     if (fused) return fused;
 
-    // 3) Probe fallbacks (short list, performance-first).
+    // 4) Probe fallbacks (short list, performance-first).
     const probes = makeProbeQueries(cleanText, noPunct, anchors);
     for (const probe of probes.slice(0, 4)) {
         const candidates = await searchCandidates(context, probe, 6);
@@ -355,7 +404,7 @@ export async function resolveWordRange(
         }
     }
 
-    // 4) Table fallback (only for explicit table-style text).
+    // 5) Table fallback (only for explicit table-style text).
     const tableRange = await tryTableFallback(context, text);
     if (tableRange) return tableRange;
 

@@ -102,6 +102,23 @@ async function rejectRevisionsInRange(
     }
 }
 
+async function rejectAllRevisionsInRangeSafe(
+    context: Word.RequestContext,
+    range: Word.Range
+): Promise<void> {
+    try {
+        const revisions = range.revisions;
+        revisions.load('items');
+        await context.sync();
+        if (revisions.items.length > 0) {
+            revisions.rejectAll();
+            await context.sync();
+        }
+    } catch {
+        // ignore cleanup failure
+    }
+}
+
 async function rejectRelevantRevisionsInDocument(
     context: Word.RequestContext,
     originalText: string,
@@ -265,6 +282,15 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                                 originalText,
                                 suggestedText
                             );
+                        }
+                    }
+
+                    // Cleanup residual local revision marks after successful match.
+                    if (ok) {
+                        await rejectAllRevisionsInRangeSafe(context, wordRange);
+                        const expanded = await buildNeighborExpandedRange(context, wordRange);
+                        if (expanded) {
+                            await rejectAllRevisionsInRangeSafe(context, expanded);
                         }
                     }
 

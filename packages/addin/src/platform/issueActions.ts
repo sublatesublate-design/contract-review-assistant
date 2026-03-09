@@ -100,7 +100,7 @@ function stripBracketPairs(text: string): string {
 }
 
 function stripLeadingClauseHeading(text: string): string {
-    return text.replace(/^\s*第[\u4e00-\u9fa5\d]+条(?:\s*[^\r\n。；;]{0,40})?\s*/, '').trim();
+    return text.replace(/^\s*\u7b2c[\u4e00-\u9fa5\d]+\u6761(?:\s+[\u4e00-\u9fa5]{1,20})?\s*/, '').trim();
 }
 
 function buildLocateTextVariants(text?: string): string[] {
@@ -114,17 +114,17 @@ function buildLocateTextVariants(text?: string): string[] {
     const noHeading = stripLeadingClauseHeading(unquoted);
     const noHeadingNoBrackets = stripLeadingClauseHeading(noBrackets);
 
-    // Prefer stable variants first (strip label/quotes), then keep original as fallback.
-    pushUniqueText(variants, noBrackets);
-    pushUniqueText(variants, normalizeQuery(noBrackets));
+    // Keep bracketed original first for WPS Find.Execute, then relaxed variants as fallback.
     pushUniqueText(variants, unquoted);
     pushUniqueText(variants, normalizeQuery(unquoted));
-    pushUniqueText(variants, base);
-    pushUniqueText(variants, normalizeQuery(base));
+    pushUniqueText(variants, noBrackets);
+    pushUniqueText(variants, normalizeQuery(noBrackets));
     pushUniqueText(variants, noHeading);
     pushUniqueText(variants, normalizeQuery(noHeading));
     pushUniqueText(variants, noHeadingNoBrackets);
     pushUniqueText(variants, normalizeQuery(noHeadingNoBrackets));
+    pushUniqueText(variants, base);
+    pushUniqueText(variants, normalizeQuery(base));
 
     return variants;
 }
@@ -313,12 +313,14 @@ function collectLocateQueries(
 async function findRangeByTexts(
     adapter: IPlatformAdapter,
     texts: Array<string | undefined>,
-    budget: QueryBudget
+    budget: QueryBudget,
+    skipRefinement?: boolean
 ): Promise<{ range: PlatformRange; query: string } | null> {
     const queries = collectLocateQueries(adapter, texts, budget);
+    const mapperOptions = skipRefinement ? { skipRefinement: true } : undefined;
 
     for (const query of queries) {
-        const range = await adapter.rangeMapper.findRange(query);
+        const range = await adapter.rangeMapper.findRange(query, mapperOptions);
         if (range) {
             return { range, query };
         }
@@ -335,6 +337,7 @@ async function getRange(
         includeSuggestedFallback?: boolean;
         useCache?: boolean;
         budget?: QueryBudget;
+        skipRefinement?: boolean;
     }
 ): Promise<PlatformRange | null> {
     const allowCache = options?.useCache !== false;
@@ -365,8 +368,9 @@ async function getRange(
     const directTake = budget === 'compact'
         ? (adapter.platform === 'wps' ? 3 : 1)
         : (adapter.platform === 'wps' ? 4 : 2);
+    const directFindOptions = options?.skipRefinement ? { skipRefinement: true } : undefined;
     for (const candidate of directCandidates.slice(0, directTake)) {
-        const direct = await adapter.rangeMapper.findRange(candidate);
+        const direct = await adapter.rangeMapper.findRange(candidate, directFindOptions);
         if (direct) {
             if (useIssueCache) {
                 setCachedRange(adapter, issue.id, direct);
@@ -387,7 +391,7 @@ async function getRange(
         texts.push(issue.suggestedText);
     }
 
-    const found = await findRangeByTexts(adapter, texts, budget);
+    const found = await findRangeByTexts(adapter, texts, budget, options?.skipRefinement);
     if (!found) return null;
 
     if (useIssueCache) {
@@ -404,6 +408,7 @@ async function getRangeWithFallback(
         overrideText?: string;
         includeSuggestedFallback?: boolean;
         useCache?: boolean;
+        skipRefinement?: boolean;
     }
 ): Promise<PlatformRange | null> {
     if (adapter.platform === 'wps') {
@@ -483,7 +488,8 @@ export async function commentIssue(
 /** 应用 AI 建议修改（生成修订标记） */
 export async function applyIssue(
     adapter: IPlatformAdapter,
-    issue: ReviewIssue
+    issue: ReviewIssue,
+    options?: { skipRefinement?: boolean }
 ): Promise<boolean> {
     if (!issue.suggestedText) return false;
 
@@ -495,6 +501,7 @@ export async function applyIssue(
     const range = await getRangeWithFallback(adapter, issue, {
         includeSuggestedFallback: false,
         useCache: true,
+        ...(options?.skipRefinement ? { skipRefinement: true } : {}),
     });
 
     if (!range) return false;
@@ -607,6 +614,7 @@ export async function batchComment(
         const range = await getRangeWithFallback(adapter, issue, {
             includeSuggestedFallback: true,
             useCache: true,
+            skipRefinement: true,
         });
 
         if (!range) {
@@ -695,7 +703,7 @@ export async function batchApply(
 
             let ok = false;
             try {
-                ok = await applyIssue(adapter, issue);
+                ok = await applyIssue(adapter, issue, { skipRefinement: true });
             } catch {
                 ok = false;
             }
@@ -724,6 +732,7 @@ export async function batchApply(
         const range = await getRangeWithFallback(adapter, issue, {
             includeSuggestedFallback: false,
             useCache: true,
+            skipRefinement: true,
         });
 
         if (!range) {

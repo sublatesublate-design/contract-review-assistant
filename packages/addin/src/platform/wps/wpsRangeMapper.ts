@@ -1,4 +1,4 @@
-import type { IRangeMapper, PlatformRange } from '../types';
+import type { IRangeMapper, PlatformRange, RangeFindOptions } from '../types';
 /// <reference path="./wps-jsapi.d.ts" />
 
 /* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 鏂囨湰褰掍竴鍖栧伐鍏凤紙涓?wordRangeMapper 淇濇寔涓€鑷达級 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 */
@@ -226,7 +226,7 @@ function buildSmartProbes(probeStr: string): string[] {
 
     // 3) Skip "第X条 ..." heading and probe正文首句.
     const bodyWithoutHeading = base.replace(
-        /^\s*\u7b2c[\u4e00-\u9fa5\d]+\u6761(?:\s*[^\r\n\u3002\uff1b;]{0,24})?\s*/,
+        /^\s*\u7b2c[\u4e00-\u9fa5\d]+\u6761(?:\s+[\u4e00-\u9fa5]{1,20})?\s*/,
         ''
     );
     const bodyFirstSentence = bodyWithoutHeading.split(/[\u3002\uff1b;\uff01\uff1f!?]/)[0];
@@ -511,10 +511,14 @@ export class WpsRangeMapper implements IRangeMapper {
         return null;
     }
 
-    public async findRange(originalText: string): Promise<PlatformRange | null> {
+    public async findRange(
+        originalText: string,
+        options?: RangeFindOptions
+    ): Promise<PlatformRange | null> {
         if (!window.wps) return null;
         const app = window.wps.WpsApplication() as any;
         const doc = app.ActiveDocument;
+        const skipRefinement = options?.skipRefinement === true;
 
         const searchText = originalText.trim();
         if (!searchText) return null;
@@ -543,7 +547,7 @@ export class WpsRangeMapper implements IRangeMapper {
 
             const hit = (r: { start: number; end: number }, shouldRefine = true): PlatformRange => {
                 const normalized = this.sanitizeRange(doc, r);
-                if (!shouldRefine) {
+                if (!shouldRefine || skipRefinement) {
                     return { _internal: normalized, _platform: 'wps' };
                 }
                 const refined = this.expandHitToBestRange(doc, normalized, searchText);

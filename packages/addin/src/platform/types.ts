@@ -36,8 +36,12 @@ export interface IDocumentReader {
 }
 
 /** 文本搜索 → Range 定位 */
+export interface RangeFindOptions {
+    skipRefinement?: boolean;
+}
+
 export interface IRangeMapper {
-    findRange(originalText: string): Promise<PlatformRange | null>;
+    findRange(originalText: string, options?: RangeFindOptions): Promise<PlatformRange | null>;
     preloadFullText?(): Promise<void>;
     findRangeFromCache?(originalText: string): PlatformRange | null;
 }

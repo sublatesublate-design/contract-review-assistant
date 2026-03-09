@@ -1,6 +1,6 @@
 /* global Word */
 
-import type { IRangeMapper, PlatformRange } from '../types';
+import type { IRangeMapper, PlatformRange, RangeFindOptions } from '../types';
 
 export interface WordRangeRef {
     searchText: string;
@@ -204,7 +204,7 @@ async function ensureCoverageFast(
     let startPara = currentRange.paragraphs.getFirst();
     let endPara = currentRange.paragraphs.getLast();
 
-    const maxExpandSteps = 4;
+    const maxExpandSteps = anchors.compact.length >= 80 ? 2 : 4;
     for (let step = 0; step < maxExpandSteps; step++) {
         const currentText = currentRange.text || '';
         const hasHead = hasAnchor(currentText, anchors.head);
@@ -484,6 +484,9 @@ export async function resolveWordRange(
             bestRaw = { range: best, score };
         }
         if (!best) continue;
+        if (!isLongTarget && score >= 2.0 && anchors.compact.length < 80) {
+            return best;
+        }
         const immediate = await tryImmediateReturn(best, score, isLongTarget ? 0.9 : 0.45);
         if (immediate) return immediate;
     }
@@ -556,7 +559,10 @@ export async function resolveWordRange(
 
 export function createWordRangeMapper(): IRangeMapper {
     return {
-        async findRange(originalText: string): Promise<PlatformRange | null> {
+        async findRange(
+            originalText: string,
+            _options?: RangeFindOptions
+        ): Promise<PlatformRange | null> {
             if (!originalText || originalText.trim().length === 0) return null;
             return {
                 _internal: { searchText: originalText.trim() } as WordRangeRef,

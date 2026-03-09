@@ -1,17 +1,18 @@
 import { useEffect } from 'react';
 
 /**
- * Global paste shim for Mac Word / WPS taskpane webviews.
+ * Global paste shim for Mac Word/WPS taskpane webviews.
  *
- * Goals:
- * 1) Keep paste inside the focused input/editor in the taskpane.
- * 2) Support remote-control keyboards (Ctrl+V sent to mac host).
- * 3) Keep context-menu paste on native path to reduce WPS freeze risk.
+ * Strategy:
+ * 1) Only intercept shortcut paste (Ctrl/Cmd+V) to keep input focus in taskpane.
+ * 2) Keep context-menu paste fully native (more stable in WPS webview).
+ * 3) Use Clipboard API only as fallback if no native paste event arrives.
  */
 export function usePasteShim() {
     useEffect(() => {
-        let suppressNativePasteUntil = 0;
-        let manualInsertInFlight = false;
+        let shortcutToken = 0;
+        let shortcutHandledToken = 0;
+        let shortcutTarget: HTMLElement | null = null;
 
         function isEditableTarget(el: Element | null): el is HTMLElement {
             if (!el) return false;
@@ -51,6 +52,7 @@ export function usePasteShim() {
         }
 
         function insertTextToElement(target: HTMLElement, text: string) {
+            if (!text) return;
             if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
                 insertTextIntoInputLike(target, text);
                 return;
@@ -60,7 +62,24 @@ export function usePasteShim() {
             }
         }
 
-        async function handleKeyDown(e: KeyboardEvent) {
+        async function fallbackReadClipboardAndInsert(token: number) {
+            if (token !== shortcutToken || token === shortcutHandledToken) return;
+            const active = shortcutTarget || (document.activeElement as HTMLElement | null);
+            if (!isEditableTarget(active)) return;
+            if (!navigator.clipboard?.readText) return;
+
+            try {
+                const text = await navigator.clipboard.readText();
+                if (token !== shortcutToken || token === shortcutHandledToken) return;
+                if (!text) return;
+                insertTextToElement(active, text);
+                shortcutHandledToken = token;
+            } catch (err) {
+                console.warn('[PasteShim] Clipboard API fallback failed:', err);
+            }
+        }
+
+        function handleKeyDown(e: KeyboardEvent) {
             const key = (e.key || '').toLowerCase();
             const isPasteShortcut = (e.metaKey || e.ctrlKey) && (key === 'v' || e.keyCode === 86);
             if (!isPasteShortcut) return;
@@ -68,45 +87,36 @@ export function usePasteShim() {
             const target = document.activeElement;
             if (!isEditableTarget(target)) return;
 
+            // Stop host/editor from handling this shortcut outside the taskpane.
             e.preventDefault();
             e.stopPropagation();
 
-            // Some hosts will still emit a native paste event after keydown.
-            // Swallow it briefly to avoid duplicate insertion / UI instability.
-            suppressNativePasteUntil = Date.now() + 240;
+            shortcutToken += 1;
+            const token = shortcutToken;
+            shortcutTarget = target;
 
-            if (!navigator.clipboard?.readText) return;
-
-            try {
-                const text = await navigator.clipboard.readText();
-                const active = document.activeElement;
-                if (!text || !isEditableTarget(active)) return;
-                manualInsertInFlight = true;
-                insertTextToElement(active, text);
-            } catch (err) {
-                console.warn('[PasteShim] Clipboard API readText failed:', err);
-            } finally {
-                manualInsertInFlight = false;
-            }
+            // If a native paste event does not arrive shortly, do manual fallback.
+            window.setTimeout(() => {
+                void fallbackReadClipboardAndInsert(token);
+            }, 45);
         }
 
         function handlePaste(e: ClipboardEvent) {
-            const now = Date.now();
-            if (now <= suppressNativePasteUntil) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
+            const active = document.activeElement as HTMLElement | null;
+            if (!isEditableTarget(active)) return;
 
-            const target = document.activeElement;
-            if (!isEditableTarget(target)) return;
+            // Context-menu paste path: keep native behavior untouched.
+            if (shortcutToken === 0 || shortcutToken === shortcutHandledToken) return;
 
-            // For context-menu paste in WPS/Word webview, prefer native path.
-            // It is more stable than synthetic insertion in some hosts.
-            if (manualInsertInFlight) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
+            // Shortcut paste path: consume once and insert plain text ourselves.
+            e.preventDefault();
+            e.stopPropagation();
+
+            const text = e.clipboardData?.getData('text/plain') ?? '';
+            if (!text) return;
+
+            insertTextToElement(active, text);
+            shortcutHandledToken = shortcutToken;
         }
 
         document.addEventListener('keydown', handleKeyDown, true);

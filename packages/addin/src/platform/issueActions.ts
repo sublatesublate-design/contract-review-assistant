@@ -35,6 +35,59 @@ function normalizeQuery(text?: string): string {
         .trim();
 }
 
+function pushUniqueText(target: string[], value?: string): void {
+    const normalized = (value || '').trim();
+    if (!normalized) return;
+    if (!target.includes(normalized)) {
+        target.push(normalized);
+    }
+}
+
+function stripLeadingLocateLabel(text: string): string {
+    return text.replace(/^\s*(合同原文|原文|条款原文|原条款|条款)\s*[:：]\s*/, '').trim();
+}
+
+function stripOuterQuotes(text: string): string {
+    return text
+        .replace(/^[\s"'`“”‘’「『《（(【\[]+/, '')
+        .replace(/[\s"'`“”‘’」』》）)】\]]+$/, '')
+        .trim();
+}
+
+function stripBracketPairs(text: string): string {
+    return text.replace(/[\u3010\u3011\[\]]/g, '').trim();
+}
+
+function stripLeadingClauseHeading(text: string): string {
+    return text.replace(/^\s*第[\u4e00-\u9fa5\d]+条(?:\s*[^\r\n。；;]{0,40})?\s*/, '').trim();
+}
+
+function buildLocateTextVariants(text?: string): string[] {
+    const base = (text || '').trim();
+    if (!base) return [];
+
+    const variants: string[] = [];
+    const labelStripped = stripLeadingLocateLabel(base);
+    const unquoted = stripOuterQuotes(labelStripped);
+    const noBrackets = stripBracketPairs(unquoted);
+    const noHeading = stripLeadingClauseHeading(unquoted);
+    const noHeadingNoBrackets = stripLeadingClauseHeading(noBrackets);
+
+    // Prefer stable variants first (strip label/quotes), then keep original as fallback.
+    pushUniqueText(variants, noBrackets);
+    pushUniqueText(variants, normalizeQuery(noBrackets));
+    pushUniqueText(variants, unquoted);
+    pushUniqueText(variants, normalizeQuery(unquoted));
+    pushUniqueText(variants, base);
+    pushUniqueText(variants, normalizeQuery(base));
+    pushUniqueText(variants, noHeading);
+    pushUniqueText(variants, normalizeQuery(noHeading));
+    pushUniqueText(variants, noHeadingNoBrackets);
+    pushUniqueText(variants, normalizeQuery(noHeadingNoBrackets));
+
+    return variants;
+}
+
 function uniquePush(target: string[], value: string, minLen = MIN_PROBE_LEN): void {
     const normalized = normalizeQuery(value);
     if (normalized.length < minLen) return;
@@ -87,49 +140,54 @@ function cannotApplyAsSingleRange(issue: ReviewIssue): boolean {
 }
 
 function buildFallbackLocateQueries(text?: string): string[] {
-    const raw = (text || '').trim();
-    const src = normalizeQuery(text);
-    if (!src && !raw) return [];
-
     const queries: string[] = [];
-    if (raw.length >= 2 && !queries.includes(raw)) {
-        queries.push(raw);
-    }
-    uniquePush(queries, src, 2);
+    const variants = buildLocateTextVariants(text);
+    if (variants.length === 0) return queries;
 
-    const parts = splitByEllipsis(src);
-    for (const p of parts) {
-        uniquePush(queries, p);
-    }
+    for (const variant of variants) {
+        const raw = variant.trim();
+        const src = normalizeQuery(variant);
+        if (!src && !raw) continue;
 
-    if (parts.length >= 2) {
-        const first = parts[0] || '';
-        const last = parts[parts.length - 1] || '';
-        uniquePush(queries, `${first.slice(0, 80)} ${last.slice(Math.max(0, last.length - 80))}`);
-    }
+        if (raw.length >= 2 && !queries.includes(raw)) {
+            queries.push(raw);
+        }
+        uniquePush(queries, src, 2);
 
-    const sentenceParts = splitBySentence(src);
-    for (const sentence of sentenceParts.slice(0, 3)) {
-        uniquePush(queries, sentence);
-    }
+        const parts = splitByEllipsis(src);
+        for (const p of parts) {
+            uniquePush(queries, p);
+        }
 
-    if (src.length > 120) {
-        const window = Math.min(180, src.length);
-        uniquePush(queries, src.slice(0, window));
+        if (parts.length >= 2) {
+            const first = parts[0] || '';
+            const last = parts[parts.length - 1] || '';
+            uniquePush(queries, `${first.slice(0, 80)} ${last.slice(Math.max(0, last.length - 80))}`);
+        }
 
-        const midStart = Math.max(0, Math.floor(src.length / 2) - Math.floor(window / 2));
-        uniquePush(queries, src.slice(midStart, midStart + window));
+        const sentenceParts = splitBySentence(src);
+        for (const sentence of sentenceParts.slice(0, 3)) {
+            uniquePush(queries, sentence);
+        }
 
-        uniquePush(queries, src.slice(Math.max(0, src.length - window)));
-    }
+        if (src.length > 120) {
+            const window = Math.min(180, src.length);
+            uniquePush(queries, src.slice(0, window));
 
-    const noPunct = src
-        .replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+            const midStart = Math.max(0, Math.floor(src.length / 2) - Math.floor(window / 2));
+            uniquePush(queries, src.slice(midStart, midStart + window));
 
-    if (noPunct && noPunct !== src) {
-        uniquePush(queries, noPunct.slice(0, 180));
+            uniquePush(queries, src.slice(Math.max(0, src.length - window)));
+        }
+
+        const noPunct = src
+            .replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (noPunct && noPunct !== src) {
+            uniquePush(queries, noPunct.slice(0, 180));
+        }
     }
 
     return queries;
@@ -193,10 +251,10 @@ function collectLocateQueries(
 ): string[] {
     const perTextLimit = budget === 'compact'
         ? (adapter.platform === 'wps' ? 2 : 3)
-        : (adapter.platform === 'wps' ? 3 : 6);
+        : (adapter.platform === 'wps' ? 4 : 6);
     const totalLimit = budget === 'compact'
         ? (adapter.platform === 'wps' ? 4 : 6)
-        : (adapter.platform === 'wps' ? 7 : 14);
+        : (adapter.platform === 'wps' ? 9 : 14);
 
     const all: string[] = [];
 
@@ -247,9 +305,10 @@ async function getRange(
         if (cached) return cached;
     }
 
-    const primaryText = (options?.overrideText ?? issue.originalText ?? '').trim();
-    if (primaryText.length > 0) {
-        const direct = await adapter.rangeMapper.findRange(primaryText);
+    const directCandidates = buildLocateTextVariants(options?.overrideText ?? issue.originalText);
+    const directTake = budget === 'compact' ? 1 : (adapter.platform === 'wps' ? 3 : 2);
+    for (const candidate of directCandidates.slice(0, directTake)) {
+        const direct = await adapter.rangeMapper.findRange(candidate);
         if (direct) {
             if (useIssueCache) {
                 setCachedRange(adapter, issue.id, direct);

@@ -7,7 +7,7 @@ import type { IRangeMapper, PlatformRange } from '../types';
 function cleanForSearch(t: string): string {
     return t
         .replace(/[\*\?<>|\\/~]/g, '')
-        .replace(/[“”‘’「」『』【】]/g, '')
+        .replace(/[\u3010\u3011\[\]\u3008\u3009\u300c\u300d\u201c\u201d\u2018\u2019]/g, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -114,7 +114,7 @@ function normalizeWithMap(
 }
 
 // 棰勭紪璇戝崟瀛楃姝ｅ垯
-const RE_CLEAN_CHAR = /[\\*\\?<>|\\\\/~“”’「」『』【】]/;
+const RE_CLEAN_CHAR = /[\*\?<>|\\/~\u3010\u3011\[\]\u3008\u3009\u300c\u300d\u201c\u201d\u2018\u2019]/;
 const RE_PUNCT_CHAR = /[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/;
 
 /**

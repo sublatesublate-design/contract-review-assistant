@@ -44,6 +44,28 @@ function calcTextScore(candidateText: string, targetText: string): number {
     return prefixRatio * 3 + containsBonus - lenPenalty;
 }
 
+function getAnchors(targetText: string): { head: string; tail: string; compact: string } {
+    const compact = compactForCompare(targetText);
+    const anchorLen = Math.min(40, Math.max(10, Math.floor(compact.length * 0.22)));
+    return {
+        head: compact.slice(0, anchorLen),
+        tail: compact.slice(Math.max(0, compact.length - anchorLen)),
+        compact,
+    };
+}
+
+function hasAnchor(candidateText: string, anchor: string): boolean {
+    if (!anchor || anchor.length < 6) return true;
+    return compactForCompare(candidateText).includes(anchor);
+}
+
+function calcCoverageScore(candidateText: string, targetText: string): number {
+    const anchors = getAnchors(targetText);
+    const headBonus = hasAnchor(candidateText, anchors.head) ? 1.2 : 0;
+    const tailBonus = hasAnchor(candidateText, anchors.tail) ? 1.2 : 0;
+    return calcTextScore(candidateText, targetText) + headBonus + tailBonus;
+}
+
 function isClauseBoundaryParagraph(text: string): boolean {
     const s = text.trim();
     if (!s) return false;
@@ -147,6 +169,152 @@ async function expandRangeConservatively(
     }
 }
 
+async function expandRangeBackwardConservatively(
+    context: Word.RequestContext,
+    endRange: Word.Range,
+    targetText: string,
+    originalTextLength: number
+): Promise<Word.Range> {
+    try {
+        let currentRange = endRange;
+        currentRange.load('text');
+        await context.sync();
+
+        let bestRange = currentRange;
+        let bestScore = calcCoverageScore(currentRange.text || '', targetText);
+        const targetLen = Math.max(20, Math.floor(originalTextLength * 0.95));
+        let currentLength = currentRange.text.length;
+        let firstPara = currentRange.paragraphs.getFirst();
+        let dropStreak = 0;
+
+        for (let i = 0; i < 6; i++) {
+            if (currentLength >= targetLen && i >= 1) break;
+
+            const prevPara = firstPara.getPreviousOrNullObject();
+            prevPara.load('isNullObject,text');
+            await context.sync();
+            if (prevPara.isNullObject) break;
+
+            if (
+                isClauseBoundaryParagraph(prevPara.text || '') &&
+                currentLength >= Math.floor(targetLen * 0.6)
+            ) {
+                break;
+            }
+
+            firstPara = prevPara;
+            currentRange = firstPara.getRange().expandTo(endRange);
+            currentRange.load('text');
+            await context.sync();
+
+            currentLength = currentRange.text.length;
+            const score = calcCoverageScore(currentRange.text || '', targetText);
+
+            if (score >= bestScore) {
+                bestScore = score;
+                bestRange = currentRange;
+                dropStreak = 0;
+            } else {
+                dropStreak++;
+                if (dropStreak >= 2 && currentLength >= Math.floor(targetLen * 0.8)) {
+                    break;
+                }
+            }
+
+            if (currentLength > originalTextLength * 2.2) {
+                break;
+            }
+        }
+
+        return bestRange;
+    } catch (e) {
+        console.warn('[wordRangeMapper] backward expand failed', e);
+        return endRange;
+    }
+}
+
+async function ensureAnchorCoverage(
+    context: Word.RequestContext,
+    initialRange: Word.Range,
+    targetText: string,
+    originalTextLength: number
+): Promise<Word.Range> {
+    const anchors = getAnchors(targetText);
+    if (anchors.compact.length < 24) return initialRange;
+
+    let bestRange = initialRange;
+    bestRange.load('text');
+    await context.sync();
+
+    let bestScore = calcCoverageScore(bestRange.text || '', targetText);
+    const needHeadInitially = !hasAnchor(bestRange.text || '', anchors.head);
+    const needTailInitially = !hasAnchor(bestRange.text || '', anchors.tail);
+
+    if (!needHeadInitially && !needTailInitially) {
+        return bestRange;
+    }
+
+    if (needHeadInitially) {
+        const expanded = await expandRangeBackwardConservatively(
+            context,
+            bestRange,
+            targetText,
+            originalTextLength
+        );
+        expanded.load('text');
+        await context.sync();
+        const score = calcCoverageScore(expanded.text || '', targetText);
+        if (score > bestScore) {
+            bestScore = score;
+            bestRange = expanded;
+        }
+    }
+
+    if (!hasAnchor(bestRange.text || '', anchors.tail)) {
+        const expanded = await expandRangeConservatively(
+            context,
+            bestRange,
+            targetText,
+            originalTextLength
+        );
+        expanded.load('text');
+        await context.sync();
+        const score = calcCoverageScore(expanded.text || '', targetText);
+        if (score > bestScore) {
+            bestScore = score;
+            bestRange = expanded;
+        }
+    }
+
+    // One more pass: if either side still missing, try once again in that direction.
+    const bestText = bestRange.text || '';
+    if (!hasAnchor(bestText, anchors.head)) {
+        const expanded = await expandRangeBackwardConservatively(
+            context,
+            bestRange,
+            targetText,
+            originalTextLength
+        );
+        expanded.load('text');
+        await context.sync();
+        const score = calcCoverageScore(expanded.text || '', targetText);
+        if (score > bestScore) bestRange = expanded;
+    } else if (!hasAnchor(bestText, anchors.tail)) {
+        const expanded = await expandRangeConservatively(
+            context,
+            bestRange,
+            targetText,
+            originalTextLength
+        );
+        expanded.load('text');
+        await context.sync();
+        const score = calcCoverageScore(expanded.text || '', targetText);
+        if (score > bestScore) bestRange = expanded;
+    }
+
+    return bestRange;
+}
+
 async function searchBest(
     context: Word.RequestContext,
     query: string,
@@ -171,8 +339,10 @@ async function searchBest(
     const best = await pickBestSearchResult(context, results, targetText);
     if (!best) return null;
 
-    if (!expand) return best;
-    return await expandRangeConservatively(context, best, targetText, originalTextLength);
+    const base = expand
+        ? await expandRangeConservatively(context, best, targetText, originalTextLength)
+        : best;
+    return await ensureAnchorCoverage(context, base, targetText, originalTextLength);
 }
 
 export async function resolveWordRange(
@@ -242,7 +412,12 @@ export async function resolveWordRange(
         }
 
         if (bestPara && bestParaScore > 0.4) {
-            return bestPara.getRange();
+            return await ensureAnchorCoverage(
+                context,
+                bestPara.getRange(),
+                cleanText,
+                originalLen
+            );
         }
     } catch {
         // continue to table fallback

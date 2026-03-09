@@ -104,7 +104,7 @@ export function buildReviewPrompt(req: ReviewRequest & {
 ## 输出格式（严格遵守，不得偏离）
 
 ### 问题条目（每个问题单独一行 JSON，立即输出）：
-{"type":"issue","id":"issue-001","category":"risk_clause","riskLevel":"high","title":"违约金条款显失公平","description":"合同第X条约定乙方违约须承担合同总价200%的违约金，远超《民法典》第585条所允许的以弥补损失为目的原则，属于可撤销条款。甲方可利用此条款主张过高违约金，对乙方构成重大不利。","originalText":"<合同中的精确原文，不超过200字>","suggestedText":"<建议修改后的完整文字>","legalBasis":"《民法典》第585条第2款：约定的违约金过分高于造成的损失的，人民法院或者仲裁机构可以根据当事人的请求予以适当减少。"}
+{"type":"issue","id":"issue-001","category":"risk_clause","riskLevel":"high","title":"违约金条款显失公平","description":"合同第X条约定乙方违约须承担合同总价200%的违约金，远超《民法典》第585条所允许的以弥补损失为目的原则，属于可撤销条款。甲方可利用此条款主张过高违约金，对乙方构成重大不利。","originalText":"<合同中的精确原文，必须是完整可替换单元，禁止截断、禁止省略号>","suggestedText":"<建议修改后的完整文字>","legalBasis":"《民法典》第585条第2款：约定的违约金过分高于造成的损失的，人民法院或者仲裁机构可以根据当事人的请求予以适当减少。"}
 
 ### 审查总结（全部问题输出完毕后，单独一行）：
 {"type":"summary","content":"<100字以内的整体评估，包括：风险等级（高/中/低）、最主要的2-3个问题、总体建议。注意：总结文字中绝不允许出现「issue-xxx」等内部编号，必须使用纯中文自然语言描述>","model":"${req.model}"}
@@ -113,7 +113,7 @@ export function buildReviewPrompt(req: ReviewRequest & {
 
 ## 关键执行规则
 
-1. **originalText 必须是合同原文逐字引用的【完整可替换单元】**——必须引用到完整的句子或条款段落，确保 suggestedText 替换 originalText 后语句通顺、不会遗留残余文字。例如原文"甲方的付款期限为三年"，不得只引用"甲方的付款期限"而遗漏"为三年"。**对于 missing_clause 也一样**：originalText 应引用缺失条款所在位置附近的已有完整段落/条款原文（作为替换范围），suggestedText 应是在该段落基础上补充缺失条款后的完整替换版本。系统将用 suggestedText 整体替换 originalText，而非在其后插入。
+1. **originalText 必须是合同原文逐字引用的【完整可替换单元】**——必须引用到完整的句子或条款段落，确保 suggestedText 替换 originalText 后语句通顺、不会遗留残余文字。例如原文"甲方的付款期限为三年"，不得只引用"甲方的付款期限"而遗漏"为三年"。**对于 missing_clause 也一样**：originalText 应引用缺失条款所在位置附近的已有完整段落/条款原文（作为替换范围），suggestedText 应是在该段落基础上补充缺失条款后的完整替换版本。系统将用 suggestedText 整体替换 originalText，而非在其后插入。**禁止使用“...”或“……”省略原文；禁止截断。长度可超过200字，允许到1200字（以完整性优先）。**
 2. **suggestedText 必须是 originalText 的完整替换版本**（所有 category 均适用，包括 missing_clause），直接替换后上下文必须通顺连贯，不得假设保留 originalText 之外的任何文字
 3. **legalBasis 必须引用完整法条名称及条款编号**（如《民法典》第470条第8项），禁止笼统引用
 4. **riskLevel 量化标准**：

@@ -102,6 +102,59 @@ async function rejectRevisionsInRange(
     }
 }
 
+async function rejectRelevantRevisionsInDocument(
+    context: Word.RequestContext,
+    originalText: string,
+    suggestedText?: string
+): Promise<boolean> {
+    const all = context.document.body.getRange().revisions;
+    all.load('items');
+    await context.sync();
+
+    if (all.items.length === 0) return false;
+
+    for (const rev of all.items) {
+        (rev as any).load('type');
+        const rr = (rev as any).range;
+        if (rr) rr.load('text');
+    }
+    await context.sync();
+
+    const normOrig = normalizeForMatch(originalText);
+    const normSugg = normalizeForMatch(suggestedText ?? '');
+    let matched = false;
+
+    for (let i = all.items.length - 1; i >= 0; i--) {
+        const rev = all.items[i];
+        if (!rev) continue;
+
+        let revText = '';
+        let revType: unknown = '';
+        try {
+            revText = ((rev as any).range?.text as string) || '';
+            revType = (rev as any).type;
+        } catch {
+            continue;
+        }
+
+        if (isRevisionRelevant(revType, revText, normOrig, normSugg)) {
+            try {
+                rev.reject();
+                matched = true;
+            } catch {
+                // continue
+            }
+        }
+    }
+
+    if (matched) {
+        await context.sync();
+        return true;
+    }
+
+    return false;
+}
+
 export function createWordTrackChangesManager(): ITrackChangesManager {
     return {
         async applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void> {
@@ -155,8 +208,6 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
 
             const reverted = await Word.run(async (context) => {
                 const wordRange = await resolveWordRange(context, ref);
-                if (!wordRange) return false;
-
                 const doc = context.document;
                 doc.load('changeTrackingMode');
                 await context.sync();
@@ -167,6 +218,17 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                     // Ensure reverting itself does not create new tracked changes.
                     doc.changeTrackingMode = Word.ChangeTrackingMode.off;
                     await context.sync();
+
+                    // Range lookup can fail after user edits or index drift on Mac Word.
+                    // In that case, fallback to a document-wide relevant revision scan.
+                    if (!wordRange) {
+                        ok = await rejectRelevantRevisionsInDocument(
+                            context,
+                            originalText,
+                            suggestedText
+                        );
+                        return ok;
+                    }
 
                     // Range candidates from narrow to broad.
                     const candidates: Word.Range[] = [wordRange];
@@ -198,46 +260,11 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
 
                     // Global fallback: scan document revisions and reject relevant ones.
                     if (!ok) {
-                        const all = context.document.body.getRange().revisions;
-                        all.load('items');
-                        await context.sync();
-
-                        if (all.items.length > 0) {
-                            for (const rev of all.items) {
-                                (rev as any).load('type');
-                                const rr = (rev as any).range;
-                                if (rr) rr.load('text');
-                            }
-                            await context.sync();
-
-                            const normOrig = normalizeForMatch(originalText);
-                            const normSugg = normalizeForMatch(suggestedText ?? '');
-                            let matched = false;
-                            for (let i = all.items.length - 1; i >= 0; i--) {
-                                const rev = all.items[i];
-                                if (!rev) continue;
-                                let revText = '';
-                                let revType: unknown = '';
-                                try {
-                                    revText = ((rev as any).range?.text as string) || '';
-                                    revType = (rev as any).type;
-                                } catch {
-                                    continue;
-                                }
-                                if (isRevisionRelevant(revType, revText, normOrig, normSugg)) {
-                                    try {
-                                        rev.reject();
-                                        matched = true;
-                                    } catch {
-                                        // continue
-                                    }
-                                }
-                            }
-                            if (matched) {
-                                await context.sync();
-                                ok = true;
-                            }
-                        }
+                        ok = await rejectRelevantRevisionsInDocument(
+                            context,
+                            originalText,
+                            suggestedText
+                        );
                     }
 
                     // Last fallback: hard reset the resolved range with tracking OFF.

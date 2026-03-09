@@ -3,38 +3,30 @@
   xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
-  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
 
-  <!-- 插件标识 -->
   <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>合同审查助手</ProviderName>
   <DefaultLocale>zh-CN</DefaultLocale>
 
-  <!-- 显示名称和描述 -->
   <DisplayName DefaultValue="合同审查助手" />
   <Description DefaultValue="AI 驱动的合同智能审查工具，支持批注、修订标记与上下文对话" />
 
-  <!-- 图标 -->
   <IconUrl DefaultValue="https://localhost:3000/assets/icon-80.png" />
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-80.png" />
   <SupportUrl DefaultValue="https://localhost:3000" />
 
-  <!-- 权限：需要读写文档权限以添加批注和修订标记 -->
   <Permissions>ReadWriteDocument</Permissions>
 
-  <!-- 主机应用程序 -->
   <Hosts>
     <Host Name="Document" />
   </Hosts>
 
-  <!-- 默认设置 -->
   <DefaultSettings>
     <SourceLocation DefaultValue="https://localhost:3000/taskpane.html" />
   </DefaultSettings>
 
-  <!-- 版本覆盖（使用现代 API） -->
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
     <Hosts>
       <Host xsi:type="Document">
@@ -46,7 +38,6 @@
           </GetStarted>
           <FunctionFile resid="Taskpane.Url" />
 
-          <!-- 功能区按钮 -->
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
             <OfficeTab id="TabHome">
               <Group id="CommandsGroup">
@@ -75,15 +66,10 @@
               </Group>
             </OfficeTab>
           </ExtensionPoint>
-
-          <!-- 任务窗格 -->
-          <ExtensionPoint xsi:type="AppointmentOrganizerCommandSurface">
-          </ExtensionPoint>
         </DesktopFormFactor>
       </Host>
     </Hosts>
 
-    <!-- 资源 -->
     <Resources>
       <bt:Images>
         <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/icon-16.png" />
@@ -105,7 +91,6 @@
       </bt:LongStrings>
     </Resources>
 
-    <!-- 需要的 API 版本 -->
     <Requirements>
       <Sets DefaultMinVersion="1.4">
         <Set Name="WordApi" MinVersion="1.4" />

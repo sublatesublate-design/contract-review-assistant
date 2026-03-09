@@ -46,55 +46,146 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
         async revertEdit(range: PlatformRange, originalText: string, suggestedText?: string): Promise<void> {
             const ref = range._internal as WordRangeRef;
 
-            // 策略 1：使用 Revision API 逐个拒绝（Windows/Mac 均支持，需 WordApi 1.3+）
-            // 在目标渲染区域前后各扩展 500 字符以捕获相邻的被删除原文和被插入新文本
+            // 归一化函数：移除空白和标点，用于修订文本匹配
+            const normalize = (t: string) =>
+                t.replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9]/g, '');
+
+            /**
+             * 在修订集合中精确匹配并拒绝与 originalText/suggestedText 相关的修订。
+             * @returns true 如果至少匹配并拒绝了一条修订
+             */
+            const rejectMatching = async (
+                context: Word.RequestContext,
+                revisionItems: Word.Revision[]
+            ): Promise<boolean> => {
+                if (revisionItems.length === 0) return false;
+
+                // 加载每条修订的类型和关联范围的文本
+                for (const rev of revisionItems) {
+                    (rev as any).load('type');
+                    const revRange = (rev as any).range;
+                    if (revRange) {
+                        revRange.load('text');
+                    }
+                }
+                await context.sync();
+
+                const normOrig = normalize(originalText);
+                const normSugg = suggestedText ? normalize(suggestedText) : '';
+                let matched = false;
+
+                // 倒序遍历防止索引漂移
+                for (let i = revisionItems.length - 1; i >= 0; i--) {
+                    const rev = revisionItems[i];
+                    if (!rev) continue;
+
+                    let revText = '';
+                    try {
+                        revText = (rev as any).range.text || '';
+                    } catch {
+                        continue;
+                    }
+                    const revNorm = normalize(revText);
+                    const revType = String((rev as any).type);
+                    const isDeletion = revType === 'Delete' || revType === Word.RevisionType.delete;
+                    const isInsertion = revType === 'Insert' || revType === Word.RevisionType.insert;
+
+                    // 安全匹配逻辑：
+                    // 1. 如果规范化后的文本相同，直接算匹配
+                    // 2. 如果互为子串，要求被包含的字符串不能太短（避免如单字或空字符串带来的全匹配）
+                    const isSafeMatch = (target: string, partial: string) => {
+                        if (!target && !partial) return true; // 都为空（例如只有一些标点/换行）
+                        if (!target || !partial) return false;
+                        if (target === partial) return true;
+
+                        // 互为子串，且被包含的较短部分至少为 2 个字符（容忍中文短词/编号如“附件”）
+                        if (partial.length >= 2 && target.includes(partial)) return true;
+                        if (target.length >= 2 && partial.includes(target)) return true;
+                        return false;
+                    };
+
+                    // 对于只有空白/回车/标点符号的修订（revNorm为空），必须基于原始文本来判断是否匹配
+                    // 这里我们放宽限制：如果当前正在处理该条款的修订，且它附近的这种空白修订，我们通过严格的全文包含判断
+                    // 但更好的办法是：如果 revNorm 没有实质文字，而它又在我们的 searchRange（本来就是精准段落）中，
+                    // 且它所在的类型（插入/删除）和我们正寻找的类型匹配，我们则视为匹配。
+                    // 考虑到 searchRange 已经比较精准，这里如果 revNorm 为空，我们可以放行。
+
+                    if (isDeletion && normOrig) {
+                        if (revNorm === '' || isSafeMatch(normOrig, revNorm)) {
+                            rev.reject();
+                            matched = true;
+                        }
+                    } else if (isInsertion && normSugg) {
+                        if (revNorm === '' || isSafeMatch(normSugg, revNorm)) {
+                            rev.reject();
+                            matched = true;
+                        }
+                    }
+                }
+
+                if (matched) {
+                    await context.sync();
+                }
+                return matched;
+            };
+
             let rejectedViaRevisions = false;
             try {
                 rejectedViaRevisions = await Word.run(async (context) => {
-                    // 先定位到目标区域
                     const wordRange = await resolveWordRange(context, ref);
                     if (!wordRange) return false;
 
-                    // 将搜索范围向前后大幅扩展，以确保包含因为替换而产生的邻近的"删除修订"(Deletion Revision)
-                    // (原先只用当前段落，可能会漏掉跨段删除或由于替换导致段落边界变动而被落下的删除痕迹)
+                    // ── 第 1 步：仅在当前段落范围内搜索修订（不侵入前后段落） ──
                     let searchRange = wordRange;
                     try {
                         const firstPara = wordRange.paragraphs.getFirst();
                         const lastPara = wordRange.paragraphs.getLast();
-
-                        // 尝试获取前后各一个段落以扩大范围
-                        const prevPara = firstPara.getPreviousOrNullObject();
-                        const nextPara = lastPara.getNextOrNullObject();
-                        // 必须加载 nullObject 状态以便后续判断
-                        prevPara.load('isNullObject');
-                        nextPara.load('isNullObject');
-                        await context.sync();
-
-                        const expandStart = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
-                        const expandEnd = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
-                        searchRange = expandStart.expandTo(expandEnd);
-                    } catch (e) {
-                        // 失败时的兜底策略
-                        searchRange = wordRange.paragraphs.getFirst().getRange().expandTo(wordRange.paragraphs.getLast().getRange());
+                        searchRange = firstPara.getRange().expandTo(lastPara.getRange());
+                    } catch {
+                        searchRange = wordRange;
                     }
 
                     const revisions = searchRange.revisions;
                     revisions.load('items');
                     await context.sync();
 
-                    // 策略改进：
-                    // 以前我们用 for 循环和 includes 去匹配 revText 和 originalText，
-                    // 这导致如果在撤销时，被删除的原文稍微带点不同缩进或者标点，就会错过匹配，留下永久的删除红线。
-                    // 既然我们已经用 expandStart 和 expandEnd 把当前修改涉及的首尾段落都包围了，
-                    // 直接对这个目标区域执行全部拒绝对最稳妥。
+                    if (revisions.items.length > 0) {
+                        // 当前段落有修订，尝试精确匹配
+                        const matched = await rejectMatching(context, revisions.items);
+                        if (matched) return true;
 
-                    searchRange.revisions.rejectAll();
-                    await context.sync();
+                        // 精确匹配失败，兜底：仅对当前段落范围 rejectAll（不扩展前后段落）
+                        searchRange.revisions.rejectAll();
+                        await context.sync();
+                        return true;
+                    }
 
-                    return true;
+                    // ── 第 2 步：当前段落无修订，谨慎扩展到前后各一个段落 ──
+                    try {
+                        const firstPara = wordRange.paragraphs.getFirst();
+                        const lastPara = wordRange.paragraphs.getLast();
+                        const prevPara = firstPara.getPreviousOrNullObject();
+                        const nextPara = lastPara.getNextOrNullObject();
+                        prevPara.load('isNullObject');
+                        nextPara.load('isNullObject');
+                        await context.sync();
+
+                        const expandStart = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
+                        const expandEnd = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
+                        const expandedRange = expandStart.expandTo(expandEnd);
+
+                        const expandedRevisions = expandedRange.revisions;
+                        expandedRevisions.load('items');
+                        await context.sync();
+
+                        // 扩展后必须精确匹配，绝不能 rejectAll（避免误杀邻近条款修订）
+                        const matched = await rejectMatching(context, expandedRevisions.items);
+                        if (matched) return true;
+                    } catch { /* 扩展失败 */ }
+
+                    return false;
                 });
             } catch {
-                // WordApi.Revision 不可用（旧版 Word / 某些 Mac 版本），抛出异常让用户手动撤销
                 rejectedViaRevisions = false;
             }
 

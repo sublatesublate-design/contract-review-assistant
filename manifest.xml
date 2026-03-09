@@ -3,7 +3,6 @@
   xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
-  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
 
   <Id>5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b</Id>
@@ -101,6 +100,5 @@
         <bt:String id="TaskpaneButton.Tooltip" DefaultValue="打开合同审查助手任务窗格" />
       </bt:LongStrings>
     </Resources>
-
   </VersionOverrides>
 </OfficeApp>

@@ -31,6 +31,11 @@ export function createWordCommentManager(): ICommentManager {
                 const wordRange = await resolveWordRange(context, ref);
                 if (!wordRange) throw new Error('无法定位到文档中的原文');
 
+                const normalize = (t: string) => t.replace(/\s+/g, '');
+                const normTarget = normalize(commentText);
+                let deleted = false;
+
+                // 策略 1：在精确范围上搜索批注
                 try {
                     const comments = wordRange.getComments();
                     context.load(comments, 'items/content');
@@ -38,31 +43,31 @@ export function createWordCommentManager(): ICommentManager {
 
                     for (let i = 0; i < comments.items.length; i++) {
                         const comment = comments.items[i];
-                        if (comment && comment.content) {
-                            const normalize = (t: string) => t.replace(/\s+/g, '');
-                            if (normalize(comment.content).includes(normalize(commentText))) {
-                                comment.delete();
-                                break;
-                            }
+                        if (comment && comment.content && normalize(comment.content).includes(normTarget)) {
+                            comment.delete();
+                            deleted = true;
+                            break;
                         }
                     }
-                } catch (err) {
-                    // Fallback to global search for older Word API (e.g. 1.4)
-                    const comments = context.document.body.getComments();
-                    context.load(comments, 'items/content');
-                    await context.sync();
+                } catch { /* getComments API 不可用，继续全文档搜索 */ }
 
-                    for (let i = 0; i < comments.items.length; i++) {
-                        const comment = comments.items[i];
-                        if (comment && comment.content) {
-                            const normalize = (t: string) => t.replace(/\s+/g, '');
-                            if (normalize(comment.content).includes(normalize(commentText))) {
+                // 策略 2：全文档批注搜索（范围偏移或 API 不支持时的兜底）
+                if (!deleted) {
+                    try {
+                        const comments = context.document.body.getComments();
+                        context.load(comments, 'items/content');
+                        await context.sync();
+
+                        for (let i = 0; i < comments.items.length; i++) {
+                            const comment = comments.items[i];
+                            if (comment && comment.content && normalize(comment.content).includes(normTarget)) {
                                 comment.delete();
                                 break;
                             }
                         }
-                    }
+                    } catch { /* 全文档搜索也失败 */ }
                 }
+
                 await context.sync();
             });
         },

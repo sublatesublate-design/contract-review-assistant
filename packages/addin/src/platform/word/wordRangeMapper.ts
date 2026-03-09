@@ -32,8 +32,7 @@ function stripAllPunct(t: string): string {
  * 当截断搜索找到了匹配，尝试扩展范围覆盖完整原文
  *
  * 策略 A：在同段落内搜索完整原文（单段截断）
- * 策略 B：搜索原文尾部，用 expandTo 跨段扩展（多段落文本）
- *         安全检查：扩展后的范围文本长度不得超过原文长度的 2 倍
+ * 策略 C：按原文字符数向下扩展段落（多段落截断，避免跨段搜索乱跑到文末）
  */
 async function tryExpandRange(
     context: Word.RequestContext,
@@ -59,64 +58,51 @@ async function tryExpandRange(
                     return fullResults.items[0];
                 }
             }
-        } catch { /* 继续策略 B */ }
+        } catch { /* 继续策略 C */ }
     }
 
-    // 策略 B：跨段落扩展 — 搜索原文尾部并用 expandTo 连接
-    const tailLen = Math.min(fullCleanText.length, 30);
-    if (tailLen >= 8) {
-        // B1: 用 cleanForSearch 尾部搜索
-        const tailResult = await searchTailAndExpand(
-            context, foundRange, cleanForSearch(fullCleanText).slice(-tailLen), originalTextLength
-        );
-        if (tailResult) return tailResult;
+    // 策略 C：根据期望长度向后扩展段落
+    // 为避免全文搜索带来的跨章节误伤，改为从找到的前缀开始，逐段向下收集，
+    // 直到包含原文对应长度，最多扩展 10 个段落。
+    try {
+        let currentRange = foundRange;
+        currentRange.load('text');
+        await context.sync();
 
-        // B2: 用 stripAllPunct 尾部搜索
-        const tailNoPunct = stripAllPunct(fullCleanText).replace(/\s+/g, '').slice(-tailLen);
-        if (tailNoPunct.length >= 6) {
-            const tailResult2 = await searchTailAndExpand(
-                context, foundRange, tailNoPunct, originalTextLength
-            );
-            if (tailResult2) return tailResult2;
+        let lastPara = currentRange.paragraphs.getLast();
+        let currentLength = currentRange.text.length;
+
+        // 期待达到原长度的 0.95 倍（去除多余空格/回车的容错）
+        const targetLen = originalTextLength * 0.95;
+
+        for (let i = 0; i < 10; i++) {
+            if (currentLength >= targetLen) {
+                break;
+            }
+            const nextPara = lastPara.getNextOrNullObject();
+            nextPara.load('isNullObject');
+            await context.sync();
+
+            if (nextPara.isNullObject) {
+                break;
+            }
+
+            lastPara = nextPara;
+            currentRange = foundRange.expandTo(lastPara.getRange());
+            currentRange.load('text');
+            await context.sync();
+            currentLength = currentRange.text.length;
         }
+
+        // 仅在长度不超过 2 倍原长度时安全返回（允许尾部附带一些换行）
+        if (currentRange.text.length <= originalTextLength * 2.5) {
+            return currentRange;
+        }
+    } catch (e) {
+        console.warn('[wordRangeMapper] 尝试段落扩展失败', e);
     }
 
     return foundRange;
-}
-
-/** 搜索尾部文本并尝试 expandTo，带长度安全检查 */
-async function searchTailAndExpand(
-    context: Word.RequestContext,
-    foundRange: Word.Range,
-    tailText: string,
-    originalTextLength: number
-): Promise<Word.Range | null> {
-    try {
-        const tailResults = context.document.body.search(tailText, {
-            matchCase: false, matchWholeWord: false,
-            ignoreSpace: true, ignorePunct: true,
-        });
-        tailResults.load('items');
-        await context.sync();
-
-        if (tailResults.items.length > 0 && tailResults.items[0]) {
-            try {
-                const expanded = foundRange.expandTo(tailResults.items[0]);
-                expanded.load('text');
-                await context.sync();
-
-                // 安全检查：扩展后的范围不应超过原文长度的 2 倍
-                // 防止尾部文本匹配到文档其他位置导致范围过大
-                if (expanded.text.length <= originalTextLength * 2) {
-                    return expanded;
-                }
-                console.warn(
-                    `[wordRangeMapper] expandTo 范围过大 (${expanded.text.length} vs 原文 ${originalTextLength})，已跳过`
-                );
-            } catch { /* expandTo 失败 */ }
-        }
-    } catch { /* 搜索失败 */ }
-    return null;
 }
 
 /** 在 Word.run 上下文中根据 WordRangeRef 重新定位 Range */

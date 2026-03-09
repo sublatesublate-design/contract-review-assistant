@@ -109,10 +109,21 @@ export async function unapplyIssue(
         range = await getRange(adapter, issue);
     }
     if (!range) return false;
+
+    // 先移除可能存在的关联批注（必须在 revertEdit 之前执行！）
+    // 原因：revertEdit 会触发 rejectAll 改变文档结构，之后 resolveWordRange 无法精确定位批注
+    try {
+        await uncommentIssue(adapter, issue);
+    } catch {
+        // 批注可能不存在或已被手动删除，静默忽略
+    }
+
+    // 再撤销修订（此时批注已清理完毕，rejectAll 不会影响批注查找）
     await adapter.trackChangesManager.revertEdit(range, issue.originalText, issue.suggestedText);
 
     // 仅使当前 issue 的缓存失效
     invalidateRangeCache(adapter, issue.id);
+
     return true;
 }
 

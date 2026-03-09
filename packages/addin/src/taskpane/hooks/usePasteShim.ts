@@ -11,6 +11,11 @@ import { useEffect } from 'react';
 export function usePasteShim() {
     useEffect(() => {
         const isWpsHost = typeof (window as any).wps !== 'undefined';
+        // In WPS, global capture-phase keyboard/paste interception can freeze docked taskpane webviews.
+        // Keep WPS on fully native paste behavior for both document and taskpane inputs.
+        if (isWpsHost) {
+            return;
+        }
         let shortcutToken = 0;
         let shortcutHandledToken = 0;
         let shortcutTarget: HTMLElement | null = null;
@@ -99,15 +104,6 @@ export function usePasteShim() {
             const token = shortcutToken;
             shortcutTarget = target;
 
-            if (isWpsHost) {
-                // WPS docked taskpane can freeze when paste events are intercepted in capture phase.
-                // Use shortcut-only manual insertion and leave context-menu paste fully native.
-                window.setTimeout(() => {
-                    void fallbackReadClipboardAndInsert(token, true);
-                }, 0);
-                return;
-            }
-
             // If a native paste event does not arrive shortly, do manual fallback.
             window.setTimeout(() => {
                 void fallbackReadClipboardAndInsert(token);
@@ -115,7 +111,6 @@ export function usePasteShim() {
         }
 
         function handlePaste(e: ClipboardEvent) {
-            if (isWpsHost) return;
             const active = document.activeElement as HTMLElement | null;
             if (!isEditableTarget(active)) return;
 

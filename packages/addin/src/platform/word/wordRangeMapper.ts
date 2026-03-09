@@ -105,6 +105,13 @@ function trimQuery(q: string, maxLen = 255): string {
     return s.length <= maxLen ? s : s.slice(0, maxLen);
 }
 
+function extractClauseHeading(text: string): string {
+    const oneLine = text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!oneLine) return '';
+    const m = oneLine.match(/^\s*第\s*[\u4e00-\u9fa5\d]{1,12}\s*条(?:\s+[\u4e00-\u9fa5]{1,20})?/);
+    return (m?.[0] ?? '').trim();
+}
+
 async function searchCandidates(
     context: Word.RequestContext,
     query: string,
@@ -339,8 +346,9 @@ async function tryAnchorFusion(
     return best;
 }
 
-function makeProbeQueries(cleanText: string, noPunct: string, anchors: AnchorPack): string[] {
+function makeProbeQueries(rawText: string, cleanText: string, noPunct: string, anchors: AnchorPack): string[] {
     const probes: string[] = [];
+    const oneLineRaw = rawText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 
     if (cleanText.length > 255) {
         probes.push(cleanText.slice(0, 220));
@@ -356,6 +364,30 @@ function makeProbeQueries(cleanText: string, noPunct: string, anchors: AnchorPac
     }
     if (anchors.tail.length >= 12) {
         probes.push(anchors.tail.slice(Math.max(0, anchors.tail.length - 24)));
+    }
+    if (anchors.marker.length >= 4) {
+        probes.push(anchors.marker);
+    }
+    const heading = extractClauseHeading(oneLineRaw);
+    if (heading.length >= 3) {
+        probes.push(heading);
+    }
+    if (oneLineRaw.length >= 24) {
+        const firstSentence = oneLineRaw.split(/[。！？；;.!?]/)[0] || '';
+        if (firstSentence.trim().length >= 12) {
+            probes.push(firstSentence.trim().slice(0, 220));
+        }
+    }
+    if (cleanText.length >= 320) {
+        const window = 180;
+        const midStart = Math.max(0, Math.floor(cleanText.length / 2) - Math.floor(window / 2));
+        probes.push(cleanText.slice(midStart, midStart + window));
+        probes.push(cleanText.slice(Math.max(0, cleanText.length - window)));
+    }
+    if (noPunct.length >= 320) {
+        const window = 180;
+        const midStart = Math.max(0, Math.floor(noPunct.length / 2) - Math.floor(window / 2));
+        probes.push(noPunct.slice(midStart, midStart + window));
     }
 
     const uniq = new Set<string>();
@@ -383,6 +415,14 @@ function makeStrictQueries(rawText: string): string[] {
 
     if (oneLine.length > 180) {
         queries.push(oneLine.slice(0, 140));
+    }
+    const heading = extractClauseHeading(oneLine);
+    if (heading.length >= 3) {
+        queries.push(heading);
+    }
+    const firstSentence = (oneLine.split(/[。！？；;.!?]/)[0] || '').trim();
+    if (firstSentence.length >= 16) {
+        queries.push(firstSentence.slice(0, 180));
     }
 
     const uniq = new Set<string>();
@@ -507,8 +547,8 @@ export async function resolveWordRange(
     }
 
     // 3) Lightweight probes for changed punctuation/spacing.
-    const probes = makeProbeQueries(cleanText, noPunct, anchors);
-    for (const probe of probes.slice(0, 2)) {
+    const probes = makeProbeQueries(text, cleanText, noPunct, anchors);
+    for (const probe of probes.slice(0, isLongTarget ? 5 : 3)) {
         const candidates = await searchCandidates(context, probe, 6);
         if (candidates.length === 0) continue;
         const { best, score } = pickBestCandidate(candidates, targetText, anchors);
@@ -520,7 +560,27 @@ export async function resolveWordRange(
         if (immediate) return immediate;
     }
 
-    // 4) Expensive fusion only when earlier paths are weak.
+    // 4) Clause-heading fallback for long legal clauses.
+    if (anchors.marker && anchors.marker.startsWith('第')) {
+        const headingCandidates = await searchCandidates(
+            context,
+            anchors.marker,
+            8,
+            { ignoreSpace: true, ignorePunct: true }
+        );
+        if (headingCandidates.length > 0) {
+            const { best, score } = pickBestCandidate(headingCandidates, targetText, anchors);
+            if (best && (!bestRaw || score > bestRaw.score)) {
+                bestRaw = { range: best, score };
+            }
+            if (best) {
+                const immediate = await tryImmediateReturn(best, score, isLongTarget ? 0.65 : 0.35);
+                if (immediate) return immediate;
+            }
+        }
+    }
+
+    // 5) Expensive fusion only when earlier paths are weak.
     const fusionBase = bestRaw;
     if (!fusionBase || fusionBase.score < 1.0) {
         const fused = await tryAnchorFusion(context, targetText, anchors);
@@ -536,7 +596,7 @@ export async function resolveWordRange(
         }
     }
 
-    // 5) Final fallback: return best candidate after one coverage expansion.
+    // 6) Final fallback: return best candidate after one coverage expansion.
     const fallback = bestRaw;
     if (fallback) {
         const covered = await ensureCoverageFast(context, fallback.range, targetText, originalLen, anchors);
@@ -550,7 +610,7 @@ export async function resolveWordRange(
         }
     }
 
-    // 5) Table fallback (only for explicit table-style text).
+    // 7) Table fallback (only for explicit table-style text).
     const tableRange = await tryTableFallback(context, text);
     if (tableRange) return tableRange;
 

@@ -260,6 +260,125 @@ async function buildOneStepNeighborRange(
     }
 }
 
+function buildShrinkQueries(originalText: string): string[] {
+    const oneLine = (originalText || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!oneLine) return [];
+
+    const queries: string[] = [];
+    if (oneLine.length <= 240) {
+        queries.push(oneLine);
+    } else {
+        queries.push(oneLine.slice(0, 220));
+        queries.push(oneLine.slice(Math.max(0, oneLine.length - 220)));
+        const midWindow = 180;
+        const midStart = Math.max(0, Math.floor(oneLine.length / 2) - Math.floor(midWindow / 2));
+        queries.push(oneLine.slice(midStart, midStart + midWindow));
+    }
+
+    const heading = oneLine.match(/^\s*第\s*[\u4e00-\u9fa5\d]{1,12}\s*条(?:\s+[\u4e00-\u9fa5]{1,20})?/);
+    if (heading?.[0]) {
+        queries.push(heading[0].trim());
+    }
+
+    const noPunct = oneLine
+        .replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (noPunct.length >= 16) {
+        queries.push(noPunct.slice(0, 220));
+    }
+
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const q of queries) {
+        const s = q.trim();
+        if (s.length < 6 || seen.has(s)) continue;
+        seen.add(s);
+        out.push(s);
+    }
+    return out;
+}
+
+async function tryShrinkReplaceRange(
+    context: Word.RequestContext,
+    baseRange: Word.Range,
+    originalText: string
+): Promise<Word.Range> {
+    const targetNorm = normalizeForMatch(originalText || '');
+    if (targetNorm.length < 12) return baseRange;
+
+    baseRange.load('text');
+    await context.sync();
+    const baseNormLen = normalizeForMatch(baseRange.text || '').length;
+    if (!baseNormLen) return baseRange;
+
+    // Base range is already tight enough.
+    if (baseNormLen <= Math.max(targetNorm.length + 8, Math.floor(targetNorm.length * 1.25))) {
+        return baseRange;
+    }
+
+    const queries = buildShrinkQueries(originalText);
+    if (queries.length === 0) return baseRange;
+
+    let best: Word.Range | null = null;
+    let bestScore = -Infinity;
+
+    for (const query of queries.slice(0, 4)) {
+        const hits = baseRange.search(query, {
+            matchCase: false,
+            matchWholeWord: false,
+            ignoreSpace: true,
+            ignorePunct: true,
+        });
+        hits.load('items');
+        await context.sync();
+
+        if (hits.items.length === 0) continue;
+        const candidates = hits.items.slice(0, 6);
+        for (const candidate of candidates) {
+            candidate.load('text');
+        }
+        await context.sync();
+
+        for (const candidate of candidates) {
+            const text = candidate.text || '';
+            const norm = normalizeForMatch(text);
+            if (!norm) continue;
+
+            const overlap =
+                hasStrongOverlap(norm, targetNorm) ||
+                safeContains(norm, targetNorm) ||
+                safeContains(targetNorm, norm);
+            if (!overlap) continue;
+
+            const lenPenalty = Math.abs(norm.length - targetNorm.length) / Math.max(targetNorm.length, 1);
+            const overshootPenalty = norm.length > targetNorm.length * 1.6 ? 0.9 : 0;
+            const score =
+                (safeContains(norm, targetNorm) ? 1.7 : 0) +
+                (safeContains(targetNorm, norm) ? 1.0 : 0) +
+                (hasStrongOverlap(norm, targetNorm) ? 1.2 : 0) -
+                lenPenalty -
+                overshootPenalty;
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+    }
+
+    if (!best) return baseRange;
+
+    best.load('text');
+    await context.sync();
+    const bestNormLen = normalizeForMatch(best.text || '').length;
+    if (!bestNormLen) return baseRange;
+    if (bestNormLen >= baseNormLen) return baseRange;
+    if (bestNormLen > Math.max(targetNorm.length * 1.45, targetNorm.length + 30)) return baseRange;
+
+    return best;
+}
+
 export function createWordTrackChangesManager(): ITrackChangesManager {
     return {
         async applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void> {
@@ -267,6 +386,7 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
             await Word.run(async (context) => {
                 const wordRange = await resolveWordRange(context, ref);
                 if (!wordRange) throw new Error('无法定位到文档中的原文');
+                const replaceRange = await tryShrinkReplaceRange(context, wordRange, ref.searchText || '');
 
                 const doc = context.document;
                 doc.load('changeTrackingMode');
@@ -275,7 +395,7 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
 
                 try {
                     doc.changeTrackingMode = Word.ChangeTrackingMode.trackAll;
-                    wordRange.insertText(suggestedText, Word.InsertLocation.replace);
+                    replaceRange.insertText(suggestedText, Word.InsertLocation.replace);
                     doc.changeTrackingMode = originalMode;
                     await context.sync();
                 } catch (err) {
@@ -310,7 +430,12 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                         }
 
                         try {
-                            wordRange.insertText(edit.suggestedText, Word.InsertLocation.replace);
+                            const replaceRange = await tryShrinkReplaceRange(
+                                context,
+                                wordRange,
+                                ref.searchText || ''
+                            );
+                            replaceRange.insertText(edit.suggestedText, Word.InsertLocation.replace);
                             stagedApplyIndexes.push(results.length);
                             results.push(true);
                         } catch {

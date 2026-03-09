@@ -2,11 +2,6 @@
 
 import type { IRangeMapper, PlatformRange } from '../types';
 
-/**
- * Word 适配器的 Range 内部表示
- * Word.Range 对象仅在 Word.run 上下文内有效，不能跨 run 持久化
- * 所以存储搜索元数据，在需要时重新查找
- */
 export interface WordRangeRef {
     searchText: string;
     paragraphIndex?: number;
@@ -14,98 +9,172 @@ export interface WordRangeRef {
 
 function cleanForSearch(t: string): string {
     return t
-        .replace(/[*?<>|\\/~「」【】〖〗]/g, '') // 移除特殊字符、管道符、中文括号
+        .replace(/[*?<>|\\/~「」【】〔〕]/g, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
-// 新增：移除所有中英文标点，只保留文字和数字
 function stripAllPunct(t: string): string {
     return t
-        .replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/g, '') // 只保留 CJK+字母+数字+空白
+        .replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
-/**
- * 当截断搜索找到了匹配，尝试扩展范围覆盖完整原文
- *
- * 策略 A：在同段落内搜索完整原文（单段截断）
- * 策略 C：按原文字符数向下扩展段落（多段落截断，避免跨段搜索乱跑到文末）
- */
-async function tryExpandRange(
-    context: Word.RequestContext,
-    foundRange: Word.Range,
-    fullCleanText: string,
-    originalTextLength: number
-): Promise<Word.Range> {
-    // 策略 A：同段落内搜索完整文本
-    if (fullCleanText.length <= 255) {
-        try {
-            const paras = foundRange.paragraphs;
-            paras.load('items');
-            await context.sync();
+function compactForCompare(t: string): string {
+    return stripAllPunct(t).replace(/\s+/g, '');
+}
 
-            for (const para of paras.items) {
-                const fullResults = para.search(fullCleanText, {
-                    matchCase: false, matchWholeWord: false,
-                    ignoreSpace: true, ignorePunct: true,
-                });
-                fullResults.load('items');
-                await context.sync();
-                if (fullResults.items.length > 0 && fullResults.items[0]) {
-                    return fullResults.items[0];
-                }
-            }
-        } catch { /* 继续策略 C */ }
+function calcTextScore(candidateText: string, targetText: string): number {
+    const c = compactForCompare(candidateText);
+    const t = compactForCompare(targetText);
+    if (!c || !t) return -Infinity;
+
+    const minLen = Math.min(c.length, t.length);
+    let samePrefix = 0;
+    while (samePrefix < minLen && c[samePrefix] === t[samePrefix]) {
+        samePrefix++;
     }
 
-    // 策略 C：根据期望长度向后扩展段落
-    // 为避免全文搜索带来的跨章节误伤，改为从找到的前缀开始，逐段向下收集，
-    // 直到包含原文对应长度，最多扩展 10 个段落。
+    const prefixRatio = samePrefix / Math.max(t.length, 1);
+    const containsBonus = c.includes(t) ? 1.2 : (t.includes(c) ? 0.5 : 0);
+    const lenPenalty = Math.abs(c.length - t.length) / Math.max(t.length, 1);
+
+    return prefixRatio * 3 + containsBonus - lenPenalty;
+}
+
+function isClauseBoundaryParagraph(text: string): boolean {
+    const s = text.trim();
+    if (!s) return false;
+    return (
+        /^第[一二三四五六七八九十百千零0-9]+条/.test(s) ||
+        /^[一二三四五六七八九十]+、/.test(s) ||
+        /^\d+[\.、]/.test(s)
+    );
+}
+
+async function pickBestSearchResult(
+    context: Word.RequestContext,
+    results: Word.RangeCollection,
+    targetText: string
+): Promise<Word.Range | null> {
+    if (results.items.length === 0) return null;
+
+    const candidates = results.items.slice(0, 20);
+    for (const r of candidates) {
+        r.load('text');
+    }
+    await context.sync();
+
+    let best: Word.Range | null = null;
+    let bestScore = -Infinity;
+
+    for (const r of candidates) {
+        const score = calcTextScore(r.text || '', targetText);
+        if (score > bestScore) {
+            bestScore = score;
+            best = r;
+        }
+    }
+
+    return best ?? candidates[0] ?? null;
+}
+
+async function expandRangeConservatively(
+    context: Word.RequestContext,
+    startRange: Word.Range,
+    targetText: string,
+    originalTextLength: number
+): Promise<Word.Range> {
     try {
-        let currentRange = foundRange;
+        let currentRange = startRange;
         currentRange.load('text');
         await context.sync();
 
-        let lastPara = currentRange.paragraphs.getLast();
+        let bestRange = currentRange;
+        let bestScore = calcTextScore(currentRange.text || '', targetText);
+
+        const targetLen = Math.max(20, Math.floor(originalTextLength * 0.95));
         let currentLength = currentRange.text.length;
+        let lastPara = currentRange.paragraphs.getLast();
+        let dropStreak = 0;
 
-        // 期待达到原长度的 0.95 倍（去除多余空格/回车的容错）
-        const targetLen = originalTextLength * 0.95;
+        for (let i = 0; i < 6; i++) {
+            if (currentLength >= targetLen && i >= 1) break;
 
-        for (let i = 0; i < 10; i++) {
-            if (currentLength >= targetLen) {
-                break;
-            }
             const nextPara = lastPara.getNextOrNullObject();
-            nextPara.load('isNullObject');
+            nextPara.load('isNullObject,text');
             await context.sync();
 
-            if (nextPara.isNullObject) {
+            if (nextPara.isNullObject) break;
+
+            if (
+                isClauseBoundaryParagraph(nextPara.text || '') &&
+                currentLength >= Math.floor(targetLen * 0.6)
+            ) {
                 break;
             }
 
             lastPara = nextPara;
-            currentRange = foundRange.expandTo(lastPara.getRange());
+            currentRange = startRange.expandTo(lastPara.getRange());
             currentRange.load('text');
             await context.sync();
+
             currentLength = currentRange.text.length;
+            const score = calcTextScore(currentRange.text || '', targetText);
+
+            if (score >= bestScore) {
+                bestScore = score;
+                bestRange = currentRange;
+                dropStreak = 0;
+            } else {
+                dropStreak++;
+                if (dropStreak >= 2 && currentLength >= Math.floor(targetLen * 0.8)) {
+                    break;
+                }
+            }
+
+            if (currentLength > originalTextLength * 2.2) {
+                break;
+            }
         }
 
-        // 仅在长度不超过 2 倍原长度时安全返回（允许尾部附带一些换行）
-        if (currentRange.text.length <= originalTextLength * 2.5) {
-            return currentRange;
-        }
+        return bestRange;
     } catch (e) {
-        console.warn('[wordRangeMapper] 尝试段落扩展失败', e);
+        console.warn('[wordRangeMapper] conservative expand failed', e);
+        return startRange;
     }
-
-    return foundRange;
 }
 
-/** 在 Word.run 上下文中根据 WordRangeRef 重新定位 Range */
+async function searchBest(
+    context: Word.RequestContext,
+    query: string,
+    targetText: string,
+    expand: boolean,
+    originalTextLength: number
+): Promise<Word.Range | null> {
+    const q = query.trim();
+    if (q.length < 2) return null;
+
+    const results = context.document.body.search(q, {
+        matchCase: false,
+        matchWholeWord: false,
+        ignoreSpace: true,
+        ignorePunct: true,
+    });
+    results.load('items');
+    await context.sync();
+
+    if (results.items.length === 0) return null;
+
+    const best = await pickBestSearchResult(context, results, targetText);
+    if (!best) return null;
+
+    if (!expand) return best;
+    return await expandRangeConservatively(context, best, targetText, originalTextLength);
+}
+
 export async function resolveWordRange(
     context: Word.RequestContext,
     ref: WordRangeRef
@@ -114,159 +183,80 @@ export async function resolveWordRange(
     if (!text) return null;
 
     const cleanText = cleanForSearch(text);
+    const noPunct = stripAllPunct(text);
     const originalLen = text.length;
 
-    // 策略 1：精确搜索
-    try {
-        const wasTruncated = cleanText.length > 255;
-        const searchText = wasTruncated ? cleanText.slice(0, 200) : cleanText;
-        const results = context.document.body.search(searchText, {
-            matchCase: false,
-            matchWholeWord: false,
-            ignoreSpace: true,
-            ignorePunct: true,
-        });
-        results.load('items');
-        await context.sync();
-        if (results.items.length > 0 && results.items[0]) {
-            if (wasTruncated) {
-                return await tryExpandRange(context, results.items[0], cleanText, originalLen);
-            }
-            return results.items[0];
-        }
-    } catch { /* 进入下一策略 */ }
-
-    // 策略 1.5：去标点精确搜索
-    try {
-        const noPunct = stripAllPunct(text);
-        const searchText = noPunct.length <= 255 ? noPunct : noPunct.slice(0, 200);
-        if (searchText.length >= 4) {
-            const results = context.document.body.search(searchText, {
-                matchCase: false,
-                matchWholeWord: false,
-                ignoreSpace: true,
-                ignorePunct: true,
-            });
-            results.load('items');
-            await context.sync();
-            if (results.items.length > 0 && results.items[0]) {
-                return results.items[0];
-            }
-        }
-    } catch { /* 继续 */ }
-
-    // 策略 2：截断搜索 (80字符) + 范围扩展
-    if (cleanText.length > 80) {
-        try {
-            const shortText = cleanText.slice(0, 80).trim();
-            const results = context.document.body.search(shortText, {
-                matchCase: false,
-                matchWholeWord: false,
-                ignoreSpace: true,
-                ignorePunct: true,
-            });
-            results.load('items');
-            await context.sync();
-            if (results.items.length > 0 && results.items[0]) {
-                return await tryExpandRange(context, results.items[0], cleanText, originalLen);
-            }
-        } catch { /* 继续 */ }
+    // 1) Full-text search when query length is supported.
+    if (cleanText.length > 0 && cleanText.length <= 255) {
+        const exact = await searchBest(context, cleanText, cleanText, false, originalLen);
+        if (exact) return exact;
     }
 
-    // 策略 3：短前缀搜索 (30字符) + 范围扩展
-    if (cleanText.length > 30) {
-        try {
-            const shortPrefix = cleanText.slice(0, 30).trim();
-            const results = context.document.body.search(shortPrefix, {
-                matchCase: false,
-                matchWholeWord: false,
-                ignoreSpace: true,
-                ignorePunct: true,
-            });
-            results.load('items');
-            await context.sync();
-            if (results.items.length > 0 && results.items[0]) {
-                return await tryExpandRange(context, results.items[0], cleanText, originalLen);
-            }
-        } catch { /* 继续 */ }
+    // 2) Truncated clean search + conservative expansion.
+    if (cleanText.length > 0) {
+        const truncated = cleanText.length > 255 ? cleanText.slice(0, 200) : cleanText;
+        const r = await searchBest(context, truncated, cleanText, cleanText.length > 255, originalLen);
+        if (r) return r;
     }
 
-    // 策略 3.5：去标点短前缀搜索 (20字符) + 范围扩展
-    try {
-        const noPunct = stripAllPunct(text).replace(/\s+/g, '');
-        const shortNoPunct = noPunct.slice(0, Math.min(noPunct.length, 20));
-        if (shortNoPunct.length >= 4) {
-            const results = context.document.body.search(shortNoPunct, {
-                matchCase: false, matchWholeWord: false,
-                ignoreSpace: true, ignorePunct: true,
-            });
-            results.load('items');
-            await context.sync();
-            if (results.items.length > 0 && results.items[0]) {
-                return await tryExpandRange(context, results.items[0], cleanText, originalLen);
-            }
+    // 3) No-punctuation search.
+    if (noPunct.length >= 4) {
+        const npQuery = noPunct.length > 255 ? noPunct.slice(0, 200) : noPunct;
+        const r = await searchBest(context, npQuery, cleanText, noPunct.length > 255, originalLen);
+        if (r) return r;
+    }
+
+    // 4) Prefix fallback (aggressive queries, conservative expansion).
+    const compact = compactForCompare(text);
+    for (const n of [80, 50, 30, 20]) {
+        const q = compact.slice(0, Math.min(compact.length, n));
+        if (q.length < 4) continue;
+        const r = await searchBest(context, q, cleanText, true, originalLen);
+        if (r) return r;
+    }
+
+    // 5) Middle probe fallback.
+    if (compact.length > 60) {
+        const midStart = Math.floor(compact.length / 2) - 15;
+        const mid = compact.slice(midStart, midStart + 30).trim();
+        if (mid.length >= 10) {
+            const r = await searchBest(context, mid, cleanText, true, originalLen);
+            if (r) return r;
         }
-    } catch { /* 继续 */ }
-
-    // 策略 4：中段搜索 (取中间30字符) + 范围扩展
-    if (cleanText.length > 60) {
-        try {
-            const midStart = Math.floor(cleanText.length / 2) - 15;
-            const midText = cleanText.slice(midStart, midStart + 30).trim();
-            if (midText.length >= 10) {
-                const results = context.document.body.search(midText, {
-                    matchCase: false, matchWholeWord: false,
-                    ignoreSpace: true, ignorePunct: true,
-                });
-                results.load('items');
-                await context.sync();
-                if (results.items.length > 0 && results.items[0]) {
-                    return await tryExpandRange(context, results.items[0], cleanText, originalLen);
-                }
-            }
-        } catch { /* 继续 */ }
     }
 
-    // 策略 5：段落回退（增强版：多子串匹配，容忍 AI 措辞差异）
+    // 6) Paragraph scoring fallback.
     try {
         const paragraphs = context.document.body.paragraphs;
         paragraphs.load('items/text');
         await context.sync();
 
-        // 生成多个子串探针：从文本的 0, 1/4, 1/2, 3/4 位置各取 15 字符
-        const norm = stripAllPunct(text).replace(/\s+/g, '');
-        const probeLen = 15;
-        const probes: string[] = [];
-        if (norm.length <= probeLen) {
-            if (norm.length >= 4) probes.push(norm);
-        } else {
-            const positions = [0, 0.25, 0.5, 0.75].map(r => Math.floor(r * (norm.length - probeLen)));
-            for (const pos of positions) {
-                probes.push(norm.slice(pos, pos + probeLen));
+        let bestPara: Word.Paragraph | null = null;
+        let bestParaScore = -Infinity;
+        for (const para of paragraphs.items) {
+            const score = calcTextScore(para.text || '', cleanText);
+            if (score > bestParaScore) {
+                bestParaScore = score;
+                bestPara = para;
             }
         }
 
-        if (probes.length > 0) {
-            for (const para of paragraphs.items) {
-                const paraNorm = stripAllPunct(para.text).replace(/\s+/g, '');
-                if (probes.some(probe => paraNorm.includes(probe))) {
-                    para.load('text');
-                    await context.sync();
-                    return para.getRange();
-                }
-            }
+        if (bestPara && bestParaScore > 0.4) {
+            return bestPara.getRange();
         }
-    } catch { /* 继续 */ }
+    } catch {
+        // continue to table fallback
+    }
 
-    // 策略 6：表格搜索（对短文本或含 | 的文本特别处理）
+    // 7) Table fallback.
     if (text.includes('|') || cleanText.length <= 30) {
         try {
             const tables = context.document.body.tables;
             tables.load('items');
             await context.sync();
 
-            const searchKeyword = stripAllPunct(text).replace(/\s+/g, '');
-            if (searchKeyword.length >= 2 && tables.items.length > 0) {
+            const keyword = compactForCompare(text);
+            if (keyword.length >= 2) {
                 for (const table of tables.items) {
                     const rows = table.rows;
                     rows.load('items/cells/body/text');
@@ -277,15 +267,17 @@ export async function resolveWordRange(
                         cells.load('items/body/text');
                         await context.sync();
                         for (const cell of cells.items) {
-                            const cellNorm = stripAllPunct(cell.body.text).replace(/\s+/g, '');
-                            if (cellNorm.includes(searchKeyword) || searchKeyword.includes(cellNorm)) {
+                            const cellNorm = compactForCompare(cell.body.text || '');
+                            if (cellNorm.includes(keyword) || keyword.includes(cellNorm)) {
                                 return cell.body.getRange();
                             }
                         }
                     }
                 }
             }
-        } catch { /* 表格搜索失败 */ }
+        } catch {
+            // ignore
+        }
     }
 
     return null;
@@ -295,10 +287,6 @@ export function createWordRangeMapper(): IRangeMapper {
     return {
         async findRange(originalText: string): Promise<PlatformRange | null> {
             if (!originalText || originalText.trim().length === 0) return null;
-
-            // 性能优化：直接返回搜索元数据，跳过验证性 Word.run
-            // 实际解析推迟到后续操作 (addComment / applySuggestedEdit 等) 的 Word.run 内一次性完成
-            // 消除了每次操作的双重 Word.run + 双重全文搜索开销
             return {
                 _internal: { searchText: originalText.trim() } as WordRangeRef,
                 _platform: 'word',

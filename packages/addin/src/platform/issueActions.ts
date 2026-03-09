@@ -45,7 +45,11 @@ export async function locateIssue(
     adapter: IPlatformAdapter,
     issue: ReviewIssue
 ): Promise<boolean> {
-    const range = await getRange(adapter, issue);
+    let range = await getRange(adapter, issue);
+    if (!range && issue.suggestedText) {
+        // After applying revisions, originalText may no longer exist verbatim.
+        range = await getRange(adapter, issue, issue.suggestedText);
+    }
     if (!range) return false;
     await adapter.navigationHelper.navigateAndHighlight(range);
     return true;
@@ -107,6 +111,16 @@ export async function unapplyIssue(
     let range = issue.suggestedText ? await getRange(adapter, issue, issue.suggestedText) : null;
     if (!range) {
         range = await getRange(adapter, issue);
+    }
+    if (!range && adapter.platform === 'word') {
+        // Word revert has a global relevant-revision fallback, so allow entering revert flow.
+        const fallbackSearchText = (issue.suggestedText || issue.originalText || '').trim();
+        if (fallbackSearchText) {
+            range = {
+                _internal: { searchText: fallbackSearchText },
+                _platform: 'word',
+            } as PlatformRange;
+        }
     }
     if (!range) return false;
 

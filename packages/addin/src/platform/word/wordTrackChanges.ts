@@ -155,6 +155,27 @@ async function rejectRelevantRevisionsInDocument(
     return false;
 }
 
+async function buildNeighborExpandedRange(
+    context: Word.RequestContext,
+    wordRange: Word.Range
+): Promise<Word.Range | null> {
+    try {
+        const firstPara = wordRange.paragraphs.getFirst();
+        const lastPara = wordRange.paragraphs.getLast();
+        const prevPara = firstPara.getPreviousOrNullObject();
+        const nextPara = lastPara.getNextOrNullObject();
+        prevPara.load('isNullObject');
+        nextPara.load('isNullObject');
+        await context.sync();
+
+        const start = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
+        const end = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
+        return start.expandTo(end);
+    } catch {
+        return null;
+    }
+}
+
 export function createWordTrackChangesManager(): ITrackChangesManager {
     return {
         async applySuggestedEdit(range: PlatformRange, suggestedText: string): Promise<void> {
@@ -230,31 +251,20 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                         return ok;
                     }
 
-                    // Range candidates from narrow to broad.
-                    const candidates: Word.Range[] = [wordRange];
-                    try {
-                        const firstPara = wordRange.paragraphs.getFirst();
-                        const lastPara = wordRange.paragraphs.getLast();
-                        const paraRange = firstPara.getRange().expandTo(lastPara.getRange());
-                        candidates.push(paraRange);
-
-                        const prevPara = firstPara.getPreviousOrNullObject();
-                        const nextPara = lastPara.getNextOrNullObject();
-                        prevPara.load('isNullObject');
-                        nextPara.load('isNullObject');
-                        await context.sync();
-
-                        const expandStart = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
-                        const expandEnd = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
-                        candidates.push(expandStart.expandTo(expandEnd));
-                    } catch {
-                        // ignore candidate expansion failure
+                    if (await rejectRevisionsInRange(context, wordRange, originalText, suggestedText)) {
+                        ok = true;
                     }
 
-                    for (const c of candidates) {
-                        if (await rejectRevisionsInRange(context, c, originalText, suggestedText)) {
-                            ok = true;
-                            break;
+                    // One-step local expansion fallback (fast path).
+                    if (!ok) {
+                        const expanded = await buildNeighborExpandedRange(context, wordRange);
+                        if (expanded) {
+                            ok = await rejectRevisionsInRange(
+                                context,
+                                expanded,
+                                originalText,
+                                suggestedText
+                            );
                         }
                     }
 

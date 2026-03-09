@@ -20,6 +20,48 @@ function stripAllPunct(t: string): string {
         .trim();
 }
 
+function compactForCompare(t: string): string {
+    return stripAllPunct(t).replace(/\s+/g, '');
+}
+
+function calcTextScore(candidateText: string, targetText: string): number {
+    const c = compactForCompare(candidateText);
+    const t = compactForCompare(targetText);
+    if (!c || !t) return -Infinity;
+
+    const minLen = Math.min(c.length, t.length);
+    let samePrefix = 0;
+    while (samePrefix < minLen && c[samePrefix] === t[samePrefix]) {
+        samePrefix++;
+    }
+
+    const prefixRatio = samePrefix / Math.max(t.length, 1);
+    const containsBonus = c.includes(t) ? 1.2 : (t.includes(c) ? 0.6 : 0);
+    const lenPenalty = Math.abs(c.length - t.length) / Math.max(t.length, 1);
+    return prefixRatio * 3 + containsBonus - lenPenalty;
+}
+
+interface AnchorPack {
+    compact: string;
+    head: string;
+    tail: string;
+}
+
+function buildAnchors(targetText: string): AnchorPack {
+    const compact = compactForCompare(targetText);
+    const anchorLen = Math.min(48, Math.max(12, Math.floor(compact.length * 0.2)));
+    return {
+        compact,
+        head: compact.slice(0, anchorLen),
+        tail: compact.slice(Math.max(0, compact.length - anchorLen)),
+    };
+}
+
+function hasAnchor(candidateText: string, anchor: string): boolean {
+    if (!anchor || anchor.length < 6) return true;
+    return compactForCompare(candidateText).includes(anchor);
+}
+
 /* ══════════ 偏移量映射引擎 ══════════ */
 
 interface NormResult {
@@ -98,6 +140,36 @@ function normIndexOf(
     };
 }
 
+function normIndexOfNearest(
+    fullNorm: NormResult,
+    searchNorm: NormResult,
+    preferRawStart: number
+): { start: number; end: number } | null {
+    if (searchNorm.text.length < 2) return null;
+
+    let best: { start: number; end: number } | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    let idx = fullNorm.text.indexOf(searchNorm.text);
+    let guard = 0;
+    while (idx !== -1 && guard < 64) {
+        const lastNormIdx = idx + searchNorm.text.length - 1;
+        if (lastNormIdx < fullNorm.map.length) {
+            const start = fullNorm.map[idx]!;
+            const end = fullNorm.map[lastNormIdx]! + 1;
+            const dist = Math.abs(start - preferRawStart);
+            if (!best || dist < bestDistance) {
+                best = { start, end };
+                bestDistance = dist;
+            }
+        }
+        idx = fullNorm.text.indexOf(searchNorm.text, idx + 1);
+        guard++;
+    }
+
+    return best;
+}
+
 /**
  * 前缀搜索：在归一化全文中搜索归一化前缀。
  * end 通过在归一化全文映射表中向后延伸 searchNorm 的完整长度来精确计算，
@@ -146,6 +218,85 @@ export class WpsRangeMapper implements IRangeMapper {
         this._cachedCleanFull = null;
         this._cachedPunctFull = null;
         this._cacheTimestamp = 0;
+    }
+
+    private getDocEnd(doc: any): number {
+        try {
+            return doc?.Content?.End || 999999;
+        } catch {
+            return 999999;
+        }
+    }
+
+    private sanitizeRange(doc: any, r: { start: number; end: number }): { start: number; end: number } {
+        const docEnd = this.getDocEnd(doc);
+        const start = Math.max(0, Math.min(docEnd, Math.floor(r.start)));
+        const endRaw = Math.max(start + 1, Math.floor(r.end));
+        const end = Math.max(start + 1, Math.min(docEnd, endRaw));
+        return { start, end };
+    }
+
+    private scoreRangeText(candidateText: string, searchText: string): number {
+        const anchors = buildAnchors(searchText);
+        const base = calcTextScore(candidateText, searchText);
+        if (!Number.isFinite(base)) return -Infinity;
+        const headBonus = hasAnchor(candidateText, anchors.head) ? 1.1 : -0.8;
+        const tailBonus = hasAnchor(candidateText, anchors.tail) ? 1.1 : -0.8;
+        return base + headBonus + tailBonus;
+    }
+
+    private expandHitToBestRange(
+        doc: any,
+        candidate: { start: number; end: number },
+        searchText: string
+    ): { start: number; end: number } {
+        const safe = this.sanitizeRange(doc, candidate);
+        const docEnd = this.getDocEnd(doc);
+        const targetLen = Math.max(searchText.length, 1);
+
+        const windowStart = Math.max(0, safe.start - 120);
+        const windowEnd = Math.min(docEnd, safe.start + Math.max(targetLen * 2 + 320, 640));
+        if (windowEnd <= windowStart + 1) return safe;
+
+        const windowText = doc.Range(windowStart, windowEnd).Text || '';
+        if (!windowText) return safe;
+
+        const prefer = Math.max(0, safe.start - windowStart);
+        const cleanWindow = normalizeWithMap(windowText, RE_CLEAN_CHAR, true);
+        const cleanSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true);
+        const punctWindow = normalizeWithMap(windowText, RE_PUNCT_CHAR, true);
+        const punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true);
+
+        const fromClean = normIndexOfNearest(cleanWindow, cleanSearch, prefer);
+        const fromPunct = normIndexOfNearest(punctWindow, punctSearch, prefer);
+
+        const options: Array<{ start: number; end: number }> = [safe];
+        if (fromClean) {
+            options.push({
+                start: windowStart + fromClean.start,
+                end: windowStart + fromClean.end,
+            });
+        }
+        if (fromPunct) {
+            options.push({
+                start: windowStart + fromPunct.start,
+                end: windowStart + fromPunct.end,
+            });
+        }
+
+        let best = safe;
+        let bestScore = -Infinity;
+        for (const opt of options) {
+            const normalized = this.sanitizeRange(doc, opt);
+            const text = doc.Range(normalized.start, normalized.end).Text || '';
+            const score = this.scoreRangeText(text, searchText);
+            if (score > bestScore) {
+                bestScore = score;
+                best = normalized;
+            }
+        }
+
+        return best;
     }
 
     /**
@@ -269,7 +420,11 @@ export class WpsRangeMapper implements IRangeMapper {
         try {
             // 🔥 第一道防线：极速切块查找（无须跨 COM 传输全量文档，耗时 <0.1秒）
             const fastRes = this.fastChunkFind(doc, searchPattern, searchText);
-            if (fastRes) return fastRes;
+            if (fastRes) {
+                const info = fastRes._internal as { start: number; end: number };
+                const refined = this.expandHitToBestRange(doc, info, searchText);
+                return { _internal: refined, _platform: 'wps' };
+            }
 
             // 🐢 第二道防线：兜底的全局全量扫描（将传输数百 KB 到数十 MB 的全文档文本给 JS，很慢）
             const fullText: string = this.getFullText(doc);
@@ -287,8 +442,10 @@ export class WpsRangeMapper implements IRangeMapper {
             const getCleanSearch = () => _cleanSearch || (_cleanSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true));
             const getPunctSearch = () => _punctSearch || (_punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true));
 
-            const hit = (r: { start: number; end: number }): PlatformRange =>
-                ({ _internal: r, _platform: 'wps' });
+            const hit = (r: { start: number; end: number }): PlatformRange => {
+                const refined = this.expandHitToBestRange(doc, r, searchText);
+                return { _internal: refined, _platform: 'wps' };
+            };
 
             // ── 策略 1：原文精确 indexOf ──
             {

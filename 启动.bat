@@ -31,22 +31,22 @@ for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
 echo   [OK] Node.js %NODE_VER%
 
 :: ─── 检测 pnpm ────────────────────────────────────────────────
-where pnpm >nul 2>&1
+rem pnpm 已移除，使用 npm
 if errorlevel 1 (
     echo   [提示] 正在安装 pnpm 包管理器...
-    call npm install -g pnpm
+    rem 已迁移至 npm，无需安装 pnpm
     if errorlevel 1 (
-        echo   [错误] pnpm 安装失败，请检查网络或权限。
+        
         pause
         exit /b 1
     )
 )
-echo   [OK] pnpm 已就绪
+
 
 :: ─── 同步依赖（每次启动自动检查 pnpm-lock.yaml 是否有变化） ────────────────────────────────────────────────
 echo.
 echo   [提示] 正在检查依赖更新（首次约需 1-3 分钟，后续几秒内完成）...
-call pnpm install
+call npm install
 if errorlevel 1 (
     echo   [错误] 依赖安装失败，请检查网络（或切换 npm 镜像）。
     pause
@@ -95,9 +95,9 @@ echo     打开 Word -^> 首页 -^> 打开审查面板
 echo     首次使用请在设置中填入 API Key
 echo   ========================================
 echo.
-call pnpm dev
+call npm run dev
 if errorlevel 1 (
-    echo [系统提示] pnpm dev 进程意外退出，请查看上方报错信息！
+    echo [系统提示] npm run dev 进程意外退出，请查看上方报错信息！
 )
 pause
 exit /b 0
@@ -138,9 +138,9 @@ echo     打开 WPS -^> 智能审查 -^> 打开审查面板
 echo     首次使用请在设置中填入 API Key
 echo   ========================================
 echo.
-call pnpm dev
+call npm run dev
 if errorlevel 1 (
-    echo [系统提示] pnpm dev 进程意外退出，请查看上方报错信息！
+    echo [系统提示] npm run dev 进程意外退出，请查看上方报错信息！
 )
 pause
 exit /b 0

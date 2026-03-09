@@ -36,36 +36,13 @@ if ! command -v node &> /dev/null; then
 fi
 echo -e "✅ Node.js 已安装: $(node -v)"
 
-# ─── 检测 pnpm ────────────────────────────────────────────────
-if ! command -v pnpm &> /dev/null; then
-    echo -e "${YELLOW}正在自动安装核心依赖管理器 (pnpm)...${NC}"
-    # 优先使用 npm 安装（走淘宝镜像，国内秒装）
-    npm install -g pnpm --registry=https://registry.npmmirror.com 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo -e "${YELLOW}npm 安装失败，尝试独立安装器...${NC}"
-        curl -fsSL https://get.pnpm.io/install.sh | sh -
-        # macOS 独立安装器装到 ~/Library/pnpm，Linux 装到 ~/.local/share/pnpm
-        if [ -d "$HOME/Library/pnpm" ]; then
-            export PNPM_HOME="$HOME/Library/pnpm"
-        elif [ -d "$HOME/.local/share/pnpm" ]; then
-            export PNPM_HOME="$HOME/.local/share/pnpm"
-        fi
-        export PATH="$PNPM_HOME:$PATH"
-    fi
 
-    if ! command -v pnpm &> /dev/null; then
-        echo -e "${RED}pnpm 安装失败！${NC}"
-        echo -e "请手动执行：${YELLOW}npm install -g pnpm${NC}"
-        exit 1
-    fi
-fi
-echo -e "✅ 包管理工具准备就绪"
 
 # ─── npm 缓存权限检测 (防老版本遗留 EACCES) ────────────────────────
 if [ -d "$HOME/.npm" ]; then
     ROOT_OWNED=$(find "$HOME/.npm" -user root -print -quit 2>/dev/null)
     if [ ! -z "$ROOT_OWNED" ]; then
-        echo -e "${YELLOW}检测到 root 权限缓存，正在修复以防止 npm/pnpm 安装报错...${NC}"
+        echo -e "${YELLOW}检测到 root 权限缓存，正在修复以防止 npm 安装报错...${NC}"
         sudo chown -R $(whoami) "$HOME/.npm"
     fi
 fi
@@ -73,7 +50,7 @@ fi
 # ─── 安装项目依赖 ─────────────────────────────────────────────
 if [ ! -d "node_modules" ]; then
     echo -e "${YELLOW}首次运行，正在下载项目依赖 (约 1-3 分钟)...${NC}"
-    pnpm install
+    npm install
     if [ $? -ne 0 ]; then
         echo -e "${RED}依赖安装失败！请检查网络连接后重试。${NC}"
         exit 1
@@ -105,7 +82,7 @@ if [ "$CHOICE" = "P" ]; then
     # WPS 模式前置检查：确保有 dist 编译产物，防止白屏
     if [ ! -d "packages/addin/dist" ]; then
         echo -e "${YELLOW}首次运行 WPS 模式，正在自动构建前端资源...${NC}"
-        pnpm run build:addin
+        npm run build:addin
     fi
 
     # 安装 HTTPS 开发证书（WPS 的 dev server 同样需要 HTTPS）
@@ -143,7 +120,7 @@ if [ "$CHOICE" = "P" ]; then
     echo -e "${GREEN}========================================${NC}"
     echo ""
 
-    pnpm dev
+    npm run dev
 
 else
     # ─── Word 模式 ────────────────────────────────────────────
@@ -204,5 +181,5 @@ else
     echo -e "${GREEN}========================================${NC}"
     echo ""
 
-    pnpm dev
+    npm run dev
 fi

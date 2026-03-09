@@ -3,6 +3,11 @@
 import type { ITrackChangesManager, PlatformRange } from '../types';
 import { resolveWordRange, type WordRangeRef } from './wordRangeMapper';
 
+// Keep replacement granularity consistent with AI prompt contract.
+// 'full'  : replace the resolved originalText unit as a whole.
+// 'minimal': shrink replacement range inside the resolved unit.
+const WORD_REWRITE_MODE: 'full' | 'minimal' = 'full';
+
 function normalizeForMatch(t: string): string {
     return (t || '').replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9]/g, '');
 }
@@ -386,7 +391,9 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
             await Word.run(async (context) => {
                 const wordRange = await resolveWordRange(context, ref);
                 if (!wordRange) throw new Error('无法定位到文档中的原文');
-                const replaceRange = await tryShrinkReplaceRange(context, wordRange, ref.searchText || '');
+                const replaceRange = WORD_REWRITE_MODE === 'minimal'
+                    ? await tryShrinkReplaceRange(context, wordRange, ref.searchText || '')
+                    : wordRange;
 
                 const doc = context.document;
                 doc.load('changeTrackingMode');
@@ -430,11 +437,9 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                         }
 
                         try {
-                            const replaceRange = await tryShrinkReplaceRange(
-                                context,
-                                wordRange,
-                                ref.searchText || ''
-                            );
+                            const replaceRange = WORD_REWRITE_MODE === 'minimal'
+                                ? await tryShrinkReplaceRange(context, wordRange, ref.searchText || '')
+                                : wordRange;
                             replaceRange.insertText(edit.suggestedText, Word.InsertLocation.replace);
                             stagedApplyIndexes.push(results.length);
                             results.push(true);

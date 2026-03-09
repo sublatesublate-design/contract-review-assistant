@@ -113,17 +113,18 @@ export function buildReviewPrompt(req: ReviewRequest & {
 
 ## 关键执行规则
 
-1. **originalText 必须是合同原文逐字引用的【完整可替换单元】**——必须引用到完整的句子或条款段落，确保 suggestedText 替换 originalText 后语句通顺、不会遗留残余文字。例如原文"甲方的付款期限为三年"，不得只引用"甲方的付款期限"而遗漏"为三年"。**对于 missing_clause 也一样**：originalText 应引用缺失条款所在位置附近的已有完整段落/条款原文（作为替换范围），suggestedText 应是在该段落基础上补充缺失条款后的完整替换版本。系统将用 suggestedText 整体替换 originalText，而非在其后插入。**禁止使用“...”或“……”省略原文；禁止截断。长度可超过200字，允许到1200字（以完整性优先）。**
-2. **suggestedText 必须是 originalText 的完整替换版本**（所有 category 均适用，包括 missing_clause），直接替换后上下文必须通顺连贯，不得假设保留 originalText 之外的任何文字
-3. **legalBasis 必须引用完整法条名称及条款编号**（如《民法典》第470条第8项），禁止笼统引用
-4. **riskLevel 量化标准**：
+1. **全局一致性策略：统一采用“完整替换模式（full rewrite）”**。同一份审查结果中，禁止混用“局部短替换”和“整段改写”两种风格。所有 issue 的 originalText 与 suggestedText 都必须遵循同一粒度（完整可替换单元）。
+2. **originalText 必须是合同原文逐字引用的【完整可替换单元】**——必须引用到完整的句子或条款段落，确保 suggestedText 替换 originalText 后语句通顺、不会遗留残余文字。例如原文"甲方的付款期限为三年"，不得只引用"甲方的付款期限"而遗漏"为三年"。**对于 missing_clause 也一样**：originalText 应引用缺失条款所在位置附近的已有完整段落/条款原文（作为替换范围），suggestedText 应是在该段落基础上补充缺失条款后的完整替换版本。系统将用 suggestedText 整体替换 originalText，而非在其后插入。**禁止使用“...”或“……”省略原文；禁止截断。长度可超过200字，允许到1200字（以完整性优先）。**
+3. **suggestedText 必须是 originalText 的完整替换版本**（所有 category 均适用，包括 missing_clause），直接替换后上下文必须通顺连贯，不得假设保留 originalText 之外的任何文字
+4. **legalBasis 必须引用完整法条名称及条款编号**（如《民法典》第470条第8项），禁止笼统引用
+5. **riskLevel 量化标准**：
    - high：可能导致合同无效、重大财产损失、严重法律责任
    - medium：存在较大不确定性或执行障碍，建议修改
    - low：表述不够严谨但影响有限，可选择修改
    - info：最佳实践建议，当前表述合法但可优化
-5. **禁止在 JSON 之外输出任何文字**（包括分析过程、思考链、Markdown 格式）
-6. **所有文本内容使用中文**，特别是 summary 的 content 中**严禁**出现 "issue-001" 等内部编号符号
-7. **发现一个问题立即输出一行 JSON**，不要积累后批量输出
+6. **禁止在 JSON 之外输出任何文字**（包括分析过程、思考链、Markdown 格式）
+7. **所有文本内容使用中文**，特别是 summary 的 content 中**严禁**出现 "issue-001" 等内部编号符号
+8. **发现一个问题立即输出一行 JSON**，不要积累后批量输出
 ${req.standpoint === 'party_a' ? `\n---\n\n## 审查立场\n你以 **甲方法律顾问** 的立场审查此合同。重点识别：\n- 对甲方不利的权利义务分配\n- 甲方潜在的责任风险和经济损失\n- 缺少保护甲方利益的条款\n- 对方可能利用的模糊条款\n在 description 中明确说明该问题对甲方的具体影响。` : req.standpoint === 'party_b' ? `\n---\n\n## 审查立场\n你以 **乙方法律顾问** 的立场审查此合同。重点识别：\n- 对乙方不利的权利义务分配\n- 乙方潜在的责任风险和经济损失\n- 缺少保护乙方利益的条款\n- 甲方可能利用的苛刻条款\n在 description 中明确说明该问题对乙方的具体影响。` : ''}
 ${typeSpecificFocus}
 ${req.globalInstruction ? `\n---\n\n## 附加自定义指令\n\n${req.globalInstruction}` : ''}`;

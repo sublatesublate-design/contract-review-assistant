@@ -29,6 +29,29 @@ async function getRange(
     return await adapter.rangeMapper.findRange(searchText);
 }
 
+function buildFallbackLocateQueries(text?: string): string[] {
+    const src = (text || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!src) return [];
+    if (src.length <= 180) return [src];
+
+    const out: string[] = [];
+    const headLen = Math.min(160, src.length);
+    const tailLen = Math.min(160, src.length);
+    out.push(src.slice(0, headLen));
+    out.push(src.slice(Math.max(0, Math.floor(src.length / 2) - 80), Math.max(0, Math.floor(src.length / 2) + 80)));
+    out.push(src.slice(Math.max(0, src.length - tailLen)));
+
+    const uniq = new Set<string>();
+    const queries: string[] = [];
+    for (const q of out) {
+        const s = q.trim();
+        if (s.length < 24 || uniq.has(s)) continue;
+        uniq.add(s);
+        queries.push(s);
+    }
+    return queries;
+}
+
 /** 
  * 接口保留以兼容老代码调用，但内部已不再需要维护易导致漂移的永久缓存
  */
@@ -49,6 +72,16 @@ export async function locateIssue(
     if (!range && issue.suggestedText) {
         // After applying revisions, originalText may no longer exist verbatim.
         range = await getRange(adapter, issue, issue.suggestedText);
+    }
+    if (!range) {
+        const queries = [
+            ...buildFallbackLocateQueries(issue.originalText),
+            ...buildFallbackLocateQueries(issue.suggestedText),
+        ];
+        for (const q of queries.slice(0, 5)) {
+            range = await getRange(adapter, issue, q);
+            if (range) break;
+        }
     }
     if (!range) return false;
     await adapter.navigationHelper.navigateAndHighlight(range);

@@ -121,7 +121,10 @@ async function rejectRelevantRevisionsInDocument(
 
     if (all.items.length === 0) return false;
 
-    for (const rev of all.items) {
+    const maxScan = 240;
+    const pool = all.items.slice(Math.max(0, all.items.length - maxScan));
+
+    for (const rev of pool) {
         (rev as any).load('type');
     }
     await context.sync();
@@ -131,7 +134,7 @@ async function rejectRelevantRevisionsInDocument(
     let matched = false;
 
     const textCandidates: Array<any> = [];
-    for (const rev of all.items) {
+    for (const rev of pool) {
         const revType = (rev as any).type;
         const isInsert = isTypeIncludes(revType, 'insert') || revType === (Word as any).RevisionType?.insert;
         const isDelete = isTypeIncludes(revType, 'delete') || revType === (Word as any).RevisionType?.delete;
@@ -196,7 +199,7 @@ async function buildLengthAwareExpandedRange(
         let startPara = current.paragraphs.getFirst();
         let endPara = current.paragraphs.getLast();
 
-        const maxExpandSteps = 3;
+        const maxExpandSteps = 2;
         for (let step = 0; step < maxExpandSteps; step++) {
             const currentLen = normalizeForMatch(current.text || '').length;
             if (currentLen >= Math.floor(targetLen * 0.92)) {
@@ -231,6 +234,27 @@ async function buildLengthAwareExpandedRange(
         }
 
         return current;
+    } catch {
+        return null;
+    }
+}
+
+async function buildOneStepNeighborRange(
+    context: Word.RequestContext,
+    wordRange: Word.Range
+): Promise<Word.Range | null> {
+    try {
+        const firstPara = wordRange.paragraphs.getFirst();
+        const lastPara = wordRange.paragraphs.getLast();
+        const prevPara = firstPara.getPreviousOrNullObject();
+        const nextPara = lastPara.getNextOrNullObject();
+        prevPara.load('isNullObject');
+        nextPara.load('isNullObject');
+        await context.sync();
+
+        const start = prevPara.isNullObject ? firstPara.getRange() : prevPara.getRange();
+        const end = nextPara.isNullObject ? lastPara.getRange() : nextPara.getRange();
+        return start.expandTo(end);
     } catch {
         return null;
     }
@@ -331,51 +355,40 @@ export function createWordTrackChangesManager(): ITrackChangesManager {
                         suggestedText
                     );
 
-                    // Local fast-path: if resolved range is likely the target, revert there first.
+                    // Local fast-path: directly restore original text with tracking OFF, then cleanup nearby revisions.
                     if (localLikely) {
+                        workingRange.insertText(originalText, Word.InsertLocation.replace);
+                        await context.sync();
+                        await rejectAllRevisionsInRangeSafe(context, workingRange);
+                        const localNeighbor = await buildOneStepNeighborRange(context, workingRange);
+                        if (localNeighbor) {
+                            await rejectAllRevisionsInRangeSafe(context, localNeighbor);
+                        }
+                        ok = true;
+                    } else {
+                        // Conservative path when resolved range confidence is low.
                         ok = await rejectRevisionsInRange(
                             context,
-                            workingRange,
+                            wordRange,
                             originalText,
                             suggestedText
                         );
-
                         if (ok) {
-                            await rejectAllRevisionsInRangeSafe(context, workingRange);
-                            workingRange.load('text');
-                            await context.sync();
-                            const normNow = normalizeForMatch(workingRange.text || '');
-                            const normOrig = normalizeForMatch(originalText);
-                            if (normOrig && !hasStrongOverlap(normNow, normOrig)) {
-                                ok = false;
+                            await rejectAllRevisionsInRangeSafe(context, wordRange);
+                            const localNeighbor = await buildOneStepNeighborRange(context, wordRange);
+                            if (localNeighbor) {
+                                await rejectAllRevisionsInRangeSafe(context, localNeighbor);
                             }
-                        }
-
-                        // If local reject path still cannot fully restore text, hard-reset this verified range.
-                        if (!ok) {
-                            workingRange.insertText(originalText, Word.InsertLocation.replace);
-                            await context.sync();
-                            await rejectAllRevisionsInRangeSafe(context, workingRange);
-                            ok = true;
                         }
                     }
 
-                    // Global fallback: scan document revisions and reject relevant ones.
+                    // Global fallback only when local paths fail.
                     if (!ok) {
                         ok = await rejectRelevantRevisionsInDocument(
                             context,
                             originalText,
                             suggestedText
                         );
-                    }
-
-                    // Last local fallback: avoid false-negative by restoring original text in resolved range.
-                    if (!ok && localLikely) {
-                        const fallbackRange = workingRange || wordRange;
-                        fallbackRange.insertText(originalText, Word.InsertLocation.replace);
-                        await context.sync();
-                        await rejectAllRevisionsInRangeSafe(context, fallbackRange);
-                        ok = true;
                     }
                 } finally {
                     doc.changeTrackingMode = originalMode;

@@ -446,119 +446,104 @@ export async function resolveWordRange(
     const anchors = buildAnchors(targetText);
     const isLongTarget = anchors.compact.length >= 80;
 
-    const strictPolicy: RangeAcceptancePolicy = {
-        minScore: isLongTarget ? 1.1 : 0.7,
-        minLenRatio: isLongTarget ? 0.72 : 0.56,
-        requireBothAnchors: isLongTarget,
-        requireMarkerIfPresent: isLongTarget,
+    const acceptCovered = (coveredText: string): boolean => {
+        const metrics = evaluateRangeText(coveredText || '', targetText, anchors);
+        if (!Number.isFinite(metrics.score)) return false;
+        if (metrics.lenRatio < (isLongTarget ? 0.48 : 0.3)) return false;
+        if (isLongTarget && anchors.marker && !metrics.markerMatch && !metrics.bothAnchors) {
+            return metrics.score >= 0.95;
+        }
+        return metrics.score >= (isLongTarget ? 0.15 : -0.1);
     };
-    const fuzzyPolicy: RangeAcceptancePolicy = {
-        minScore: isLongTarget ? 0.95 : 0.62,
-        minLenRatio: isLongTarget ? 0.68 : 0.52,
-        requireBothAnchors: isLongTarget,
-        requireMarkerIfPresent: false,
-    };
-    const probePolicy: RangeAcceptancePolicy = {
-        minScore: isLongTarget ? 1.2 : 0.78,
-        minLenRatio: isLongTarget ? 0.76 : 0.56,
-        requireBothAnchors: isLongTarget,
-        requireMarkerIfPresent: isLongTarget,
-    };
-    const fallbackFloor = isLongTarget ? 0.78 : 0.38;
 
-    let bestFallback: FinalizedCandidate | null = null;
+    let bestRaw: { range: Word.Range; score: number } | null = null;
+    const tryImmediateReturn = async (
+        candidate: Word.Range,
+        score: number,
+        immediateThreshold: number
+    ): Promise<Word.Range | null> => {
+        if (score < immediateThreshold) return null;
+        const covered = await ensureCoverageFast(context, candidate, targetText, originalLen, anchors);
+        covered.load('text');
+        await context.sync();
+        return acceptCovered(covered.text || '') ? covered : null;
+    };
 
-    // 1) Strict queries first (punctuation/space-sensitive) to reduce wrong clause matches.
+    // 1) Strict search (prefer exact punctuation/space for speed and precision).
     const strictQueries = makeStrictQueries(text);
-    for (const sq of strictQueries.slice(0, 2)) {
+    const strictTake = text.length > 255 ? 2 : 1;
+    for (const sq of strictQueries.slice(0, strictTake)) {
         const strictCandidates = await searchCandidates(context, sq, 6, {
             ignoreSpace: false,
             ignorePunct: false,
         });
-        if (strictCandidates.length > 0) {
-            const { best } = pickBestCandidate(strictCandidates, targetText, anchors);
-            const finalized = await finalizeCandidate(
-                context,
-                best,
-                targetText,
-                originalLen,
-                anchors,
-                strictPolicy
-            );
-            if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
-                bestFallback = finalized;
-            }
-            if (finalized?.accepted) {
-                return finalized.range;
-            }
+        if (strictCandidates.length === 0) continue;
+        const { best, score } = pickBestCandidate(strictCandidates, targetText, anchors);
+        if (best && (!bestRaw || score > bestRaw.score)) {
+            bestRaw = { range: best, score };
         }
+        if (!best) continue;
+        const immediate = await tryImmediateReturn(best, score, isLongTarget ? 0.9 : 0.45);
+        if (immediate) return immediate;
     }
 
-    // 2) Full-text fuzzy search when query length is supported.
+    // 2) Full text fuzzy search.
     if (cleanText.length > 0 && cleanText.length <= 255) {
         const exactCandidates = await searchCandidates(context, cleanText, 6);
         if (exactCandidates.length > 0) {
-            const { best } = pickBestCandidate(exactCandidates, targetText, anchors);
-            const finalized = await finalizeCandidate(
-                context,
-                best,
-                targetText,
-                originalLen,
-                anchors,
-                fuzzyPolicy
-            );
-            if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
-                bestFallback = finalized;
+            const { best, score } = pickBestCandidate(exactCandidates, targetText, anchors);
+            if (best && (!bestRaw || score > bestRaw.score)) {
+                bestRaw = { range: best, score };
             }
-            if (finalized?.accepted) {
-                return finalized.range;
+            if (best) {
+                const immediate = await tryImmediateReturn(best, score, isLongTarget ? 0.8 : 0.4);
+                if (immediate) return immediate;
             }
         }
     }
 
-    // 3) Anchor-fusion search: combine head & tail matches to avoid partial selection.
-    const fused = await tryAnchorFusion(context, targetText, anchors);
-    if (fused) {
-        const finalized = await finalizeCandidate(
-            context,
-            fused,
-            targetText,
-            originalLen,
-            anchors,
-            fuzzyPolicy
-        );
-        if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
-            bestFallback = finalized;
-        }
-        if (finalized?.accepted) {
-            return finalized.range;
-        }
-    }
-
-    // 4) Probe fallbacks (short list, performance-first).
+    // 3) Lightweight probes for changed punctuation/spacing.
     const probes = makeProbeQueries(cleanText, noPunct, anchors);
-    for (const probe of probes.slice(0, 3)) {
+    for (const probe of probes.slice(0, 2)) {
         const candidates = await searchCandidates(context, probe, 6);
         if (candidates.length === 0) continue;
-        const { best } = pickBestCandidate(candidates, targetText, anchors);
-        const finalized = await finalizeCandidate(
-            context,
-            best,
-            targetText,
-            originalLen,
-            anchors,
-            probePolicy
-        );
-        if (finalized && (!bestFallback || finalized.score > bestFallback.score)) {
-            bestFallback = finalized;
+        const { best, score } = pickBestCandidate(candidates, targetText, anchors);
+        if (best && (!bestRaw || score > bestRaw.score)) {
+            bestRaw = { range: best, score };
         }
-        if (finalized?.accepted) {
-            return finalized.range;
+        if (!best) continue;
+        const immediate = await tryImmediateReturn(best, score, isLongTarget ? 0.85 : 0.5);
+        if (immediate) return immediate;
+    }
+
+    // 4) Expensive fusion only when earlier paths are weak.
+    const fusionBase = bestRaw;
+    if (!fusionBase || fusionBase.score < 1.0) {
+        const fused = await tryAnchorFusion(context, targetText, anchors);
+        if (fused) {
+            fused.load('text');
+            await context.sync();
+            const score = calcCoverageScoreWithAnchors(fused.text || '', targetText, anchors);
+            if (!bestRaw || score > bestRaw.score) {
+                bestRaw = { range: fused, score };
+            }
+            const immediate = await tryImmediateReturn(fused, score, isLongTarget ? 0.95 : 0.55);
+            if (immediate) return immediate;
         }
     }
 
-    if (bestFallback && bestFallback.score >= fallbackFloor) {
-        return bestFallback.range;
+    // 5) Final fallback: return best candidate after one coverage expansion.
+    const fallback = bestRaw;
+    if (fallback) {
+        const covered = await ensureCoverageFast(context, fallback.range, targetText, originalLen, anchors);
+        covered.load('text');
+        await context.sync();
+        if (acceptCovered(covered.text || '')) {
+            return covered;
+        }
+        if (fallback.score >= (isLongTarget ? -0.05 : -0.25)) {
+            return fallback.range;
+        }
     }
 
     // 5) Table fallback (only for explicit table-style text).

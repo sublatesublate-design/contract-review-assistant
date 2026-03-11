@@ -49,7 +49,7 @@ class McpManager {
         }
 
         const client = new Client(
-            { name: 'contract-review-assistant', version: '1.0.0' },
+            { name: 'contract-review-assistant', version: '2.1.0' },
             { capabilities: {} }
         );
 

@@ -6,7 +6,7 @@
   xsi:type="TaskPaneApp">
 
   <Id>5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b</Id>
-  <Version>1.0.0.0</Version>
+  <Version>2.1.0.0</Version>
   <ProviderName>合同审查助手</ProviderName>
   <DefaultLocale>zh-CN</DefaultLocale>
 

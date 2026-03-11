@@ -1,4 +1,4 @@
-#define MyAppName "合同审查助手"
+#define MyAppName "Contract Review Assistant"
 #define MyAppNameEn "ContractReviewAssistant"
 #define MyAppVersion "2.1.0"
 #define MyAppPublisher "Contract Review Assistant"
@@ -13,7 +13,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppNameEn}
 DefaultGroupName={#MyAppName}
 OutputDir=out
-OutputBaseFilename=合同审查助手_Setup_v{#MyAppVersion}
+OutputBaseFilename=ContractReviewAssistant_Setup_v{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -23,38 +23,40 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ShowLanguageDialog=no
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加操作:"; Flags: checked
-Name: "autostart"; Description: "开机自动启动（推荐）"; GroupDescription: "附加操作:"; Flags: checked
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional tasks:"
+Name: "autostart"; Description: "Start automatically when Windows starts (recommended)"; GroupDescription: "Additional tasks:"
 
 [Files]
 Source: "out\ContractReviewAssistant.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\manifest.xml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "scripts\install-cert.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\launch-desktop.vbs"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\uninstall-cert.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\register-addin.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\register-wps-addin.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\run-desktop.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\stop-desktop.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "scripts\unregister-addins.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"
-Name: "{group}\卸载 {#MyAppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Tasks: desktopicon
-
-[Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppNameEn}"; ValueData: """{app}\{#MyAppExeName}"" --desktop"; Flags: uninsdeletevalue; Tasks: autostart
+Name: "{group}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\scripts\launch-desktop.vbs"""
+Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\scripts\launch-desktop.vbs"""; Tasks: desktopicon
+Name: "{userstartup}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\scripts\launch-desktop.vbs"""; Tasks: autostart
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\install-cert.ps1"""; StatusMsg: "正在安装 HTTPS 证书..."; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-addin.ps1"""; StatusMsg: "正在注册 Word 插件..."; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-wps-addin.ps1"""; StatusMsg: "正在注册 WPS 插件..."; Flags: runhidden waituntilterminated
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "立即启动 {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\install-cert.ps1"""; StatusMsg: "Installing HTTPS certificate..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-addin.ps1"""; StatusMsg: "Registering the Word add-in..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-wps-addin.ps1"""; StatusMsg: "Registering the WPS add-in..."; Flags: runhidden waituntilterminated
+Filename: "{sys}\wscript.exe"; Parameters: """{app}\scripts\launch-desktop.vbs"""; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall
 
 [UninstallRun]
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\unregister-addins.ps1"""; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\uninstall-cert.ps1"""; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\stop-desktop.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "StopDesktop"
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\unregister-addins.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "UnregisterAddins"
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\uninstall-cert.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "UninstallCert"
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{userappdata}\{#MyAppNameEn}"

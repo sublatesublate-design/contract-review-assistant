@@ -339,11 +339,10 @@ export const apiClient = {
 export interface McpServerConfig {
     id: string;
     name: string;
-    transport: 'stdio' | 'sse';
+    transport: 'stdio';
     command?: string;
     args?: string[];
     env?: Record<string, string>;
-    url?: string;
     enabled: boolean;
 }
 

@@ -84,7 +84,6 @@ export default function ChatPanel() {
             appendToLastMessage(`\n\n[发送失败：${err instanceof Error ? err.message : String(err)}]`);
             finalizeLastMessage();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isStreaming, session.messages, settings]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {

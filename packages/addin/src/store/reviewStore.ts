@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ReviewIssue, ReviewResult, ReviewStatus } from '../types/review';
 import type { ContractSummary, SummaryStatus } from '../types/summary';
+import type { LegalDocumentType } from '../types/legalDocument';
 
 /** 错误分类 */
 export type ReviewErrorType = 'auth' | 'quota' | 'network' | 'unknown';
@@ -13,6 +14,8 @@ export interface ReviewHistorySummary {
     model: string;
     durationMs: number;
     issueCount: number;
+    documentType?: LegalDocumentType;
+    documentLabel?: string;
     /** 风险分布 */
     riskBreakdown: Record<string, number>;
     summary: string;
@@ -43,7 +46,7 @@ interface ReviewState {
     setError: (message: string, errorType?: ReviewErrorType) => void;
     setActiveIssue: (id: string | null) => void;
     updateIssueStatus: (id: string, status: ReviewIssue['status']) => void;
-    addStreamingIssue: (issue: ReviewIssue) => void;
+    addStreamingIssue: (issue: ReviewIssue, documentType?: LegalDocumentType) => void;
 
     setSummary: (summary: ContractSummary) => void;
     setSummaryStatus: (status: SummaryStatus) => void;
@@ -92,6 +95,8 @@ export const useReviewStore = create<ReviewState>()(
                     summary: result.summary,
                     hasFullData: true,
                     issues,
+                    ...(result.documentType ? { documentType: result.documentType } : {}),
+                    ...(result.documentLabel ? { documentLabel: result.documentLabel } : {}),
                 };
 
                 // 旧的完整记录超过 3 条时，裁剪 issues 字段
@@ -127,7 +132,7 @@ export const useReviewStore = create<ReviewState>()(
                 }),
 
             /** 流式接收：逐步追加 Issue，同时更新计数器 */
-            addStreamingIssue: (issue) =>
+            addStreamingIssue: (issue, documentType) =>
                 set((state) => ({
                     streamingIssueCount: state.streamingIssueCount + 1,
                     result: state.result
@@ -138,6 +143,7 @@ export const useReviewStore = create<ReviewState>()(
                             durationMs: 0,
                             model: '',
                             createdAt: new Date().toISOString(),
+                            ...(documentType ? { documentType } : {}),
                         },
                 })),
 

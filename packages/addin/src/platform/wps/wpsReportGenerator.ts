@@ -4,7 +4,7 @@ import type { ContractSummary } from '../../types/summary';
 /// <reference path="./wps-jsapi.d.ts" />
 
 export class WpsReportGenerator implements IReportGenerator {
-    public async generateReport(result: ReviewResult, summary: ContractSummary | null, contractTypeLabel?: string): Promise<void> {
+    public async generateReport(result: ReviewResult, summary: ContractSummary | null, documentLabel?: string): Promise<void> {
         if (!window.wps) return;
         const app = window.wps.WpsApplication();
 
@@ -13,21 +13,20 @@ export class WpsReportGenerator implements IReportGenerator {
         const range = doc.Content;
 
         // 简单报表逻辑实现，通过纯文本和基础 Table 实现
-        range.Text = '智能合同审查报告\n\n';
+        range.Text = '法律写作审校报告\n\n';
         range.Collapse(window.wps.Enum?.wdCollapseEnd || 0);
 
-        if (contractTypeLabel) {
-            range.InsertAfter(`识别类型：${contractTypeLabel}\n`);
+        if (documentLabel) {
+            range.InsertAfter(`审校模式：${documentLabel}\n`);
             range.Collapse(window.wps.Enum?.wdCollapseEnd || 0);
         }
 
         if (summary) {
             const summaryText = [
-                `\n【核心摘要】`,
-                `合同类型：${summary.contractType || '未识别'}`,
-                `标的金额：${summary.amount || '未识别'}`,
-                `合同期限：${summary.duration || '未识别'}`,
-                `争议解决：${summary.disputeResolution || '未识别'}`,
+                `\n【结构化摘要】`,
+                summary.overview ? `摘要概览：${summary.overview}` : '',
+                ...(summary.fields || []).map(field => `${field.label}：${field.value || '未见明确约定'}`),
+                ...(summary.sections || []).map(section => `${section.title}：${section.items.length > 0 ? section.items.join('；') : '未见明确约定'}`),
             ].join('\n') + '\n';
             range.InsertAfter(summaryText);
             range.Collapse(window.wps.Enum?.wdCollapseEnd || 0);

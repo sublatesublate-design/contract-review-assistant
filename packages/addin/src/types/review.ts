@@ -1,3 +1,5 @@
+import type { LegalDocumentType } from './legalDocument';
+
 /**
  * 审查问题的严重等级
  */
@@ -10,7 +12,17 @@ export type IssueCategory =
     | 'risk_clause'       // 风险条款
     | 'missing_clause'    // 缺失条款
     | 'compliance'        // 合规性问题
-    | 'clause_analysis';  // 条款分析建议
+    | 'clause_analysis'   // 条款分析建议
+    | 'format'            // 格式规范
+    | 'fact'              // 事实陈述
+    | 'legal_basis'       // 法律依据
+    | 'claim'             // 请求事项
+    | 'evidence'          // 证据关联
+    | 'adversarial'       // 对抗性分析
+    | 'conclusion'        // 结论措辞
+    | 'assumptions'       // 假设前提
+    | 'disclaimer'        // 免责声明
+    | 'structure';        // 结构完整性
 
 /**
  * 单个审查问题
@@ -46,9 +58,13 @@ export interface ReviewResult {
     /** 使用的 AI 模型 */
     model: string;
     createdAt: string;
-    /** 自动识别的合同类型 */
+    /** 当前审校所采用的文书类型 */
+    documentType?: LegalDocumentType;
+    /** 当前审校模式或识别结果的显示标签 */
+    documentLabel?: string;
+    /** @deprecated 为兼容旧历史数据暂时保留 */
     contractType?: string;
-    /** 合同类型显示标签 */
+    /** @deprecated 为兼容旧历史数据暂时保留 */
     contractLabel?: string;
 }
 

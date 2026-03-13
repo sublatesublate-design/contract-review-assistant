@@ -29,11 +29,11 @@ export default function ChatPanel() {
         try {
             const content = await platform.documentReader.readFullText();
             const reviewSummary = result
-                ? `\n\n当前审查已发现 ${result.issues.length} 个问题，摘要：${result.summary}`
+                ? `\n\n当前审校已发现 ${result.issues.length} 个问题，摘要：${result.summary}`
                 : '';
             addMessage(
                 'system',
-                `以下是用户正在审查的合同全文，请基于此内容回答用户的问题：\n\n${content}${reviewSummary}`
+                `以下是用户正在审校的法律文稿全文，请基于此内容回答用户的问题：\n\n${content}${reviewSummary}`
             );
             injectContractContext();
         } catch (err) {
@@ -109,7 +109,7 @@ export default function ChatPanel() {
                     )}
                 >
                     <BookOpen size={12} />
-                    {session.hasContractContext ? '合同已注入 ✓' : '注入合同内容'}
+                    {session.hasContractContext ? '文稿已注入 ✓' : '注入文稿内容'}
                 </button>
                 <button
                     onClick={clearSession}
@@ -125,8 +125,8 @@ export default function ChatPanel() {
                 {session.messages.filter((m) => m.role !== 'system').length === 0 && (
                     <div className="text-center py-10 text-gray-400">
                         <Bot size={32} className="mx-auto mb-3 opacity-40" />
-                        <p className="text-sm">向 AI 咨询合同相关问题</p>
-                        <p className="text-xs mt-1 text-gray-300">建议先点击「注入合同内容」以获得精准回答</p>
+                        <p className="text-sm">向 AI 咨询法律写作相关问题</p>
+                        <p className="text-xs mt-1 text-gray-300">建议先点击「注入文稿内容」以获得精准回答</p>
                     </div>
                 )}
 

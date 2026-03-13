@@ -7,9 +7,11 @@ import type { ReviewIssue } from '../types/review';
 import type { ReviewErrorType } from '../store/reviewStore';
 import type { ModelInfo } from '../types/settings';
 import type { ContractSummary } from '../types/summary';
+import type { LegalDocumentType } from '../types/legalDocument';
 
 export interface ReviewStreamRequest {
     content: string;
+    documentType: LegalDocumentType;
     provider: string;
     model: string;
     depth: 'quick' | 'standard' | 'deep';
@@ -22,8 +24,8 @@ export interface ReviewStreamRequest {
 
 export interface ReviewStreamCallbacks {
     onIssue: (issue: ReviewIssue) => void;
-    /** summary 带可选合同类型信息 */
-    onSummary: (summary: string, model: string, contractType?: string, contractLabel?: string) => void;
+    /** summary 带可选文书类型信息 */
+    onSummary: (summary: string, model: string, documentType?: string, documentLabel?: string) => void;
     /** 错误回调，附带分类类型 */
     onError: (err: string, errorType?: ReviewErrorType) => void;
 }
@@ -135,7 +137,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
 
 export const apiClient = {
     /**
-     * 发起合同审查（SSE 流式）
+     * 发起文稿审校（SSE 流式）
      */
     async reviewStream(
         req: ReviewStreamRequest,
@@ -152,8 +154,8 @@ export const apiClient = {
                 callbacks.onSummary(
                     data['content'] as string,
                     data['model'] as string,
-                    data['contractType'] as string | undefined,
-                    data['contractLabel'] as string | undefined,
+                    data['documentType'] as string | undefined,
+                    data['documentLabel'] as string | undefined,
                 );
             else if (data['type'] === 'error') {
                 const { message, errorType } = classifyError(data['message'] as string);
@@ -263,7 +265,7 @@ export const apiClient = {
     },
 
     /**
-     * 获取合同摘要信息（非流式）
+     * 获取结构化文稿摘要（非流式）
      */
     async getSummary(
         req: Omit<ReviewStreamRequest, 'depth' | 'customTemplates' | 'standpoint'>,

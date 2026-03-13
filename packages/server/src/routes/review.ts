@@ -5,13 +5,17 @@ import { createProvider } from '../services/ai/providerFactory';
 import { buildReviewPrompt } from '../services/review/promptBuilder';
 import { parseLine, toReviewIssue } from '../services/review/resultParser';
 import { detectContractType } from '../services/review/contractDetector';
+import { detectLitigationSubtype } from '../services/review/litigationDetector';
+import { DEFAULT_REVIEW_LABELS, LEGAL_DOCUMENT_TYPE_LABELS } from '../services/review/legalWritingConfig';
 import { mcpManager } from '../services/mcp/mcpManager';
 import type { AIToolDefinition } from '../services/ai/types';
+import type { LegalDocumentType } from '../types/legalDocument';
 
 export const reviewRouter: import('express').Router = Router();
 
 const ReviewRequestSchema = z.object({
-    content: z.string().min(10, '合同内容不能为空'),
+    content: z.string().min(10, '文稿内容不能为空'),
+    documentType: z.enum(['contract', 'litigation', 'legal_opinion']).default('contract'),
     provider: z.enum(['claude', 'openai', 'ollama']),
     model: z.string().min(1),
     depth: z.enum(['quick', 'standard', 'deep']).default('standard'),
@@ -44,6 +48,7 @@ async function executeReview(
 ): Promise<void> {
     try {
         console.log('[Review] 收到请求:', {
+            documentType: reviewReq.documentType,
             provider: reviewReq.provider,
             model: reviewReq.model,
             baseUrl: reviewReq.baseUrl ?? '(未传入)',
@@ -57,22 +62,33 @@ async function executeReview(
             baseUrl: reviewReq.baseUrl,
         });
 
-        // 检测合同类型（如果用户没有指定模板）
-        const contractDetect = reviewReq.selectedTemplate ? null : detectContractType(reviewReq.content);
-        if (contractDetect) {
-            console.log('[Review] 合同类型识别:', contractDetect);
-        } else {
-            console.log('[Review] 使用自定义用户模板:', reviewReq.selectedTemplate?.name);
-        }
+        let finalDocumentLabel = reviewReq.selectedTemplate
+            ? reviewReq.selectedTemplate.name
+            : DEFAULT_REVIEW_LABELS[reviewReq.documentType as LegalDocumentType];
+        let finalContractType: ReturnType<typeof detectContractType>['type'] | 'custom' | undefined;
+        let finalLitigationSubtype: ReturnType<typeof detectLitigationSubtype>['subtype'] | undefined;
 
-        const finalContractLabel = reviewReq.selectedTemplate ? reviewReq.selectedTemplate.name : contractDetect!.label;
-        const finalContractType = reviewReq.selectedTemplate ? 'custom' : contractDetect!.type;
+        if (reviewReq.documentType === 'contract' && !reviewReq.selectedTemplate) {
+            const contractDetect = detectContractType(reviewReq.content);
+            finalDocumentLabel = contractDetect.label;
+            finalContractType = contractDetect.type;
+            console.log('[Review] 合同类型识别:', contractDetect);
+        } else if (reviewReq.documentType === 'litigation' && !reviewReq.selectedTemplate) {
+            const litigationDetect = detectLitigationSubtype(reviewReq.content);
+            finalDocumentLabel = litigationDetect.label;
+            finalLitigationSubtype = litigationDetect.subtype;
+            console.log('[Review] 诉讼文书子类型识别:', litigationDetect);
+        } else if (reviewReq.selectedTemplate) {
+            console.log('[Review] 使用自定义用户模板:', reviewReq.selectedTemplate.name);
+            finalContractType = 'custom';
+        }
 
         const systemPrompt = buildReviewPrompt({
             ...reviewReq,
-            contractType: finalContractType as any,
-            globalInstruction: reviewReq.globalInstruction,
-            selectedTemplate: reviewReq.selectedTemplate
+            ...(finalContractType ? { contractType: finalContractType } : {}),
+            ...(finalLitigationSubtype ? { litigationSubtype: finalLitigationSubtype } : {}),
+            ...(reviewReq.globalInstruction ? { globalInstruction: reviewReq.globalInstruction } : {}),
+            ...(reviewReq.selectedTemplate ? { selectedTemplate: reviewReq.selectedTemplate } : {}),
         });
         let lineBuffer = '';
 
@@ -88,7 +104,7 @@ async function executeReview(
             : undefined;
 
         await provider.chatStream(
-            [{ role: 'user', content: `请审查以下合同：\n\n${reviewReq.content}` }],
+            [{ role: 'user', content: `请审校以下${LEGAL_DOCUMENT_TYPE_LABELS[reviewReq.documentType as LegalDocumentType] ?? '文稿'}：\n\n${reviewReq.content}` }],
             {
                 onDelta: (delta) => {
                     lineBuffer += delta;
@@ -107,8 +123,8 @@ async function executeReview(
                                 type: 'summary',
                                 content: parsed.content,
                                 model: parsed.model,
-                                contractType: finalContractType,
-                                contractLabel: finalContractLabel,
+                                documentType: reviewReq.documentType,
+                                documentLabel: finalDocumentLabel,
                             });
                         }
                     }
@@ -117,7 +133,13 @@ async function executeReview(
                     if (lineBuffer.trim()) {
                         const parsed = parseLine(lineBuffer);
                         if (parsed?.type === 'summary') {
-                            sendEvent({ type: 'summary', content: parsed.content, model: parsed.model });
+                            sendEvent({
+                                type: 'summary',
+                                content: parsed.content,
+                                model: parsed.model,
+                                documentType: reviewReq.documentType,
+                                documentLabel: finalDocumentLabel,
+                            });
                         }
                     }
                     sendEvent({ type: 'done' });

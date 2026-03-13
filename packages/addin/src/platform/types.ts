@@ -76,7 +76,7 @@ export interface IReportGenerator {
     generateReport(
         result: ReviewResult,
         summary: ContractSummary | null,
-        contractTypeLabel?: string
+        documentLabel?: string
     ): Promise<void>;
 }
 

@@ -1,3 +1,5 @@
+import type { LegalDocumentType } from './legalDocument';
+
 /**
  * AI 提供商类型
  */
@@ -23,13 +25,18 @@ export interface ReviewTemplate {
     name: string;                   // 显示名称
     prompt: string;                 // 提示词内容
     isBuiltin: boolean;             // 是否系统内置（不可删除，可恢复默认）
-    boundContractType?: string | undefined;     // 绑定的合同类型（auto 模式匹配到此类型时使用此模板）
+    documentType: LegalDocumentType;
+    boundDocumentSubtype?: string | undefined;
+    /** @deprecated 兼容旧持久化数据 */
+    boundContractType?: string | undefined;
 }
 
 /**
  * 应用设置
  */
 export interface AppSettings {
+    /** 当前默认文书类型 */
+    documentType: LegalDocumentType;
     /** 当前选择的 AI 提供商 */
     provider: ProviderType;
     /** 选择的模型 */

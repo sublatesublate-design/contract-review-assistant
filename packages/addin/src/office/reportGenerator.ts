@@ -5,7 +5,7 @@ export async function generateReviewReport(
     context: Word.RequestContext,
     result: ReviewResult,
     summary: ContractSummary | null,
-    contractTypeLabel?: string
+    documentLabel?: string
 ) {
     // 1. 获取当前文档作为原始合同材料
     const originalBody = context.document.body;
@@ -19,7 +19,7 @@ export async function generateReviewReport(
     const newDocBody = newDoc.body;
 
     // --- 封面 ---
-    const titleParagraph = newDocBody.insertParagraph('合同审查报告', Word.InsertLocation.end);
+    const titleParagraph = newDocBody.insertParagraph('法律写作审校报告', Word.InsertLocation.end);
     titleParagraph.styleBuiltIn = Word.BuiltInStyleName.title;
     titleParagraph.font.color = '#1F2937';
     titleParagraph.font.bold = true;
@@ -35,8 +35,8 @@ export async function generateReviewReport(
     modelParagraph.alignment = Word.Alignment.centered;
     modelParagraph.font.color = '#6B7280';
 
-    if (contractTypeLabel) {
-        const typeParagraph = newDocBody.insertParagraph(`自动识别类型：${contractTypeLabel}`, Word.InsertLocation.end);
+    if (documentLabel) {
+        const typeParagraph = newDocBody.insertParagraph(`审校模式：${documentLabel}`, Word.InsertLocation.end);
         typeParagraph.alignment = Word.Alignment.centered;
         typeParagraph.font.color = '#6B7280';
     }
@@ -54,24 +54,42 @@ export async function generateReviewReport(
     newDocBody.insertParagraph('', Word.InsertLocation.end);
 
     if (summary) {
-        const infoHeader = newDocBody.insertParagraph('二、 合同关键信息', Word.InsertLocation.end);
+        const infoHeader = newDocBody.insertParagraph('二、 结构化摘要', Word.InsertLocation.end);
         infoHeader.styleBuiltIn = Word.BuiltInStyleName.heading1;
         infoHeader.font.color = '#111827';
 
-        // 插入表格
-        const table = newDocBody.insertTable(6, 2, Word.InsertLocation.end, [
-            ['信息项', '提取内容'],
-            ['合同金额', summary.amount || '未见明确约定'],
-            ['合同期限', summary.duration || '未见明确约定'],
-            ['当事人', summary.parties?.map(p => `${p.role}: ${p.name}`).join('; ') || '未见明确约定'],
-            ['关键日期', summary.keyDates?.join('; ') || '无'],
-            ['争议解决', summary.disputeResolution || '未见明确约定']
-        ]);
+        if (summary.overview) {
+            newDocBody.insertParagraph(summary.overview, Word.InsertLocation.end);
+            newDocBody.insertParagraph('', Word.InsertLocation.end);
+        }
 
-        table.styleBuiltIn = Word.BuiltInStyleName.gridTable4; // Light styling
-        table.headerRowCount = 1;
-        // Adjust column widths (approximate percentages expressed loosely in API depending on version, here using fit)
-        table.autoFitWindow();
+        if (summary.fields?.length > 0) {
+            const tableRows = [
+                ['信息项', '提取内容'],
+                ...summary.fields.map((field) => [field.label, field.value || '未见明确约定'])
+            ];
+            const table = newDocBody.insertTable(tableRows.length, 2, Word.InsertLocation.end, tableRows);
+            table.styleBuiltIn = Word.BuiltInStyleName.gridTable4;
+            table.headerRowCount = 1;
+            table.autoFitWindow();
+            newDocBody.insertParagraph('', Word.InsertLocation.end);
+        }
+
+        summary.sections?.forEach((section) => {
+            const sectionHeader = newDocBody.insertParagraph(section.title, Word.InsertLocation.end);
+            sectionHeader.styleBuiltIn = Word.BuiltInStyleName.heading2;
+            sectionHeader.font.color = '#1F2937';
+
+            if (section.items.length === 0) {
+                newDocBody.insertParagraph('未见明确约定', Word.InsertLocation.end);
+            } else {
+                section.items.forEach((item) => {
+                    newDocBody.insertParagraph(`• ${item}`, Word.InsertLocation.end);
+                });
+            }
+
+            newDocBody.insertParagraph('', Word.InsertLocation.end);
+        });
 
         newDocBody.insertParagraph('', Word.InsertLocation.end);
     }

@@ -6,12 +6,12 @@
   xsi:type="TaskPaneApp">
 
   <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
-  <Version>2.1.0.0</Version>
-  <ProviderName>合同审查助手</ProviderName>
+  <Version>3.0.0.0</Version>
+  <ProviderName>法律写作审校助手</ProviderName>
   <DefaultLocale>zh-CN</DefaultLocale>
 
-  <DisplayName DefaultValue="合同审查助手" />
-  <Description DefaultValue="AI 驱动的合同智能审查工具，支持批注、修订标记与上下文对话" />
+  <DisplayName DefaultValue="法律写作审校助手" />
+  <Description DefaultValue="AI 驱动的法律文稿审校工具，支持合同、诉讼文书、法律意见书等场景" />
 
   <IconUrl DefaultValue="https://localhost:3000/assets/icon-80.png" />
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-80.png" />
@@ -81,13 +81,13 @@
         <bt:Url id="LearnMoreUrl" DefaultValue="https://localhost:3000" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="合同审查助手已就绪" />
+        <bt:String id="GetStarted.Title" DefaultValue="法律写作审校助手已就绪" />
         <bt:String id="CommandsGroup.Label" DefaultValue="AI 审查" />
-        <bt:String id="TaskpaneButton.Label" DefaultValue="打开审查面板" />
+        <bt:String id="TaskpaneButton.Label" DefaultValue="打开审校面板" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="点击「打开审查面板」按钮开始 AI 合同审查" />
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="打开合同审查助手任务窗格" />
+        <bt:String id="GetStarted.Description" DefaultValue="点击「打开审校面板」按钮开始 AI 法律写作审校" />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="打开法律写作审校助手任务窗格" />
       </bt:LongStrings>
     </Resources>
 

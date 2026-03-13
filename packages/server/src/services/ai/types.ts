@@ -1,3 +1,5 @@
+import type { LegalDocumentType } from '../../types/legalDocument';
+
 /**
  * AI Provider 统一接口定义
  */
@@ -56,7 +58,8 @@ export interface AIProvider {
  * Review 专用请求参数
  */
 export interface ReviewRequest {
-    content: string;        // 合同全文
+    content: string;        // 待审校文稿全文
+    documentType: LegalDocumentType;
     provider: string;       // claude | openai | ollama
     model: string;
     depth: 'quick' | 'standard' | 'deep';

@@ -5,7 +5,9 @@ import { useSettingsStore } from '../../../store/settingsStore';
 import type { AppSettings, ProviderType, ReviewDepth, ReviewTemplate } from '../../../types/settings';
 import { apiClient } from '../../../services/apiClient';
 import type { McpServerStatus, McpServerConfig } from '../../../services/apiClient';
-import { CONTRACT_TYPE_OPTIONS, ContractType, getDefaultTemplatePrompt } from '../../../constants/defaultTemplates';
+import { CONTRACT_TYPE_OPTIONS } from '../../../constants/defaultTemplates';
+import { LEGAL_DOCUMENT_TYPE_OPTIONS, LEGAL_DOCUMENT_TYPE_LABELS } from '../../../constants/legalWriting';
+import type { LegalDocumentType } from '../../../types/legalDocument';
 
 const PROVIDERS: { id: ProviderType; label: string; description: string }[] = [
     { id: 'claude', label: 'Anthropic', description: 'Claude 系列模型' },
@@ -23,8 +25,8 @@ const DEPTH_OPTIONS: { id: ReviewDepth; label: string; description: string }[] =
 
 const STANDPOINT_OPTIONS: { id: 'neutral' | 'party_a' | 'party_b'; label: string; description: string }[] = [
     { id: 'neutral', label: '中立视角', description: '基于公平衡平原则，客观指出双方风险' },
-    { id: 'party_a', label: '甲方视角', description: '聚焦甲方权益保护，重点审查对甲方不利条款' },
-    { id: 'party_b', label: '乙方视角', description: '聚焦乙方权益保护，防范对乙方过于苛刻的义务' },
+    { id: 'party_a', label: '委托方视角', description: '聚焦委托方权益保护，重点识别对委托方不利的表述' },
+    { id: 'party_b', label: '相对方视角', description: '从相对方角度审视文本强弱，发现可能引发反驳的位置' },
 ];
 
 export default function SettingsPanel() {
@@ -50,6 +52,7 @@ export default function SettingsPanel() {
     const [currentProvider, setCurrentProvider] = useState<ProviderType>(settings.provider);
     const [currentDepth, setCurrentDepth] = useState<ReviewDepth>(settings.reviewDepth);
     const [currentStandpoint, setCurrentStandpoint] = useState<'neutral' | 'party_a' | 'party_b'>(settings.standpoint);
+    const [currentDocumentType, setCurrentDocumentType] = useState<LegalDocumentType>(settings.documentType);
     const [saved, setSaved] = useState(false);
 
     // 当全局设置重置时，强制同步一次（非受控组件也需要 key 来触发重新挂载以应用新 defaultValue）
@@ -58,11 +61,13 @@ export default function SettingsPanel() {
         setCurrentProvider(settings.provider);
         setCurrentDepth(settings.reviewDepth);
         setCurrentStandpoint(settings.standpoint);
+        setCurrentDocumentType(settings.documentType);
         setResetKey(prev => prev + 1);
     }, [settings]);
 
     const handleSave = () => {
         const newSettings: Partial<AppSettings> = {
+            documentType: currentDocumentType,
             provider: currentProvider,
             reviewDepth: currentDepth,
             standpoint: currentStandpoint,
@@ -93,6 +98,11 @@ export default function SettingsPanel() {
                 <ProviderSection
                     provider={currentProvider}
                     onChange={setCurrentProvider}
+                />
+
+                <DocumentTypeSection
+                    documentType={currentDocumentType}
+                    onChange={setCurrentDocumentType}
                 />
 
                 <section className="space-y-4">
@@ -193,7 +203,7 @@ export default function SettingsPanel() {
                 <section>
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                            <BookText size={12} />审查模板配置
+                            <BookText size={12} />审校模板配置
                         </h2>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm mb-4">
@@ -211,6 +221,7 @@ export default function SettingsPanel() {
                         updateTemplate={updateTemplate}
                         removeTemplate={removeTemplate}
                         resetBuiltinTemplate={resetBuiltinTemplate}
+                        defaultDocumentType={currentDocumentType}
                     />
                 </section>
 
@@ -296,9 +307,29 @@ const ProviderSection = memo(({ provider, onChange }: any) => (
     </section>
 ));
 
+const DocumentTypeSection = memo(({ documentType, onChange }: { documentType: LegalDocumentType; onChange: (value: LegalDocumentType) => void }) => (
+    <section>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">默认文书类型</h2>
+        <div className="space-y-1.5 text-xs">
+            {LEGAL_DOCUMENT_TYPE_OPTIONS.map((option) => (
+                <label key={option.id} className={clsx(
+                    'flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all',
+                    documentType === option.id ? 'border-primary-400 bg-primary-50 ring-1 ring-primary-400' : 'border-gray-200 bg-white hover:border-gray-300'
+                )}>
+                    <input type="radio" checked={documentType === option.id} onChange={() => onChange(option.id)} className="mt-0.5" />
+                    <div>
+                        <p className="font-semibold text-gray-800">{option.label}</p>
+                        <p className="text-gray-400 leading-tight">{option.description}</p>
+                    </div>
+                </label>
+            ))}
+        </div>
+    </section>
+));
+
 const DepthSection = memo(({ reviewDepth, onChange }: any) => (
     <section>
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查深度</h2>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审校深度</h2>
         <div className="grid grid-cols-3 gap-2 text-[11px]">
             {DEPTH_OPTIONS.map((d) => (
                 <button
@@ -319,7 +350,7 @@ const DepthSection = memo(({ reviewDepth, onChange }: any) => (
 
 const StandpointSection = memo(({ standpoint, onChange }: any) => (
     <section>
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审查立场</h2>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">审校立场</h2>
         <div className="flex gap-2 text-[11px]">
             {STANDPOINT_OPTIONS.map((sp) => (
                 <button
@@ -337,19 +368,30 @@ const StandpointSection = memo(({ standpoint, onChange }: any) => (
     </section>
 ));
 
-const TemplateSection = memo(({ reviewTemplates, addTemplate, updateTemplate, removeTemplate, resetBuiltinTemplate }: any) => {
+const TemplateSection = memo(({ reviewTemplates, addTemplate, updateTemplate, removeTemplate, resetBuiltinTemplate, defaultDocumentType }: any) => {
     const [isCreating, setIsCreating] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const formNameRef = useRef<HTMLInputElement>(null);
     const formPromptRef = useRef<HTMLTextAreaElement>(null);
-    const [formBoundType, setFormBoundType] = useState<ContractType | 'none'>('none');
+    const [formDocumentType, setFormDocumentType] = useState<LegalDocumentType>(defaultDocumentType || 'contract');
+    const [formBoundType, setFormBoundType] = useState<string | 'none'>('none');
+
+    useEffect(() => {
+        setFormDocumentType(defaultDocumentType || 'contract');
+    }, [defaultDocumentType]);
 
     const handleConfirmAdd = () => {
         const name = formNameRef.current?.value.trim();
         const prompt = formPromptRef.current?.value.trim();
         if (name && prompt) {
-            addTemplate(name, prompt, formBoundType === 'none' ? undefined : formBoundType);
+            addTemplate(
+                name,
+                prompt,
+                formDocumentType,
+                formDocumentType === 'contract' && formBoundType !== 'none' ? formBoundType : undefined
+            );
             setIsCreating(false);
+            setFormDocumentType(defaultDocumentType || 'contract');
             setFormBoundType('none');
         }
     };
@@ -364,10 +406,15 @@ const TemplateSection = memo(({ reviewTemplates, addTemplate, updateTemplate, re
             {isCreating && (
                 <div className="p-3 border-2 border-primary-200 rounded-lg bg-primary-50/10 space-y-2 shadow-inner">
                     <input ref={formNameRef} placeholder="名称" className="w-full text-xs border rounded p-1.5" />
-                    <select value={formBoundType} onChange={e => setFormBoundType(e.target.value as any)} className="w-full text-xs border rounded p-1.5">
-                        <option value="none">-- 不绑定 --</option>
-                        {CONTRACT_TYPE_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                    <select value={formDocumentType} onChange={e => setFormDocumentType(e.target.value as LegalDocumentType)} className="w-full text-xs border rounded p-1.5">
+                        {LEGAL_DOCUMENT_TYPE_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
                     </select>
+                    {formDocumentType === 'contract' && (
+                        <select value={formBoundType} onChange={e => setFormBoundType(e.target.value)} className="w-full text-xs border rounded p-1.5">
+                            <option value="none">-- 不绑定合同子类型 --</option>
+                            {CONTRACT_TYPE_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                        </select>
+                    )}
                     <textarea ref={formPromptRef} placeholder="提示词内容..." className="w-full text-xs border rounded p-1.5 min-h-[100px]" />
                     <div className="flex justify-end gap-2">
                         <button onClick={() => setIsCreating(false)} className="text-xs text-gray-400">取消</button>
@@ -379,7 +426,12 @@ const TemplateSection = memo(({ reviewTemplates, addTemplate, updateTemplate, re
                 {reviewTemplates?.map((t: any) => (
                     <div key={t.id} className="border border-gray-100 rounded-lg p-2.5 bg-gray-50/50 group hover:border-primary-200 transition-colors shadow-sm">
                         <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-bold text-gray-700">{t.name}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-xs font-bold text-gray-700 truncate">{t.name}</span>
+                                <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-1.5 py-0.5">
+                                    {LEGAL_DOCUMENT_TYPE_LABELS[(t.documentType || 'contract') as LegalDocumentType]}
+                                </span>
+                            </div>
                             <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => { setEditId(t.id); }} className="text-gray-400 hover:text-blue-500"><Edit2 size={11} /></button>
                                 {!t.isBuiltin && <button onClick={() => removeTemplate(t.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={11} /></button>}
@@ -421,4 +473,3 @@ const McpSection = memo(({ serverUrl }: { serverUrl: string }) => {
         </section>
     );
 });
-

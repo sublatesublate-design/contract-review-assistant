@@ -15,14 +15,13 @@ import SummaryCard from './SummaryCard';
 import ClauseLibrary from './ClauseLibrary';
 import { ensureSentenceBoundary, ensureNoOverlap } from '../../../utils/issuePostProcess';
 import type { ReviewIssue } from '../../../types/review';
-
-const ALL_CATEGORIES = ['risk_clause', 'missing_clause', 'compliance', 'clause_analysis'] as const;
-const CATEGORY_LABELS: Record<typeof ALL_CATEGORIES[number], string> = {
-    risk_clause: '风险条款',
-    missing_clause: '缺失条款',
-    compliance: '合规问题',
-    clause_analysis: '条款分析',
-};
+import type { LegalDocumentType } from '../../../types/legalDocument';
+import {
+    DOCUMENT_TYPE_CATEGORIES,
+    ISSUE_CATEGORY_LABELS,
+    LEGAL_DOCUMENT_TYPE_OPTIONS,
+    LEGAL_DOCUMENT_TYPE_LABELS,
+} from '../../../constants/legalWriting';
 
 function formatTime(isoString: string): string {
     const d = new Date(isoString);
@@ -40,7 +39,7 @@ export default function ReviewPanel() {
         streamingIssueCount,
         setStatus, setError, addStreamingIssue, setResult, reset, updateIssueStatus,
     } = useReviewStore();
-    const { settings } = useSettingsStore();
+    const { settings, updateSettings } = useSettingsStore();
     const platform = usePlatform();
     const [filter, setFilter] = useState<string>('all');
     const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
@@ -56,6 +55,13 @@ export default function ReviewPanel() {
 
     // 用 ref 标记是否是"刚做完"的审查（false 时显示"来自上次"提示）
     const isNewReview = useRef(false);
+    const selectedDocumentType = settings.documentType;
+    const activeDocumentType = (result?.documentType || selectedDocumentType || 'contract') as LegalDocumentType;
+    const availableCategories = DOCUMENT_TYPE_CATEGORIES[activeDocumentType];
+    const availableTemplates = (settings.reviewTemplates || []).filter(
+        (template) => template.documentType === selectedDocumentType
+    );
+    const activeDocumentMeta = LEGAL_DOCUMENT_TYPE_OPTIONS.find((option) => option.id === activeDocumentType);
 
     // 监听：如果是由于查看历史记录导致 docText 为空且用户要求文档位置排序，按需抓取全文
     React.useEffect(() => {
@@ -77,6 +83,7 @@ export default function ReviewPanel() {
 
             const reviewReq = {
                 content: docContent,
+                documentType: selectedDocumentType,
                 provider: settings.provider,
                 model: settings.models[settings.provider],
                 depth: settings.reviewDepth,
@@ -111,17 +118,23 @@ export default function ReviewPanel() {
                         ensureNoOverlap(
                             ensureSentenceBoundary(issue, docContent),
                             docContent
-                        )
+                        ),
+                        selectedDocumentType
                     ),
-                    onSummary: (summary: string, model: string, contractType?: string, contractLabel?: string) => {
+                    onSummary: (summary: string, model: string, documentType?: string, documentLabel?: string) => {
+                        const resolvedDocumentType = (documentType as LegalDocumentType | undefined) || selectedDocumentType;
+                        const resolvedDocumentLabel = documentLabel || LEGAL_DOCUMENT_TYPE_LABELS[resolvedDocumentType];
                         const finalResult = {
                             issues: useReviewStore.getState().result?.issues ?? [],
                             summary: isSelection ? `[局部审查] ${summary}` : summary,
                             durationMs: Date.now() - startTime,
                             model,
                             createdAt: new Date().toISOString(),
-                            ...(contractType ? { contractType } : {}),
-                            ...(contractLabel ? { contractLabel } : {}),
+                            documentType: resolvedDocumentType,
+                            documentLabel: resolvedDocumentLabel,
+                            ...(resolvedDocumentType === 'contract' && documentLabel
+                                ? { contractLabel: documentLabel }
+                                : {}),
                         };
                         isNewReview.current = true;
                         setResult(finalResult);
@@ -132,7 +145,7 @@ export default function ReviewPanel() {
         } catch (err) {
             setError(err instanceof Error ? err.message : '审查过程中发生未知错误');
         }
-    }, [settings, setStatus, setError, addStreamingIssue, setResult, selectedTemplateId]);
+    }, [settings, setStatus, setError, addStreamingIssue, setResult, selectedTemplateId, selectedDocumentType]);
 
     /** 全文审查 */
     const handleStartReview = useCallback(async () => {
@@ -280,7 +293,7 @@ export default function ReviewPanel() {
             await platform.reportGenerator.generateReport(
                 result,
                 useReviewStore.getState().summary,
-                result.contractLabel // 使用保存的新字段
+                result.documentLabel || result.contractLabel
             );
         } catch (err) {
             setError(err instanceof Error ? err.message : '生成报告失败');
@@ -308,17 +321,35 @@ export default function ReviewPanel() {
             <div className="flex-shrink-0 p-3 border-b border-gray-200 bg-white space-y-2">
                 {/* 模板选择器 */}
                 <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">审查模板:</span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap">文书类型:</span>
+                    <select
+                        value={selectedDocumentType}
+                        onChange={e => {
+                            updateSettings({ documentType: e.target.value as LegalDocumentType });
+                            setSelectedTemplateId('auto');
+                            setFilter('all');
+                        }}
+                        disabled={isAnalyzing}
+                        className="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-400 bg-gray-50/50"
+                    >
+                        {LEGAL_DOCUMENT_TYPE_OPTIONS.map((option) => (
+                            <option key={option.id} value={option.id}>{option.label}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">审校模板:</span>
                     <select
                         value={selectedTemplateId}
                         onChange={e => setSelectedTemplateId(e.target.value)}
                         disabled={isAnalyzing}
                         className="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-400 bg-gray-50/50"
                     >
-                        <option value="auto">✨ 智能自动识别 (推荐)</option>
-                        {settings.reviewTemplates && settings.reviewTemplates.length > 0 && (
+                        <option value="auto">✨ 使用内置审校策略 (推荐)</option>
+                        {availableTemplates.length > 0 && (
                             <optgroup label="可用模板">
-                                {settings.reviewTemplates.map(t => (
+                                {availableTemplates.map(t => (
                                     <option key={t.id} value={t.id}>{t.name} {t.isBuiltin ? '(内置)' : ''}</option>
                                 ))}
                             </optgroup>
@@ -335,11 +366,11 @@ export default function ReviewPanel() {
                         className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-sm"
                     >
                         {status === 'reading' && !selectionMode ? (
-                            <><Loader2 size={14} className="animate-spin" />读取文档...</>
+                            <><Loader2 size={14} className="animate-spin" />读取文稿...</>
                         ) : status === 'analyzing' && !selectionMode ? (
-                            <><Loader2 size={14} className="animate-spin" />AI 分析中...</>
+                            <><Loader2 size={14} className="animate-spin" />AI 审校中...</>
                         ) : (
-                            <><Play size={14} />开始审查</>
+                            <><Play size={14} />开始审校</>
                         )}
                     </button>
 
@@ -348,7 +379,7 @@ export default function ReviewPanel() {
                         id="btn-selection-review"
                         onClick={handleSelectionReview}
                         disabled={isAnalyzing}
-                        title="审查当前选中的文本段落"
+                        title="审校当前选中的文本段落"
                         className="btn-secondary flex items-center gap-1 px-2 text-xs"
                     >
                         {isAnalyzing && selectionMode ? (
@@ -373,6 +404,7 @@ export default function ReviewPanel() {
                         onClick={() => setShowClauseLibrary(true)}
                         className="btn-secondary p-2"
                         title="标准条款库"
+                        hidden={activeDocumentType !== 'contract'}
                     >
                         <BookOpen size={14} />
                     </button>
@@ -403,7 +435,7 @@ export default function ReviewPanel() {
                 {status === 'analyzing' && (
                     <div className="flex items-center gap-1.5 text-xs text-primary-600">
                         <Zap size={11} className="animate-pulse" />
-                        <span>已发现 <strong>{streamingIssueCount}</strong> 个问题，分析中…</span>
+                        <span>已发现 <strong>{streamingIssueCount}</strong> 个问题，审校中…</span>
                     </div>
                 )}
 
@@ -420,10 +452,10 @@ export default function ReviewPanel() {
                             <span className="text-emerald-600">○ {issueCountByLevel['low']} 低风险</span>
                         )}
                         {/* 合同类型标签（G） */}
-                        {result.contractLabel && (
+                        {(result.documentLabel || result.contractLabel) && (
                             <span className="flex items-center gap-1 text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-xs border border-indigo-100">
                                 <Tag size={10} />
-                                {result.contractLabel}
+                                {result.documentLabel || result.contractLabel}
                             </span>
                         )}
                         <span className="ml-auto text-gray-400">{result.model}</span>
@@ -478,7 +510,7 @@ export default function ReviewPanel() {
                 <div className="flex-shrink-0 px-3 pt-2 space-y-1.5">
                     {/* 分类 Tab 单独一行 */}
                     <div className="flex overflow-x-auto gap-1 pb-1 scrollbar-hide">
-                        {(['all', ...ALL_CATEGORIES] as const).map((cat) => (
+                        {(['all', ...availableCategories] as const).map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => setFilter(cat)}
@@ -491,7 +523,7 @@ export default function ReviewPanel() {
                             >
                                 {cat === 'all'
                                     ? `全部 (${result.issues.filter((i) => i.status !== 'dismissed').length})`
-                                    : CATEGORY_LABELS[cat]}
+                                    : ISSUE_CATEGORY_LABELS[cat]}
                             </button>
                         ))}
                     </div>
@@ -578,13 +610,18 @@ export default function ReviewPanel() {
                 {status === 'idle' && (
                     <div className="text-center py-12 text-gray-400">
                         <MessageSquarePlus size={32} className="mx-auto mb-3 opacity-40" />
-                        <p className="text-sm">点击「开始审查」分析当前合同</p>
-                        <p className="text-xs mt-1 opacity-70">或用「选中」按钮审查选定段落</p>
+                        <p className="text-sm">{activeDocumentMeta?.emptyStateTitle || '开始审校当前文稿'}</p>
+                        <p className="text-xs mt-1 opacity-70">{activeDocumentMeta?.emptyStateHint || '也可以使用「选中」按钮审校局部内容'}</p>
                     </div>
                 )}
 
                 {filteredIssues.map((issue) => (
-                    <IssueCard key={issue.id} issue={issue} isActive={activeIssueId === issue.id} />
+                    <IssueCard
+                        key={issue.id}
+                        issue={issue}
+                        isActive={activeIssueId === issue.id}
+                        {...(activeDocumentType === 'contract' ? { onOpenClauseLibrary: () => setShowClauseLibrary(true) } : {})}
+                    />
                 ))}
 
                 {status === 'completed' && filteredIssues.length === 0 && (

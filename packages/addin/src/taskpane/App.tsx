@@ -14,7 +14,7 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-    { id: 'review', label: '审查结果', icon: <FileText size={15} /> },
+    { id: 'review', label: '审校结果', icon: <FileText size={15} /> },
     { id: 'settings', label: '设置', icon: <Settings size={15} /> },
     { id: 'chat', label: 'AI 对话', icon: <MessageSquare size={15} /> },
 ];
@@ -38,10 +38,10 @@ export default function App() {
             <header className="bg-white border-b border-gray-200 px-3 py-2.5 flex-shrink-0">
                 <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-primary-600 rounded flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">审</span>
+                        <span className="text-white text-xs font-bold">法</span>
                     </div>
-                    <h1 className="text-sm font-semibold text-gray-800">合同审查助手</h1>
-                    <span className="ml-auto text-xs text-gray-400">v2.1</span>
+                    <h1 className="text-sm font-semibold text-gray-800">法律写作审校助手</h1>
+                    <span className="ml-auto text-xs text-gray-400">v3.0</span>
                 </div>
             </header>
 

@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppSettings, ReviewTemplate } from '../types/settings';
 import { BUILTIN_TEMPLATES } from '../constants/defaultTemplates';
+import type { LegalDocumentType } from '../types/legalDocument';
 
 const DEFAULT_SETTINGS: AppSettings = {
+    documentType: 'contract',
     provider: 'claude',
     model: 'claude-3-5-sonnet-20241022',
     apiKeys: {
@@ -31,7 +33,12 @@ interface SettingsState {
     // Actions
     updateSettings: (patch: Partial<AppSettings>) => void;
     updateApiKey: (provider: 'anthropic' | 'openai', key: string) => void;
-    addTemplate: (name: string, prompt: string, boundContractType?: string) => void;
+    addTemplate: (
+        name: string,
+        prompt: string,
+        documentType: LegalDocumentType,
+        boundDocumentSubtype?: string
+    ) => void;
     updateTemplate: (id: string, patch: Partial<ReviewTemplate>) => void;
     removeTemplate: (id: string) => void;
     resetBuiltinTemplate: (id: string) => void;
@@ -60,14 +67,15 @@ export const useSettingsStore = create<SettingsState>()(
                     isSaved: false,
                 })),
 
-            addTemplate: (name, prompt, boundContractType) =>
+            addTemplate: (name, prompt, documentType, boundDocumentSubtype) =>
                 set((state) => {
                     const newTemplate: ReviewTemplate = {
                         id: `ut-${Date.now()}`,
                         name,
                         prompt,
                         isBuiltin: false,
-                        boundContractType
+                        documentType,
+                        boundDocumentSubtype,
                     };
                     return {
                         settings: {
@@ -149,11 +157,34 @@ export const useSettingsStore = create<SettingsState>()(
 
                     mergedSettings.reviewTemplates = templates;
                     mergedSettings.globalInstruction = mergedSettings.customTemplates?.globalInstruction || '';
+                    mergedSettings.documentType = mergedSettings.documentType || 'contract';
 
                     // 清理旧字段
                     delete mergedSettings.customTemplates;
                     delete mergedSettings.userTemplates;
                 }
+
+                const normalizedTemplates = (mergedSettings.reviewTemplates as ReviewTemplate[] | undefined)?.map((template) => ({
+                    ...template,
+                    documentType: template.documentType || 'contract',
+                    boundDocumentSubtype: template.boundDocumentSubtype || template.boundContractType,
+                })) ?? [];
+
+                const builtinPromptOverrides = new Map(
+                    normalizedTemplates
+                        .filter((template) => template.isBuiltin)
+                        .map((template) => [template.id, template.prompt])
+                );
+
+                const customTemplates = normalizedTemplates.filter((template) => !template.isBuiltin);
+                mergedSettings.reviewTemplates = [
+                    ...BUILTIN_TEMPLATES.map((template) => ({
+                        ...template,
+                        prompt: builtinPromptOverrides.get(template.id) || template.prompt,
+                    })),
+                    ...customTemplates,
+                ];
+                mergedSettings.documentType = mergedSettings.documentType || 'contract';
 
                 return {
                     ...currentState,

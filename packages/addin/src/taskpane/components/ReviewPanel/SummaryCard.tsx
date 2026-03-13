@@ -18,7 +18,7 @@ export default function SummaryCard() {
             >
                 <div className="flex items-center gap-2">
                     <FileText size={16} className="text-primary-600" />
-                    <h3 className="text-sm font-semibold text-gray-800">合同关键摘要</h3>
+                    <h3 className="text-sm font-semibold text-gray-800">{summary?.title || '文稿关键摘要'}</h3>
                 </div>
                 <div className="flex items-center gap-3">
                     {summaryStatus === 'loading' && (
@@ -44,53 +44,39 @@ export default function SummaryCard() {
                             <div className="h-4 bg-gray-100 rounded w-3/4"></div>
                         </div>
                     ) : summary ? (
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="col-span-2 sm:col-span-1">
-                                <span className="text-xs text-gray-500 block mb-1">合同金额</span>
-                                <span className="font-medium text-gray-900">{summary.amount || '未见明确约定'}</span>
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                                <span className="text-xs text-gray-500 block mb-1">合同期限</span>
-                                <span className="font-medium text-gray-900">{summary.duration || '未见明确约定'}</span>
-                            </div>
-                            <div className="col-span-2">
-                                <span className="text-xs text-gray-500 block mb-1">当事人</span>
-                                <div className="space-y-1">
-                                    {summary.parties?.map((p: { role: string; name: string }, i: number) => (
-                                        <div key={i} className="flex gap-2 text-gray-800 bg-gray-50 px-2 py-1.5 rounded">
-                                            <span className="font-semibold min-w-[40px] text-gray-600">{p.role}</span>
-                                            <span className="truncate">{p.name || '未见明确约定'}</span>
+                        <div className="space-y-4 text-sm">
+                            {summary.overview && (
+                                <div>
+                                    <span className="text-xs text-gray-500 block mb-1">摘要概览</span>
+                                    <p className="text-gray-800 leading-relaxed">{summary.overview}</p>
+                                </div>
+                            )}
+
+                            {summary.fields?.length > 0 && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    {summary.fields.map((field, index) => (
+                                        <div key={`${field.label}-${index}`} className="col-span-2 sm:col-span-1">
+                                            <span className="text-xs text-gray-500 block mb-1">{field.label}</span>
+                                            <span className="font-medium text-gray-900">{field.value || '未见明确约定'}</span>
                                         </div>
                                     ))}
-                                    {(!summary.parties || summary.parties.length === 0) && (
-                                        <div className="text-gray-500">未见明确约定</div>
+                                </div>
+                            )}
+
+                            {summary.sections?.map((section, index) => (
+                                <div key={`${section.title}-${index}`}>
+                                    <span className="text-xs text-gray-500 block mb-1">{section.title}</span>
+                                    {section.items.length > 0 ? (
+                                        <ul className="list-disc list-inside text-gray-800 space-y-0.5">
+                                            {section.items.map((item, itemIndex) => (
+                                                <li key={`${section.title}-${itemIndex}`}>{item}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <span className="text-gray-500">未见明确约定</span>
                                     )}
                                 </div>
-                            </div>
-                            {summary.keyDates?.length > 0 && (
-                                <div className="col-span-2">
-                                    <span className="text-xs text-gray-500 block mb-1">关键日期</span>
-                                    <ul className="list-disc list-inside text-gray-800 space-y-0.5">
-                                        {summary.keyDates.map((date: string, i: number) => (
-                                            <li key={i}>{date}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            {summary.coreObligations && summary.coreObligations.length > 0 && (
-                                <div className="col-span-2">
-                                    <span className="text-xs text-gray-500 block mb-1">核心义务</span>
-                                    <ul className="list-disc list-inside text-gray-800 space-y-0.5">
-                                        {summary.coreObligations.map((ob: string, i: number) => (
-                                            <li key={i}>{ob}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            <div className="col-span-2">
-                                <span className="text-xs text-gray-500 block mb-1">争议解决方式</span>
-                                <span className="text-gray-800">{summary.disputeResolution || '未见明确约定'}</span>
-                            </div>
+                            ))}
                         </div>
                     ) : null}
                 </div>

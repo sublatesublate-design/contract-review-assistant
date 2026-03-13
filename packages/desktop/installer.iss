@@ -1,6 +1,6 @@
 #define MyAppName "Contract Review Assistant"
 #define MyAppNameEn "ContractReviewAssistant"
-#define MyAppVersion "2.1.0"
+#define MyAppVersion "3.0.0"
 #define MyAppPublisher "Contract Review Assistant"
 #define MyAppExeName "ContractReviewAssistant.exe"
 #define MyAppId "{{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}"

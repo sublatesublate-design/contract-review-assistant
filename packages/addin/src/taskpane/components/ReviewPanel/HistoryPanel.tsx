@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, Clock, Bot, AlertTriangle, X, ChevronRight } from 'lucide-react';
+import { History, Clock, Bot, AlertTriangle, X, ChevronRight, Tag } from 'lucide-react';
 import type { ReviewHistorySummary } from '../../../store/reviewStore';
 import { useReviewStore } from '../../../store/reviewStore';
 
@@ -48,6 +48,8 @@ export default function HistoryPanel({ onClose }: HistoryPanelProps) {
             durationMs: entry.durationMs,
             model: entry.model,
             createdAt: entry.createdAt,
+            ...(entry.documentType ? { documentType: entry.documentType } : {}),
+            ...(entry.documentLabel ? { documentLabel: entry.documentLabel } : {}),
         });
         onClose();
     };
@@ -112,6 +114,15 @@ export default function HistoryPanel({ onClose }: HistoryPanelProps) {
                                     <span>·</span>
                                     <Bot size={11} />
                                     <span className="truncate max-w-[100px]">{entry.model}</span>
+                                    {entry.documentLabel && (
+                                        <>
+                                            <span>·</span>
+                                            <span className="inline-flex items-center gap-1 text-indigo-500">
+                                                <Tag size={10} />
+                                                {entry.documentLabel}
+                                            </span>
+                                        </>
+                                    )}
                                     {!entry.hasFullData && (
                                         <span className="text-orange-400 ml-auto">仅摘要</span>
                                     )}

@@ -1,135 +1,219 @@
-// This file provides the default templates extracted from the backend for frontend UI reference.
 import type { ReviewTemplate } from '../types/settings';
 
-export type ContractType =
+export type ContractSubtype =
+    | 'unknown'
     | 'sale'
     | 'labor'
     | 'lease'
     | 'service'
     | 'loan'
     | 'nda'
-    | 'construction'
-    | 'unknown';
+    | 'construction';
 
-export const CONTRACT_TYPE_OPTIONS: Array<{ id: ContractType; label: string }> = [
+export const CONTRACT_TYPE_OPTIONS: Array<{ id: ContractSubtype; label: string }> = [
     { id: 'unknown', label: '通用合同' },
     { id: 'sale', label: '买卖合同' },
     { id: 'labor', label: '劳动合同' },
     { id: 'lease', label: '租赁合同' },
-    { id: 'service', label: '服务合同/委托合同' },
+    { id: 'service', label: '服务/委托合同' },
     { id: 'loan', label: '借款合同' },
-    { id: 'nda', label: '保密协议(NDA)' },
+    { id: 'nda', label: '保密协议' },
     { id: 'construction', label: '建设工程合同' },
 ];
 
 export const BUILTIN_TEMPLATES: ReviewTemplate[] = [
     {
-        id: 'builtin-unknown',
-        name: '通用合同审查',
+        id: 'builtin-contract-general',
+        name: '通用合同审校',
         isBuiltin: true,
-        boundContractType: 'unknown',
-        prompt: ''
+        documentType: 'contract',
+        boundDocumentSubtype: 'unknown',
+        prompt: '',
     },
     {
         id: 'builtin-sale',
-        name: '买卖合同审查',
+        name: '买卖合同审校',
         isBuiltin: true,
-        boundContractType: 'sale',
+        documentType: 'contract',
+        boundDocumentSubtype: 'sale',
         prompt: `---
 
 ## 买卖合同专项审查重点
-- **标的物质量**：质量标准是否明确（国标/行标/企标/样品），验收标准和异议期是否约定
-- **价款与支付**：价款构成（含税/不含税）、支付节点、迟延付款违约金
-- **所有权转移**：货物所有权和风险何时转移，与交付方式的衔接
-- **数量短缺与瑕疵**：数量不足/质量瑕疵的索赔期限和程序
-- **包装与运输**：包装标准、运输费用负担、保险安排`
+- 标的物质量标准、验收规则与异议期是否明确
+- 价款构成、付款节点、税费承担与发票义务是否清晰
+- 所有权与风险转移时点是否衔接一致
+- 瑕疵、短缺、迟延交货的责任与索赔流程是否完整
+- 违约责任与争议解决条款是否可执行`,
     },
     {
         id: 'builtin-labor',
-        name: '劳动合同审查',
+        name: '劳动合同审校',
         isBuiltin: true,
-        boundContractType: 'labor',
+        documentType: 'contract',
+        boundDocumentSubtype: 'labor',
         prompt: `---
 
 ## 劳动合同专项审查重点
-- **试用期合法性**：试用期期限是否符合《劳动合同法》第19条限制；试用期工资不低于80%
-- **竞业限制**：补偿金标准（不低于月薪30%）、范围和期限（≤2年）是否合理
-- **加班与薪酬**：加班工资计算基数、平时/休息日/法定节假日倍数是否合法
-- **社会保险**：五险一金约定，是否存在自愿放弃社保等无效条款
-- **解除与经济补偿**：解除条件是否公平，经济补偿金标准是否符合法定要求`
+- 试用期、工资标准、社保公积金是否符合强制性规定
+- 竞业限制范围、期限和补偿标准是否合理
+- 加班、休假、调岗、解除条件是否约定清楚
+- 是否存在免除用人单位法定义务的无效条款
+- 经济补偿与违约责任条款是否符合法律要求`,
     },
     {
         id: 'builtin-lease',
-        name: '租赁合同审查',
+        name: '租赁合同审校',
         isBuiltin: true,
-        boundContractType: 'lease',
+        documentType: 'contract',
+        boundDocumentSubtype: 'lease',
         prompt: `---
 
 ## 租赁合同专项审查重点
-- **租赁物现状**：交付时的现状、设施清单、瑕疵告知义务
-- **租金与押金**：租金调整机制、押金退还条件和期限
-- **维修责任**：日常维修、大修的责任划分
-- **转租限制**：是否允许转租，转租须经出租人同意的约定
-- **优先续租/优先购买权**：是否赋予承租人优先权
-- **非正常损耗**：何为自然损耗，何为赔偿责任`
+- 租赁物交付状态、设施清单与用途限制是否明确
+- 租金、押金、递增机制与退还条件是否清晰
+- 维修责任、大修责任与损耗边界是否划分明确
+- 转租、装修、优先续租等核心安排是否完整
+- 违约解除、腾退交还与争议解决条款是否可执行`,
     },
     {
         id: 'builtin-service',
-        name: '服务/委托合同审查',
+        name: '服务/委托合同审校',
         isBuiltin: true,
-        boundContractType: 'service',
+        documentType: 'contract',
+        boundDocumentSubtype: 'service',
         prompt: `---
 
 ## 服务/委托合同专项审查重点
-- **服务范围界定**：服务内容是否清晰可量化，避免"按需提供"等模糊表述
-- **验收标准**：服务成果的验收标准和程序，验收期限
-- **知识产权归属**：服务过程中产生的成果、工具的知识产权归属
-- **保密条款**：适用范围、保密期限、泄露违约责任
-- **分包/转委托**：是否允许分包，分包责任承担`
+- 服务范围、交付成果与验收标准是否可量化
+- 服务费、结算节点、开票义务和违约责任是否清晰
+- 知识产权、保密、分包转委托条款是否合理
+- 服务期限、终止机制与过渡安排是否完整
+- 风险分配是否明显偏向单方`,
     },
     {
         id: 'builtin-loan',
-        name: '借款合同审查',
+        name: '借款合同审校',
         isBuiltin: true,
-        boundContractType: 'loan',
+        documentType: 'contract',
+        boundDocumentSubtype: 'loan',
         prompt: `---
 
 ## 借款合同专项审查重点
-- **利率合法性**：利率不超过LPR的4倍（年利率≤15.4%），复利约定效力
-- **担保有效性**：抵押/质押物的设定程序、登记，保证人资格
-- **提前还款**：提前还款权利，是否有违约金
-- **逾期利率**：逾期罚息标准，债务加速到期条款
-- **资金用途**：借款用途限制，挪用的违约后果`
+- 利率、罚息、复利约定是否合法
+- 借款用途、提款条件、还款安排是否清晰
+- 抵押、质押、保证等担保条款是否有效可执行
+- 提前到期、提前还款、违约处置机制是否合理
+- 是否存在明显过高的违约成本`,
     },
     {
         id: 'builtin-nda',
-        name: '保密协议审查',
+        name: '保密协议审校',
         isBuiltin: true,
-        boundContractType: 'nda',
+        documentType: 'contract',
+        boundDocumentSubtype: 'nda',
         prompt: `---
 
 ## 保密协议专项审查重点
-- **保密信息范围**：定义是否过宽（应限于特定商业秘密），避免"一切信息均保密"
-- **例外情形**：已公知信息、法定披露、自行研发的排除
-- **保密期限**：期限是否合理（永久保密条款的执行风险）
-- **违约救济**：赔偿金额是否可量化，是否包含申请禁令救济的权利
-- **员工约束机制**：被披露方如何确保员工遵守保密义务`
+- 保密信息范围是否过宽或缺少例外情形
+- 保密期限、披露限制与返还销毁义务是否明确
+- 违约责任、禁令救济和损失举证是否合理
+- 员工、关联方、第三方接触信息的约束机制是否完整`,
     },
     {
         id: 'builtin-construction',
-        name: '建设工程合同审查',
+        name: '建设工程合同审校',
         isBuiltin: true,
-        boundContractType: 'construction',
+        documentType: 'contract',
+        boundDocumentSubtype: 'construction',
         prompt: `---
 
 ## 建设工程合同专项审查重点
-- **资质与许可**：承包人资质、施工许可证、安全生产许可证
-- **工程款支付**：进度款节点、结算周期，是否有背靠背付款条款
-- **工期与顺延**：工期顺延条件（甲方原因、不可抗力），逾期竣工违约金上限
-- **质量保证金**：保证金比例（不超过3%）、缺陷责任期和退还时间
-- **设计变更与索赔**：变更程序、索赔通知期限（逾期丧失索赔权的风险）
-- **优先受偿权**：建设工程价款优先受偿权的行使期限（竣工/合同约定完工之日起18个月）`
-    }
+- 承包资质、施工许可与工程范围是否明确
+- 工期、顺延、变更与索赔流程是否可执行
+- 进度款、结算、质保金与优先受偿权安排是否合理
+- 质量责任、安全责任与竣工验收机制是否完整`,
+    },
+    {
+        id: 'builtin-litigation-general',
+        name: '诉讼文书通用审校',
+        isBuiltin: true,
+        documentType: 'litigation',
+        prompt: `---
+
+## 诉讼文书通用审校重点
+- 文书格式、法院名称、案由、当事人信息是否规范完整
+- 事实时间线是否清晰，关键事实是否有证据支撑
+- 法律依据与论证链条是否匹配
+- 诉讼请求或答辩意见是否明确、完整、可执行
+- 是否预判并回应了对方可能的主要抗辩`,
+    },
+    {
+        id: 'builtin-civil-complaint',
+        name: '民事起诉状审校',
+        isBuiltin: true,
+        documentType: 'litigation',
+        prompt: `---
+
+## 民事起诉状专项审校重点
+- 原被告信息、管辖法院、案由、诉讼请求是否齐备
+- 每项诉讼请求是否有清晰的事实基础与法律依据
+- 是否遗漏利息、违约金、保全、律师费等附带请求
+- 证据目录与事实主张是否一一对应
+- 是否预判被告抗辩并提前回应`,
+    },
+    {
+        id: 'builtin-defense',
+        name: '答辩状/代理词审校',
+        isBuiltin: true,
+        documentType: 'litigation',
+        prompt: `---
+
+## 答辩状/代理词专项审校重点
+- 是否准确回应对方全部核心主张
+- 抗辩理由、证据材料和法律依据是否形成闭环
+- 是否抓住请求基础、举证责任、时效、管辖等关键争点
+- 论证是否存在跳步、结论先行或证据支撑不足`,
+    },
+    {
+        id: 'builtin-opinion-general',
+        name: '法律意见书通用审校',
+        isBuiltin: true,
+        documentType: 'legal_opinion',
+        prompt: `---
+
+## 法律意见书通用审校重点
+- 结论措辞是否审慎，避免绝对化表述
+- 假设前提、事实基础与限制条件是否写明
+- 每项结论是否均有充分的法律依据和推理过程
+- 引用法规是否现行有效，是否需要通过 MCP 校验
+- 免责声明、适用范围和依赖材料说明是否完整`,
+    },
+    {
+        id: 'builtin-due-diligence',
+        name: '尽职调查报告审校',
+        isBuiltin: true,
+        documentType: 'legal_opinion',
+        prompt: `---
+
+## 尽职调查报告专项审校重点
+- 风险事实是否陈述完整，来源材料是否交代清楚
+- 是否区分已核实事实、待核实事项和专业判断
+- 风险等级、影响范围与整改建议是否匹配
+- 是否遗漏重大合规、诉讼、股权、许可等风险点`,
+    },
+    {
+        id: 'builtin-compliance-opinion',
+        name: '合规/交易法律意见审校',
+        isBuiltin: true,
+        documentType: 'legal_opinion',
+        prompt: `---
+
+## 合规/交易法律意见专项审校重点
+- 核心结论是否过度确定，是否充分揭示条件与例外
+- 项目背景、适用法律、分析步骤与结论是否前后对应
+- 免责、适用对象、引用资料范围与出具前提是否完整
+- 是否遗漏关键审批、授权、登记、信息披露等条件`,
+    },
 ];
 
 export function getDefaultTemplatePrompt(id: string): string {

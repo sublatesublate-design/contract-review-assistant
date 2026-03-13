@@ -5,6 +5,7 @@ import type { ReviewIssue, RiskLevel, IssueCategory } from '../../../types/revie
 import { useReviewStore } from '../../../store/reviewStore';
 import { locateIssue, commentIssue, applyIssue, uncommentIssue, unapplyIssue } from '../../../platform/issueActions';
 import { usePlatform } from '../../../platform/platformContext';
+import { ISSUE_CATEGORY_LABELS, getOriginalTextLabel } from '../../../constants/legalWriting';
 
 interface IssueCardProps {
     issue: ReviewIssue;
@@ -33,13 +34,6 @@ const RISK_CONFIG: Record<RiskLevel, { label: string; icon: React.ReactNode; cla
         icon: <CheckCircle2 size={12} />,
         className: 'risk-badge-info',
     },
-};
-
-const CATEGORY_LABELS: Record<IssueCategory, string> = {
-    risk_clause: '风险条款',
-    missing_clause: '缺失条款',
-    compliance: '合规问题',
-    clause_analysis: '条款分析',
 };
 
 export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: IssueCardProps) {
@@ -161,7 +155,7 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
 
                 <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-800 leading-snug">{issue.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{CATEGORY_LABELS[issue.category]}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{ISSUE_CATEGORY_LABELS[issue.category]}</p>
                 </div>
 
                 {/* 关闭按钮 */}
@@ -183,9 +177,7 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
                     {/* 原文引用 */}
                     {issue.originalText && (
                         <div className="bg-gray-50 border border-gray-200 rounded p-2">
-                            <p className="text-xs text-gray-400 mb-1">
-                                {issue.category === 'missing_clause' ? '缺失条款所在原文：' : '合同原文：'}
-                            </p>
+                            <p className="text-xs text-gray-400 mb-1">{getOriginalTextLabel(issue.category)}</p>
                             <p className="text-xs text-gray-700 italic line-clamp-3">
                                 「{issue.originalText}」
                             </p>

@@ -57,6 +57,20 @@ function copyPackagedAssets() {
     }
 }
 
+function pruneServerDistForPackaging() {
+    const removablePattern = /\.(test|spec)\.js(\.map)?$/;
+
+    for (const filePath of shell.find(serverDist)) {
+        if (shell.test('-d', filePath)) {
+            continue;
+        }
+
+        if (removablePattern.test(filePath)) {
+            shell.rm('-f', filePath);
+        }
+    }
+}
+
 function packageServerExe() {
     const serverPkgJsonPath = path.resolve(serverRoot, 'package.json');
     const originalServerPkgText = fs.readFileSync(serverPkgJsonPath, 'utf8');
@@ -94,6 +108,7 @@ function main() {
 
     run('cmd /c npm run build:addin', projectRoot);
     run('cmd /c npm run build:server', projectRoot);
+    pruneServerDistForPackaging();
     copyPackagedAssets();
     packageServerExe();
 

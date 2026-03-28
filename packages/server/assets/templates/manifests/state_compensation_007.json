@@ -1,0 +1,139 @@
+{
+  "templateId": "state_compensation_007",
+  "categoryId": "state_compensation",
+  "categoryLabel": "国家赔偿",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "国家赔偿申请书",
+  "caseTitle": "错误执行赔偿",
+  "label": "国家赔偿申请书（错误执行赔偿）",
+  "templateFile": "state_compensation_007.docx",
+  "manifestFile": "state_compensation_007.json",
+  "fileNamePrefix": "国家赔偿申请书（错误执行赔偿）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "赔偿请求人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "赔偿请求人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "委托代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 类型：律师□ 亲友□ 工作人员□ 基层组织推荐人员□ 其他□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "赔偿义务机关",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地： 法定代表人 / 负责人： 职务："
+    },
+    {
+      "key": "field_005",
+      "label": "赔偿义务机关是否就赔 偿申请作出自赔决定",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 决定书文号： 决定书结果： 否□"
+    },
+    {
+      "key": "field_006",
+      "label": "赔偿请求全文",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_007",
+      "label": "1. 侵犯财产权赔偿",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是否主张以下赔偿： 是□ 返还原物□ 恢复原状□ 赔偿损失□ 金额： 元 否□"
+    },
+    {
+      "key": "field_008",
+      "label": "2. 停产停业损失赔偿",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是否主张以下赔偿： 是□ 1. 必要留守职工工资□ 金额 元；计算依据： 2. 必须缴纳的税款、社会保险费□ 金额 元；计算依据： 3. 应当缴纳的水电费、保管费、仓储费、承包费□ 金额 元；计算依据： 4. 合理的房屋场地租金、设备租金、设备折旧费□ 金额 元；计算依据： 5. 维系停产停业期间运营所需的其他基本开支□ 金额 元；计算依据： 否□"
+    },
+    {
+      "key": "field_009",
+      "label": "3. 侵犯人身自由赔偿金",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是否主张以下赔偿： 是□ 错误拘留时间共 天（起止日期为： ），请求赔 偿人身自由赔偿金 元（人民币，下同） 否□"
+    },
+    {
+      "key": "field_010",
+      "label": "4. 其他赔偿请求",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "（逐项列明）"
+    },
+    {
+      "key": "field_011",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_012",
+      "label": "3. 有无同类案件裁判文 书或指导性案例（可另 附页）",
+      "blockTitle": "2. 其他需要说明的内容 （可另附页）",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 案号 / 案例名称： 否□"
+    },
+    {
+      "key": "field_013",
+      "label": "赔偿请求人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_014",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "templateId": "enforcement_002",
+  "categoryId": "enforcement",
+  "categoryLabel": "执行",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "暂时解除乘坐飞机、高铁限制措施申请书",
+  "caseTitle": "申请单次解禁用",
+  "label": "暂时解除乘坐飞机、高铁限制措施申请书（申请单次解禁用）",
+  "templateFile": "enforcement_002.docx",
+  "manifestFile": "enforcement_002.json",
+  "fileNamePrefix": "暂时解除乘坐飞机、高铁限制措施申请书（申请单次解禁用）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "申请人 （自然人）",
+      "blockTitle": "申请人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：被执行人□ 单位被执行人的法定代表人□ 单位被执行人的负责人□ 单位被执行人的影响债务履行的直接责任人□ 单位被执行人的实际控制人□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "申请事由及期限全文",
+      "blockTitle": "申请事由及期限",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_003",
+      "label": "申请暂时解除的理由",
+      "blockTitle": "申请事由及期限",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "本人重大疾病就医□ 近亲属重大疾病就医□ 近亲属丧葬□ 本人执行或配合执行公务□ 参加外事活动或重要考试□ 需要赴外地从事生产经营、务工等活动□"
+    },
+    {
+      "key": "field_004",
+      "label": "乘坐飞机、高铁 行程",
+      "blockTitle": "申请事由及期限",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "出行时间 年 月 日 乘坐飞机□ 高铁□ 拟乘坐的航班号 / 高铁车次 返程时间 年 月 日 乘坐飞机□ 高铁□ 拟乘坐的航班号 / 高铁车次"
+    },
+    {
+      "key": "field_005",
+      "label": "暂时解除期限 （最长不超过一个月， 以“赴外地从事生产经 营、务工等活动”申请 暂时解除乘坐飞机、高 铁限制措施的，不受一 个月期限限制）",
+      "blockTitle": "申请事由及期限",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "开始时间： 年 月 日 结束时间： 年 月 日"
+    },
+    {
+      "key": "field_006",
+      "label": "承诺 （电子版需输入一遍 承诺内容，并在承诺人 处签名；纸质版需手写 一遍承诺内容，并在 承诺人处签名）",
+      "blockTitle": "申请事由及期限",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "本人承诺申请暂时解除乘坐飞机、高铁限制措施的事项及提交的证据 材料属实，在暂时解除期间不从事其他限制消费行为。如提供虚假证据或 者违反承诺从事消费行为的，愿意接受罚款、拘留乃至刑事处罚。 承诺人："
+    },
+    {
+      "key": "field_007",
+      "label": "申请人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_008",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

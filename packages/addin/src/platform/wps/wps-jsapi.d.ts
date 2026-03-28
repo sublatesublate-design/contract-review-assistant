@@ -91,6 +91,7 @@ declare namespace _wps {
 
     export interface Documents {
         Add(): Document;
+        Open(fileName: string): Document;
     }
 
     export interface Selection {

@@ -9,13 +9,18 @@ import type {
     IClauseInserter,
     DocumentSection,
     PlatformRange,
-    PlatformType
+    PlatformType,
 } from '../types';
 
 import type { ReviewResult } from '../../types/review';
 import type { ContractSummary } from '../../types/summary';
 
-const MOCK_TEXT = `租赁合同\n甲方（出租方）：Mock Company A\n乙方（承租方）：Mock Company B\n\n1. 租赁期限为100年。\n2. 乙方如违约，需赔偿甲方一千万元人民币。`;
+const MOCK_TEXT = `\u79df\u8d41\u5408\u540c
+\u7532\u65b9\uff08\u51fa\u79df\u65b9\uff09\uff1aMock Company A
+\u4e59\u65b9\uff08\u627f\u79df\u65b9\uff09\uff1aMock Company B
+
+1. \u79df\u8d41\u671f\u9650\u4e3a100\u5e74\u3002
+2. \u4e59\u65b9\u5982\u8fdd\u7ea6\uff0c\u9700\u8d54\u507f\u7532\u65b9\u4e00\u5343\u4e07\u5143\u4eba\u6c11\u5e01\u3002`;
 
 export class MockAdapter implements IPlatformAdapter {
     platform: PlatformType = 'unknown';
@@ -52,15 +57,15 @@ export class MockAdapter implements IPlatformAdapter {
             return MOCK_TEXT.replace(/\s+/g, '').length;
         },
         async readSelection() {
-            return '2. 乙方如违约，需赔偿甲方一千万元人民币。';
-        }
+            return '2. \u4e59\u65b9\u5982\u8fdd\u7ea6\uff0c\u9700\u8d54\u507f\u7532\u65b9\u4e00\u5343\u4e07\u5143\u4eba\u6c11\u5e01\u3002';
+        },
     };
 
     rangeMapper: IRangeMapper = {
         async findRange(originalText) {
             console.log('[MockAdapter] findRange:', originalText);
             return { _internal: { start: 0, end: 1 }, _platform: 'unknown' } as PlatformRange;
-        }
+        },
     };
 
     commentManager: ICommentManager = {
@@ -73,7 +78,7 @@ export class MockAdapter implements IPlatformAdapter {
         },
         async removeComment(_range, text) {
             console.log('[MockAdapter] removeComment:', text);
-        }
+        },
     };
 
     trackChangesManager: ITrackChangesManager = {
@@ -93,7 +98,7 @@ export class MockAdapter implements IPlatformAdapter {
         async revertEdit(_range, originalText, _suggestedText) {
             console.log('[MockAdapter] revertEdit:', originalText);
             await new Promise((r) => setTimeout(r, 120));
-        }
+        },
     };
 
     navigationHelper: INavigationHelper = {
@@ -110,20 +115,31 @@ export class MockAdapter implements IPlatformAdapter {
         async navigateAndHighlight(_range) {
             console.log('[MockAdapter] navigateAndHighlight');
             await new Promise((r) => setTimeout(r, 80));
-        }
+        },
     };
 
     reportGenerator: IReportGenerator = {
         async generateReport(_result: ReviewResult, _summary: ContractSummary | null, _contractTypeLabel?: string) {
             console.log('[MockAdapter] generateReport');
-        }
+        },
+    };
+
+    openGeneratedDocx = async (
+        base64Docx: string,
+        fileName?: string,
+    ): Promise<void> => {
+        console.log('[MockAdapter] openGeneratedDocx:', {
+            fileName,
+            base64Length: base64Docx.length,
+        });
+        await new Promise((r) => setTimeout(r, 120));
     };
 
     clauseInserter: IClauseInserter = {
         async insertTextAtSelection(content) {
             console.log('[MockAdapter] insertTextAtSelection:', content);
             await new Promise((r) => setTimeout(r, 120));
-        }
+        },
     };
 }
 

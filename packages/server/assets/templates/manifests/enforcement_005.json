@@ -1,0 +1,67 @@
+{
+  "templateId": "enforcement_005",
+  "categoryId": "enforcement",
+  "categoryLabel": "执行",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "确认优先购买权申请书",
+  "caseTitle": "网络司法拍卖确认优先购买权人用",
+  "label": "确认优先购买权申请书（网络司法拍卖确认优先购买权人用）",
+  "templateFile": "enforcement_005.docx",
+  "manifestFile": "enforcement_005.json",
+  "fileNamePrefix": "确认优先购买权申请书（网络司法拍卖确认优先购买权人用）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "申请人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "申请人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "优先购买权种类",
+      "blockTitle": "优先权确认信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "共有人优先购买权□ 承租人的优先购买权□ 有限责任公司股东的优先购买权□ 其他□"
+    },
+    {
+      "key": "field_005",
+      "label": "申请执行人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_006",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

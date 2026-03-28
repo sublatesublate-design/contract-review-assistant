@@ -1,0 +1,175 @@
+{
+  "templateId": "enforcement_008",
+  "categoryId": "enforcement",
+  "categoryLabel": "执行",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "执行监督申请书",
+  "caseTitle": "当事人、利害关系人申请监督用",
+  "label": "执行监督申请书（当事人、利害关系人申请监督用）",
+  "templateFile": "enforcement_008.docx",
+  "manifestFile": "enforcement_008.json",
+  "fileNamePrefix": "执行监督申请书（当事人、利害关系人申请监督用）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "申请人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：申请执行人□ 被执行人□ 利害关系人□ 案外人□ 其他□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "申请人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：申请执行人□ 被执行人□ 利害关系人□ 案外人□ 其他□ 名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码："
+    },
+    {
+      "key": "field_003",
+      "label": "申请人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_004",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_005",
+      "label": "其他当事人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "身份：申请执行人□ 被执行人□ 利害关系人□ 案外人□ 其他□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_006",
+      "label": "其他当事人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "身份：申请执行人□ 被执行人□ 利害关系人□ 案外人□ 其他□ 名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_007",
+      "label": "送达日期",
+      "blockTitle": "原文书号",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": true,
+      "hint": "年 月 日"
+    },
+    {
+      "key": "field_008",
+      "label": "执行标的□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "主张标的物所有权或其他实体权利□"
+    },
+    {
+      "key": "field_009",
+      "label": "执行立案□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "超过法定期限□ 不符合立案条件□ 其他□"
+    },
+    {
+      "key": "field_010",
+      "label": "执行标的额□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "债务已部分或全部履行□ 一般债务利息：计息标准错误□ 计息期间错误□ 其他□ 迟延履行利息：计息标准错误□ 计息期间错误□ 其他□"
+    },
+    {
+      "key": "field_011",
+      "label": "查、扣、冻财产□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "冻结监管账户（专用账户）□ 超标的查、扣、冻 □ 查、扣、冻案外人财产□ 不存在到期债权或数额错误□ 其他□"
+    },
+    {
+      "key": "field_012",
+      "label": "评估、鉴定、询价、 议价□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "程序违法：财产基本信息错误□ 超出财产范围或者遗漏财产□ 相关机构或者人员不具备评估资质□ 其他□ 实体错误：参照标准错误□ 计算方法错误□ 结果错误□ 其他□"
+    },
+    {
+      "key": "field_013",
+      "label": "财产处置□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "处置程序违法□ 低价变卖□ 以物抵债错误□ 税费承担分配错误□ 处置案外人财产□ 其他□"
+    },
+    {
+      "key": "field_014",
+      "label": "财产分配与发放□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "准予参与分配错误□ 不准予参与分配错误□ 其他□"
+    },
+    {
+      "key": "field_015",
+      "label": "惩戒措施□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "限制高消费□ 限制出入境□ 列入失信名单□ 罚款□ 拘留□ 其他□"
+    },
+    {
+      "key": "field_016",
+      "label": "执行结案□",
+      "blockTitle": "监督事项",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "终结本次执行程序错误□ 中止执行错误□ 终结执行错误□ 执行完毕错误□ 其他□"
+    },
+    {
+      "key": "field_017",
+      "label": "申请人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_018",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

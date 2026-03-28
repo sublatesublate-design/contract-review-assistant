@@ -1,0 +1,94 @@
+{
+  "templateId": "enforcement_003",
+  "categoryId": "enforcement",
+  "categoryLabel": "执行",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "参与分配申请书",
+  "caseTitle": "申请案款分配用",
+  "label": "参与分配申请书（申请案款分配用）",
+  "templateFile": "enforcement_003.docx",
+  "manifestFile": "enforcement_003.json",
+  "fileNamePrefix": "参与分配申请书（申请案款分配用）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "申请人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码： 银行账号： 开户名： 开户行："
+    },
+    {
+      "key": "field_002",
+      "label": "申请人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 银行账号： 开户名： 开户行："
+    },
+    {
+      "key": "field_003",
+      "label": "申请人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_004",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_005",
+      "label": "执行案号及被执行人 （控制执行款的执行 案件）",
+      "blockTitle": "申请事项",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "执行案号： 被执行人："
+    },
+    {
+      "key": "field_006",
+      "label": "申请分配依据及内容 （申请人取得的生效法律 文书）",
+      "blockTitle": "申请事项",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "是否已取得生效法律文书 否□ 是□ 文书种类： 民事类：判决书□ 裁定书□ 调解书□ 支付令□ 刑事类：刑事附带民事判决书□ 刑事附带民事裁定书□ 刑事附带民事调解书□ 行政类：判决书□ 裁定书□ 调解书□ 行政处罚决定□ 行政处理决定□ 仲裁、公证类：裁决书□ 调解书□ 财产保全裁定□ 赋予强制执行效力的债权文书□ 其他□ 生效法律文书案号： 生效法律文书内容： 是否已经申请执行： 否□ 是□ 执行法院： 案号： 已执行到位金额： 案件状态：执行中□ 终本□ 终结□"
+    },
+    {
+      "key": "field_007",
+      "label": "申请人是否有优先受偿 权利",
+      "blockTitle": "申请事项",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "否□ 是□ 优先受偿权利类型：质押、抵押□ 建设工程价款□ 拆迁安置□ 消费者□ 其他□"
+    },
+    {
+      "key": "field_008",
+      "label": "申请人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_009",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

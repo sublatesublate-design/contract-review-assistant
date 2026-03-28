@@ -1,0 +1,373 @@
+{
+  "templateId": "commercial_011",
+  "categoryId": "commercial",
+  "categoryLabel": "商事",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "民事起诉状",
+  "caseTitle": "建设工程施工合同纠纷",
+  "label": "民事起诉状（建设工程施工合同纠纷）",
+  "templateFile": "commercial_011.docx",
+  "manifestFile": "commercial_011.json",
+  "fileNamePrefix": "民事起诉状（建设工程施工合同纠纷）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "原告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ / 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "被告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_005",
+      "label": "被告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ / 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_006",
+      "label": "第三人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_007",
+      "label": "第三人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ / 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_008",
+      "label": "诉讼请求全文",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_009",
+      "label": "1. 支付工程款",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "元（人民币，下同；如外币需特别注明）"
+    },
+    {
+      "key": "field_010",
+      "label": "2. 迟延支付工程款的利 息（违约金）",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "截至 年 月 日，迟延支付工程款的利息 元、违约 金 元；自 之后的逾期利息、违约金，以 元为基 数按照 标准计算； 是否请求支付至实际清偿之日止：是□ 否□"
+    },
+    {
+      "key": "field_011",
+      "label": "3. 是否主张建设工程价 款优先受偿权",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 内容： 否□"
+    },
+    {
+      "key": "field_012",
+      "label": "4. 是否请求与原告没有 建设工程施工合同关系 的发包人、其他转包方、 分包方等主体承担责任",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "parties",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 责任主体姓名或者名称： 否□"
+    },
+    {
+      "key": "field_013",
+      "label": "5. 是否要求赔偿损失",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 支付赔偿金 元 责任类型：停窝工损失□ 其他□ 具体情形： 损失计算依据： 否□"
+    },
+    {
+      "key": "field_014",
+      "label": "6. 是否退还超付的工 程款",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 金额 元 否□"
+    },
+    {
+      "key": "field_015",
+      "label": "7. 是否支付超付工程款 的利息",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 截至 年 月 日，返还超付工程款的利息 元， 自 之后的逾期利息，以 元为基数按照 标准计算； 计算方式： 是否请求支付至实际清偿之日止：是□ 否□ 否□"
+    },
+    {
+      "key": "field_016",
+      "label": "8. 是否对建设工程承担 修复责任",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 修复□ 付修复费用□ 减少工程款□ 其他□,数额 元 否□"
+    },
+    {
+      "key": "field_017",
+      "label": "9. 是否要求赔偿损失",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 支付赔偿金 元 责任类型：工程质量不符合约定□ 迟延交付工程□ 拒绝履行□ 其他□ 具体情形： 损失计算依据： 否□"
+    },
+    {
+      "key": "field_018",
+      "label": "10. 请求确认建设工程 施工合同无效",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 合同无效的理由： 否□"
+    },
+    {
+      "key": "field_019",
+      "label": "11. 要求继续履行或是 解除合同",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "继续履行□ 日内履行完毕 付款□竣工□义务 判令解除合同□ 确认建设工程施工合同已于 年 月 日解除"
+    },
+    {
+      "key": "field_020",
+      "label": "12. 是否主张实现债权 的费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 费用明细： 否□"
+    },
+    {
+      "key": "field_021",
+      "label": "13. 是否主张诉讼费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 否□"
+    },
+    {
+      "key": "field_022",
+      "label": "1. 有无仲裁、法院管辖 约定",
+      "blockTitle": "约定管辖、诉前保全及鉴定申请",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 合同条款及内容： 无□"
+    },
+    {
+      "key": "field_023",
+      "label": "2. 是否已经诉前保全",
+      "blockTitle": "约定管辖、诉前保全及鉴定申请",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 保全法院： 保全时间： 保全案号： 否□ （如申请诉讼保全，请另行提交诉讼保全申请及相关材料）"
+    },
+    {
+      "key": "field_024",
+      "label": "3. 是否申请鉴定",
+      "blockTitle": "约定管辖、诉前保全及鉴定申请",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 鉴定事项： 否□"
+    },
+    {
+      "key": "field_025",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_026",
+      "label": "2. 签订主体",
+      "blockTitle": "1. 合同的签订情况（名 称、编号、签订时间、 地点、是否招投标等）",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "发包人： 承包人： 出借资质的建筑企业： 实际施工人："
+    },
+    {
+      "key": "field_027",
+      "label": "4. 合同约定的工程款及 支付方式",
+      "blockTitle": "3. 建设工程情况（工程 名称、所在地点、施工 范围、质量标准等）",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "综 合 单 价 □ 元； 固 定 单 价 □ 元； 固 定 总 价 □ 元； 其他□: 按施工进度支付工程款□；垫资施工□；其他□: 以现金□ 转账□ 票据□（写明票据类型） 其他□ 方式 质保金□ 元；质保金支付期限： 。"
+    },
+    {
+      "key": "field_028",
+      "label": "5. 工期",
+      "blockTitle": "3. 建设工程情况（工程 名称、所在地点、施工 范围、质量标准等）",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "开工时间 ；竣工时间 ；工期 天。"
+    },
+    {
+      "key": "field_029",
+      "label": "7. 合同约定的违约金 （保证金）",
+      "blockTitle": "6. 合同约定的工程质量 标准及竣工验收程序",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "违约金□ 元（合同条款：第 条） 保证金□ 元（合同条款：第 条） 迟延履行违约金□ %/ 日（合同条款：第 条）"
+    },
+    {
+      "key": "field_030",
+      "label": "8. 工程款支付情况",
+      "blockTitle": "6. 合同约定的工程质量 标准及竣工验收程序",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "工程总价 元；已支付工程款 元； 欠 / 超付工程款 元。 欠 / 超付工程款利息： 元。"
+    },
+    {
+      "key": "field_031",
+      "label": "9. 建设工程质量情况",
+      "blockTitle": "6. 合同约定的工程质量 标准及竣工验收程序",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "工程质量是否合格：是□ 否□ 工程质量问题： 。 工程质量造成损失： 元。"
+    },
+    {
+      "key": "field_032",
+      "label": "10. 建设工程交付情况",
+      "blockTitle": "6. 合同约定的工程质量 标准及竣工验收程序",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "工程是否迟延交付：是□ 否□ 交付时间 。 工程迟延交付造成损失： 元。"
+    },
+    {
+      "key": "field_033",
+      "label": "11. 停窝工等情况",
+      "blockTitle": "6. 合同约定的工程质量 标准及竣工验收程序",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "工程是否停窝工：是□ 否□ 工程停窝工造成损失： 元。"
+    },
+    {
+      "key": "field_034",
+      "label": "12. 是否主张过建设工 程价款优先受偿权",
+      "blockTitle": "6. 合同约定的工程质量 标准及竣工验收程序",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 主张情况： 年 月 日通过 方式主张了建设工程价 款优先受偿权 否□"
+    },
+    {
+      "key": "field_035",
+      "label": "14. 请求依据",
+      "blockTitle": "13. 其他需要说明的内 容（可另附页）",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "合同约定： 法律规定："
+    },
+    {
+      "key": "field_036",
+      "label": "是否了解调解作为非诉 讼纠纷解决方式，能 及时、高效、低成本、 不伤和气地解决纠纷",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "了解□ 不了解□"
+    },
+    {
+      "key": "field_037",
+      "label": "是否了解先行调解解 决纠纷的好处",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "1. 立案后选择先行调解的，可以很快启动调解程序。如不同意调解，法院 将依程序开庭审理案件，但可能需要经过较长一段时间的排期等待，且审 理、执行周期相对较长。 了解□ 不了解□ 2. 选择先行调解，调解成功且自动履行的免交诉讼费用，申请司法确认的 不交纳诉讼费用，要求出具调解书的减半交纳诉讼费用。 了解□ 不了解□ 3. 首次调解不成功，但仍有继续调解意愿的，可以选择更换调解组织和调 解员再进行调解。调解无法达成一致意见的，法院将依程序排期开庭。 了解□ 不了解□ 4. 依照法律规定，调解具有保密性要求，调解过程不公开，调解协议未经 当事人同意不得公开。 了解□ 不了解□ 5. 调解达成的协议具有法律效力，可以依照法律规定申请司法确认，具有 强制执行效力。 了解□ 不了解□"
+    },
+    {
+      "key": "field_038",
+      "label": "是否考虑先行调解",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 否□ 暂不确定，想要了解更多内容□"
+    },
+    {
+      "key": "field_039",
+      "label": "具状人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_040",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

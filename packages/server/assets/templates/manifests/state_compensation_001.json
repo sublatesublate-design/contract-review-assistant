@@ -1,0 +1,139 @@
+{
+  "templateId": "state_compensation_001",
+  "categoryId": "state_compensation",
+  "categoryLabel": "国家赔偿",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "国家赔偿申请书",
+  "caseTitle": "违法刑事拘留赔偿",
+  "label": "国家赔偿申请书（违法刑事拘留赔偿）",
+  "templateFile": "state_compensation_001.docx",
+  "manifestFile": "state_compensation_001.json",
+  "fileNamePrefix": "国家赔偿申请书（违法刑事拘留赔偿）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "赔偿请求人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "委托代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 类型：律师□ 亲友□ 工作人员□ 基层组织推荐人员□ 其他□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_003",
+      "label": "赔偿义务机关",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地： 法定代表人 / 负责人： 职务："
+    },
+    {
+      "key": "field_004",
+      "label": "复议机关",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地： 法定代表人 / 负责人： 职务："
+    },
+    {
+      "key": "field_005",
+      "label": "赔偿请求全文",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_006",
+      "label": "1. 侵犯人身自由赔偿金",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "违法 / 超期拘留时间共 天（起止日期为： ），请求赔偿人身自由 赔偿金 元（人民币，下同。）"
+    },
+    {
+      "key": "field_007",
+      "label": "2. 精神损害赔偿",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是否主张以下赔偿： 是□ 消除影响□ 恢复名誉□ 赔礼道歉□ 精神损害抚慰金□（请求金额： 元） 否□"
+    },
+    {
+      "key": "field_008",
+      "label": "3. 其他赔偿请求",
+      "blockTitle": "赔偿请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "（逐项列明）"
+    },
+    {
+      "key": "field_009",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_010",
+      "label": "1. 赔偿义务机关是否就 赔偿申请作出自赔决定",
+      "blockTitle": "事实与理由",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 决定书文号： 决定书作出时间： 决定书结果： 否□"
+    },
+    {
+      "key": "field_011",
+      "label": "2. 复议机关是否作出复 议决定",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 复议决定文号： 复议决定作出时间： 复议决定结果： 否□"
+    },
+    {
+      "key": "field_012",
+      "label": "5. 有无同类案件裁判文 书或指导性案例（可 另附页）",
+      "blockTitle": "4. 其他需要说明的内容 （可另附页）",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 案号 / 案例名称： 否□"
+    },
+    {
+      "key": "field_013",
+      "label": "赔偿请求人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_014",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

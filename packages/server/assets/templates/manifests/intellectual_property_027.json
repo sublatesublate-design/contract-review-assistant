@@ -1,0 +1,167 @@
+{
+  "templateId": "intellectual_property_027",
+  "categoryId": "intellectual_property",
+  "categoryLabel": "知识产权",
+  "orientation": "response",
+  "documentKind": "third_party_statement",
+  "documentTitle": "第三人意见陈述书",
+  "caseTitle": "专利无效行政纠纷",
+  "label": "第三人意见陈述书（专利无效行政纠纷）",
+  "templateFile": "intellectual_property_027.docx",
+  "manifestFile": "intellectual_property_027.json",
+  "fileNamePrefix": "第三人意见陈述书（专利无效行政纠纷）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "案号",
+      "blockTitle": "补充字段",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "发明专利无效行政纠纷 / 实用新型专利无效行 政纠纷 / 外观设计专利无效行政纠纷"
+    },
+    {
+      "key": "field_002",
+      "label": "第三人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_003",
+      "label": "第三人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_004",
+      "label": "第三人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "如不具有以下情况，可不填： 外资情况□：中外合资经营企业□ 中外合作经营企业□ 外商独资企业□ 其他形式□ 出资方： 份额构成： 上市公司□ ：上市所在交易所： 专精特新中小企业□"
+    },
+    {
+      "key": "field_005",
+      "label": "委托诉讼代理人 （律师）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_006",
+      "label": "委托诉讼代理人 （其他）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 单位： 职务：（员工担任代理人需写明部门） 联系电话： 与原告关系（近亲属担任委托诉讼代理人）： 推荐单位（当事人所在社区、单位以及有关社会团体推荐的公民担任 委托诉讼代理人）： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_007",
+      "label": "1. 权利基础状况",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "专利号： 专利名称： 专利类型：发明专利□ 实用新型专利□ 外观设计专利□ 专利领域：机械□ 电学□ 通信□ 化学□ 医药生物□ 光电□ 材料□ 其他□ 专利权人： 专利申请日："
+    },
+    {
+      "key": "field_008",
+      "label": "1. 权利基础状况",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "优先权日： 授权公告日： 审查基础：授权公告文本 /× 年 × 月 × 日提交的修改文本 关联确权行政程序：（概述确权行政程序情况） 同族专利情况：同族专利涉及 × 国、× 地区的 × 件专利， × 件获得授权 并处于有效状态，× 件被驳回申请，……（详见附件 4 同族专利信息表）"
+    },
+    {
+      "key": "field_009",
+      "label": "2. 专 利 有 效 性 分 析 （详见附件 5 专利有效 性分析表）",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "本专利技术方案为： ……（概述）。现有技术的技术方案为： ……（概 述）。本专利不具备新颖性 / 不具备创造性 / 不具备实用性 / 说明书未公开充 分 / 权利要求书不能得到说明书支持 ……。"
+    },
+    {
+      "key": "field_010",
+      "label": "2. 专 利 有 效 性 分 析 （详见附件 5 专利有效 性分析表）",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述争议技术特征分析意见）"
+    },
+    {
+      "key": "field_011",
+      "label": "2. 专 利 有 效 性 分 析 （详见附件 5 专利有效 性分析表）",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述争议技术特征分析意见）"
+    },
+    {
+      "key": "field_012",
+      "label": "2. 专 利 有 效 性 分 析 （详见附件 5 专利有效 性分析表）",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述意见）"
+    },
+    {
+      "key": "field_013",
+      "label": "2. 专 利 有 效 性 分 析 （详见附件 5 专利有效 性分析表）",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析："
+    },
+    {
+      "key": "field_014",
+      "label": "2. 专 利 有 效 性 分 析 （详见附件 5 专利有效 性分析表）",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析："
+    },
+    {
+      "key": "field_015",
+      "label": "2. 专 利 有 效 性 分 析 （详见附件 5 专利有效 性分析表）",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "……"
+    },
+    {
+      "key": "field_016",
+      "label": "3. 其他",
+      "blockTitle": "陈述意见",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "无□ 有□ 主要事实与理由："
+    },
+    {
+      "key": "field_017",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

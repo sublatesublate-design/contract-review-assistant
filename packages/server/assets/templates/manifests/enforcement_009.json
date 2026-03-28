@@ -1,0 +1,103 @@
+{
+  "templateId": "enforcement_009",
+  "categoryId": "enforcement",
+  "categoryLabel": "执行",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "不予执行申请书",
+  "caseTitle": "申请不予执行仲裁裁决、调解书或公证债权文书用",
+  "label": "不予执行申请书（申请不予执行仲裁裁决、调解书或公证债权文书用）",
+  "templateFile": "enforcement_009.docx",
+  "manifestFile": "enforcement_009.json",
+  "fileNamePrefix": "不予执行申请书（申请不予执行仲裁裁决、调解书或公证债权文书用）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "申请人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：被执行人□ 案外人□ 其他□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "申请人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：被执行人□ 案外人□ 其他□ 名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "其他当事人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "身份：申请执行人□ 被执行人□ 案外人□ 其他□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_005",
+      "label": "其他当事人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "身份：被执行人□ 案外人□ 其他□ 名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_006",
+      "label": "法律文书类型",
+      "blockTitle": "不予执行文书信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "仲裁裁决□ 仲裁调解书□ 公证机关依法赋予强制执行效力的债权文书□ 其他法律文书□"
+    },
+    {
+      "key": "field_007",
+      "label": "执行通知书送达日期",
+      "blockTitle": "执行案号",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": true,
+      "hint": "年 月 日"
+    },
+    {
+      "key": "field_008",
+      "label": "申请不予执行类型",
+      "blockTitle": "执行案号",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "仲裁□ : 1. 当事人在合同中没有订有仲裁条款或者事后没有达成书面仲裁协议□ 2. 裁决的事项不属于仲裁协议的范围或者仲裁机构无权仲裁的□ 3. 仲裁庭的组成或者仲裁的程序违反法定程序的□ 4. 裁决所根据的证据是伪造的□ 5. 对方当事人向仲裁机构隐瞒了足以影响公正裁决的证据的□ 6. 仲裁员在仲裁该案时有贪污受贿，徇私舞弊，枉法裁决行为的□ 7. 仲裁案件当事人之间存在虚构法律关系，捏造案件事实的情形的□ 8. 其他□ 公证债权文书□: 1. 被执行人未到场且未委托代理人到场办理公证的□ 2. 无民事行为能力人或者限制民事行为能力人没有监护人代为办理公证的□ 3. 公证员为本人、近亲属办理公证，或者办理与本人、近亲属有利害关系 的公证的□ 4. 公证员办理该公证有贪污受贿、徇私舞弊行为，已经由生效刑事法律文 书等确认的□ 5. 其他严重违反法定公证程序的情形□"
+    },
+    {
+      "key": "field_009",
+      "label": "申请人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_010",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

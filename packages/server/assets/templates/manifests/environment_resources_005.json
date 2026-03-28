@@ -1,0 +1,193 @@
+{
+  "templateId": "environment_resources_005",
+  "categoryId": "environment_resources",
+  "categoryLabel": "环境资源",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "民事起诉状",
+  "caseTitle": "生态环境损害赔偿诉讼",
+  "label": "民事起诉状（生态环境损害赔偿诉讼）",
+  "templateFile": "environment_resources_005.docx",
+  "manifestFile": "environment_resources_005.json",
+  "fileNamePrefix": "民事起诉状（生态环境损害赔偿诉讼）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "省级、市地级人民政 府及其指定的部门、 机构",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地： 法定代表人 / 负责人： 职务： 联系电话： 类型： 省级人民政府□ 市地级人民政府□ 省级人民政府指定的部门或机构□ 市地级人民政府指定的部门或机构□"
+    },
+    {
+      "key": "field_002",
+      "label": "受国务院委托行使全 民所有自然资源资产 所有权的部门",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地： 法定代表人 / 负责人： 职务： 联系电话："
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "被告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_005",
+      "label": "被告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_006",
+      "label": "第三人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_007",
+      "label": "第三人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_008",
+      "label": "诉讼请求全文",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_009",
+      "label": "1. 侵权责任",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "□停止侵害 □排除妨碍 □消除危险 □修复生态环境 □赔偿损失 □赔礼道歉"
+    },
+    {
+      "key": "field_010",
+      "label": "2. 修复生态环境",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "□清除污染费用数额： 元 □修复生态环境费用数额： 元 □防止损害的发生和扩大所支出的合理费用数额： 元 以上共计 元（人民币，下同；如外币需特别注明）。"
+    },
+    {
+      "key": "field_011",
+      "label": "3. 赔偿损失",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "□生态环境受到损害至修复完成期间服务功能丧失导致的损失数额： 元 □生态环境功能永久性损害造成的损失数额： 元 □生态环境损害调查、鉴定评估等费用数额： 元 □其他费用数额： 元 以上共计 元。"
+    },
+    {
+      "key": "field_012",
+      "label": "5. 总额",
+      "blockTitle": "4. 其他请求",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "以上共计 元。"
+    },
+    {
+      "key": "field_013",
+      "label": "6. 是否主张诉讼费用",
+      "blockTitle": "4. 其他请求",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 否□"
+    },
+    {
+      "key": "field_014",
+      "label": "1. 是否已经申请诉前生 态环境侵权禁止令保 全措施",
+      "blockTitle": "生态环境侵权禁止令保全措施",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 保全法院： 保全时间： 保全案号： 否□"
+    },
+    {
+      "key": "field_015",
+      "label": "2. 是否申请生态环境侵 权禁止令保全措施",
+      "blockTitle": "生态环境侵权禁止令保全措施",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ （请另行提交保全申请及相关材料） 否□"
+    },
+    {
+      "key": "field_016",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_017",
+      "label": "1. 生态环境损害类型",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□环境污染 □生态破坏"
+    },
+    {
+      "key": "field_018",
+      "label": "8. 证据清单（可另附页）",
+      "blockTitle": "7. 其他需要说明的内容 （可另附页）",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "1. 省级、市地级政府指定原告提起本案诉讼的材料 2. 经磋商未达成一致或者无法进行磋商的证明材料 3. 被告违反法律规定污染环境、破坏生态行为的证明材料 4. 相关行政机关查处被告违法行为的材料 5. 监测数据、检验报告、鉴定报告、评估报告等 ……"
+    },
+    {
+      "key": "field_019",
+      "label": "具状人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_020",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

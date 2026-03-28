@@ -30,20 +30,9 @@ if errorlevel 1 (
 for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
 echo   [OK] Node.js %NODE_VER%
 
-:: ─── 检测 pnpm ────────────────────────────────────────────────
-rem pnpm 已移除，使用 npm
-if errorlevel 1 (
-    echo   [提示] 正在安装 pnpm 包管理器...
-    rem 已迁移至 npm，无需安装 pnpm
-    if errorlevel 1 (
-        
-        pause
-        exit /b 1
-    )
-)
 
 
-:: ─── 同步依赖（每次启动自动检查 pnpm-lock.yaml 是否有变化） ────────────────────────────────────────────────
+:: ─── 同步依赖（每次启动自动检查 package-lock.json 对应依赖） ────────────────────────────────────────────────
 echo.
 echo   [提示] 正在检查依赖更新（首次约需 1-3 分钟，后续几秒内完成）...
 call npm install
@@ -92,6 +81,7 @@ echo   ========================================
 echo     启动成功！请勿关闭此窗口。
 echo.
 echo     打开 Word -^> 首页 -^> 打开审查面板
+echo     支持要素式文书生成
 echo     首次使用请在设置中填入 API Key
 echo   ========================================
 echo.
@@ -135,6 +125,7 @@ echo     如果 WPS 首次使用未见「智能审查」选项卡：
 echo     -^> 完全退出 WPS 再重新打开即可
 echo.
 echo     打开 WPS -^> 智能审查 -^> 打开审查面板
+echo     支持要素式文书生成；本地直接打开失败时会自动下载 docx
 echo     首次使用请在设置中填入 API Key
 echo   ========================================
 echo.

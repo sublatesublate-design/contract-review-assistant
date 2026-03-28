@@ -1,0 +1,202 @@
+{
+  "templateId": "intellectual_property_028",
+  "categoryId": "intellectual_property",
+  "categoryLabel": "知识产权",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "行政起诉状",
+  "caseTitle": "垄断纠纷",
+  "label": "行政起诉状（垄断纠纷）",
+  "templateFile": "intellectual_property_028.docx",
+  "manifestFile": "intellectual_property_028.json",
+  "fileNamePrefix": "行政起诉状（垄断纠纷）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "原告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "如不具有以下情况，可不填： 外资情况□：中外合资经营企业□ 中外合作经营企业□ 外商独资企业□ 其他形式□ 出资方： 份额构成： 上市公司□ ：上市所在交易所： 专精特新中小企业□"
+    },
+    {
+      "key": "field_004",
+      "label": "委托诉讼代理人 （律师）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_005",
+      "label": "委托诉讼代理人 （其他）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 单位： 职务：（员工担任代理人需写明部门） 联系电话： 与原告关系（近亲属担任委托诉讼代理人）： 推荐单位（当事人所在社区、单位以及有关社会团体推荐的公民担任 委托诉讼代理人）： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_006",
+      "label": "被告",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 法定代表人： 职务："
+    },
+    {
+      "key": "field_007",
+      "label": "诉讼请求全文",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_008",
+      "label": "1. 关于被诉决定",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "判决撤销 ×× 市场监督管理局 ×× 号行政处罚决定书（以下简称“被诉 决定”）。"
+    },
+    {
+      "key": "field_009",
+      "label": "2. 是否主张诉讼费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 否□"
+    },
+    {
+      "key": "field_010",
+      "label": "1. 是否涉外",
+      "blockTitle": "涉外及涉港澳台",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 涉及国家： 否□"
+    },
+    {
+      "key": "field_011",
+      "label": "2. 是否涉港澳台",
+      "blockTitle": "涉外及涉港澳台",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 涉港□ 涉澳□ 涉台□ 否□"
+    },
+    {
+      "key": "field_012",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_013",
+      "label": "1. 被诉行政行为情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "× 年 × 月 × 日， ×× 市场监管局作出被诉决定，主要内容为：（一） ×× 存在以下违法行为：……。（二） ……。 据此， ×× 市场监管局依据反垄断法第 × 条第 × 款的规定决定：对 ×× 处以 ×× 元罚款，……（见原告证据 ×- ×: …… )。"
+    },
+    {
+      "key": "field_014",
+      "label": "2. 被诉决定相关认定",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□无 □有 本案相关市场为 ……（包括具体时间 范围内的商品市场、地域市场）。具体说明： （原告主张被诉垄断行为属于反垄断法第十七 条第一项至第五项和第十八条第一款第一项、第二 项规定情形的，可以不对相关市场界定提供证据）"
+    },
+    {
+      "key": "field_015",
+      "label": "2. 被诉决定相关认定",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□无 □有 原告未达成横向 / 纵向垄断协议，具体 为： …… 。上述协议未产生排除、限制竞争效果， 具体分析： （适用于涉案垄断行为涉及垄断协议）"
+    },
+    {
+      "key": "field_016",
+      "label": "2. 被诉决定相关认定",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□无 □有 原告在 …… 相关市场，不具有市场支 配地位，具体分析： 原告未实施滥用市场支配地位的行为，具体分 析：关于垄断定价 / 掠夺定价 / 拒绝交易 / 限定交 易 / 捆绑交易 / 差别待遇，……。 原告的行为未产生排除、限制竞争效果，具体 分析： （适用于涉案垄断行为涉及滥用市场支配地位）"
+    },
+    {
+      "key": "field_017",
+      "label": "3. 被诉决定程序",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "违反法定程序□ 具体分析： 超越职权□ 具体分析： 滥用职权□ 具体分析： 其他□ 具体分析："
+    },
+    {
+      "key": "field_018",
+      "label": "4. 被诉决定处罚",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "鉴于涉案垄断行为不成立，原告不应受到行政处罚。即便涉案垄断行 为成立，涉案处罚的内容、履行方式 …… 存在明显不当。 罚款□ 具体分析： 没收违法所得□ 具体分析： 责令停产停业□ 具体分析： 其他□ 具体分析："
+    },
+    {
+      "key": "field_019",
+      "label": "5. 其他",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 主要事实与理由： 无□"
+    },
+    {
+      "key": "field_020",
+      "label": "具状人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_021",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

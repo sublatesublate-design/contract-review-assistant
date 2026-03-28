@@ -2,6 +2,54 @@ import type { IDocumentReader, DocumentSection } from '../types';
 /// <reference path="./wps-jsapi.d.ts" />
 
 export class WpsDocumentReader implements IDocumentReader {
+    private normalizeTableCellText(text: string | undefined): string {
+        return (text || '')
+            .replace(/\r\x07/g, ' ')
+            .replace(/\x07/g, ' ')
+            .replace(/\r/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    private readTables(): DocumentSection[] {
+        if (!window.wps) throw new Error('WPS JSAPI not available');
+
+        const tables = window.wps.WpsApplication().ActiveDocument.Tables;
+        const sections: DocumentSection[] = [];
+
+        for (let tableIndex = 1; tableIndex <= tables.Count; tableIndex += 1) {
+            const table = tables.Item(tableIndex);
+            const rowCount = table.Rows.Count;
+            const columnCount = table.Columns.Count;
+            const rows: string[] = [];
+
+            for (let rowIndex = 1; rowIndex <= rowCount; rowIndex += 1) {
+                const cells: string[] = [];
+
+                for (let columnIndex = 1; columnIndex <= columnCount; columnIndex += 1) {
+                    const cellText = this.normalizeTableCellText(table.Cell(rowIndex, columnIndex).Range.Text);
+                    if (cellText) {
+                        cells.push(cellText);
+                    }
+                }
+
+                if (cells.length > 0) {
+                    rows.push(cells.join(' | '));
+                }
+            }
+
+            if (rows.length > 0) {
+                sections.push({
+                    type: 'table',
+                    text: rows.join('\n'),
+                    index: tableIndex - 1,
+                });
+            }
+        }
+
+        return sections;
+    }
+
     public async readFullText(): Promise<string> {
         if (!window.wps) throw new Error('WPS JSAPI not available');
         const app = window.wps.WpsApplication();
@@ -35,14 +83,20 @@ export class WpsDocumentReader implements IDocumentReader {
     }
 
     public async readStructured(): Promise<DocumentSection[]> {
-        // Simplified for WPS, identical to readParagraphs for now
-        // Could be expanded to include tables as requested by the plan
-        return this.readParagraphs();
+        const sections = await this.readParagraphs();
+
+        try {
+            sections.push(...this.readTables());
+        } catch (error) {
+            console.warn('[WPS readStructured] failed to read tables:', error);
+        }
+
+        return sections;
     }
 
     public async getWordCount(): Promise<number> {
         const text = await this.readFullText();
-        return text.trim().split(/\s+/).length;
+        return text.replace(/\s+/g, '').length;
     }
 
     public async readSelection(): Promise<string | null> {

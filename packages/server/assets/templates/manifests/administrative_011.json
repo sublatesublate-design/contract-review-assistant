@@ -1,0 +1,166 @@
+{
+  "templateId": "administrative_011",
+  "categoryId": "administrative",
+  "categoryLabel": "行政",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "行政起诉状",
+  "caseTitle": "不履行法定职责",
+  "label": "行政起诉状（不履行法定职责）",
+  "templateFile": "administrative_011.docx",
+  "manifestFile": "administrative_011.json",
+  "fileNamePrefix": "行政起诉状（不履行法定职责）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "原告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 法定代表人 / 负责人： 职务： 联系电话："
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "被告 （行政机关或者法律、 法规、规章授权的 组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 法定代表人 / 负责人： 职务： 联系电话："
+    },
+    {
+      "key": "field_005",
+      "label": "第三人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_006",
+      "label": "第三人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 法定代表人 / 负责人： 职务： 联系电话："
+    },
+    {
+      "key": "field_007",
+      "label": "诉讼请求全文",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_008",
+      "label": "1. □确认不履行法定职 责行为违法",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体内容："
+    },
+    {
+      "key": "field_009",
+      "label": "3. 是否主张诉讼费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "□是 □否"
+    },
+    {
+      "key": "field_010",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_011",
+      "label": "1. 申请履行法定职责的 方式",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□口头提出 □书面提出"
+    },
+    {
+      "key": "field_012",
+      "label": "2. 申请履行法定职责的 时间",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "年 月 日"
+    },
+    {
+      "key": "field_013",
+      "label": "4. 行政机关是否在法定 期限内履行了法定职责",
+      "blockTitle": "3. 申请履行法定职责的 内容",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□是 □否"
+    },
+    {
+      "key": "field_014",
+      "label": "5. 行政机关是否作出了 书面处理决定",
+      "blockTitle": "3. 申请履行法定职责的 内容",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□是 具体时间： 年 月 日 □否"
+    },
+    {
+      "key": "field_015",
+      "label": "6. 是否就同一争议申请 过复议或者提起过其 他诉讼",
+      "blockTitle": "3. 申请履行法定职责的 内容",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "□是 列明案号、时间、受理机关、处理结果等具体情况： □否"
+    },
+    {
+      "key": "field_016",
+      "label": "具状人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_017",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

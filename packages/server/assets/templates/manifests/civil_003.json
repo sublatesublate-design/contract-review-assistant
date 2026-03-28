@@ -1,0 +1,319 @@
+{
+  "templateId": "civil_003",
+  "categoryId": "civil",
+  "categoryLabel": "民事",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "民事起诉状",
+  "caseTitle": "房屋买卖合同纠纷",
+  "label": "民事起诉状（房屋买卖合同纠纷）",
+  "templateFile": "civil_003.docx",
+  "manifestFile": "civil_003.json",
+  "fileNamePrefix": "民事起诉状（房屋买卖合同纠纷）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "原告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ / 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "被告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_005",
+      "label": "被告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ / 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_006",
+      "label": "第三人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_007",
+      "label": "第三人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ / 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_008",
+      "label": "诉讼请求全文",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_009",
+      "label": "1. 确定房屋买卖合同 关系",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 主张确认合同无效□ 主张确认合同未成立□ 主张解除□ 主张撤销□ 主张继续履行□ 主张订立正式房屋买卖合同□ 具体主张： （例：确认合同无效 / 继续履行 / 解除合同 / 撤销 合同 / 否定某约定合同效力 / 要求订立本约）"
+    },
+    {
+      "key": "field_010",
+      "label": "2. 支付或返还购房款",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 具体主张：主张返还首付款□ / 定金□ / 已付款□ 主张支付欠付房款□ 主张支付违约金□或利息□ 主张赔偿损失□ 金额及明细："
+    },
+    {
+      "key": "field_011",
+      "label": "3. 交付或返还房屋",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 主张交付房屋：是□ / 否□ 主张返还房屋：是□ / 否□ 主张支付逾期交房违约金：是□ / 否□"
+    },
+    {
+      "key": "field_012",
+      "label": "4. 办理房屋登记手续",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 主张协助办理不动产登记：是□ / 否□ 主张支付逾期办证违约金：是□ / 否□"
+    },
+    {
+      "key": "field_013",
+      "label": "5. 返还或承担中介服 务费",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 主张返还中介服务费：是□ / 否□ 主张被告承担中介服务费：是□ / 否□ 金额及明细："
+    },
+    {
+      "key": "field_014",
+      "label": "6. 房屋质量损害赔偿",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 主张被告予以维修：是□ / 否□ 主张被告承担原告垫付的维修费：是□ / 否□ 金额及明细："
+    },
+    {
+      "key": "field_015",
+      "label": "7. 解除担保贷款（按揭） 合同",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 具体要求："
+    },
+    {
+      "key": "field_016",
+      "label": "8. 鉴定及其他实现债权 的费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "无此问题□ 有此问题□ 请求委托鉴定：是□ / 否□ 费用明细："
+    },
+    {
+      "key": "field_017",
+      "label": "9. 是否主张诉讼费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 否□"
+    },
+    {
+      "key": "field_018",
+      "label": "1. 有无仲裁、法院管辖 约定",
+      "blockTitle": "约定管辖和诉前保全",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 合同条款及内容： 无□"
+    },
+    {
+      "key": "field_019",
+      "label": "2. 是否已经诉前保全",
+      "blockTitle": "约定管辖和诉前保全",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 保全法院： 保全时间： 保全案号： 否□ （如申请诉讼保全，请另行提交诉讼保全申请及相关材料）"
+    },
+    {
+      "key": "field_020",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_021",
+      "label": "1. 涉及房屋买卖合 同 关系的基本情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "合同订立时间： 房屋性质：商品房□ 经济适用房□ 自建房□ 其他： 房屋位置： 房屋面积： 房屋单价： 总价： 房屋是否首次出售：是□ 否□ 是否为预售房：是□ 否□ 预售合同是否登记备案：是□ / 否□ 是否网签：是□ / 否□ 是否预告登记：是□ / 否□ 订立的合同性质：本约□ / 预约□ 是否已向被告发出解除 / 撤销合同的通知：是□（通知到达对方时间）否□ 解除 / 撤销事由："
+    },
+    {
+      "key": "field_022",
+      "label": "2. 购房款支付情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "支付方式：按揭贷款□ 支付现金□ 以房抵债□ 其他： 已支付 / 欠付购房款数额： 是否已支付定金：是□ （定金数额 ）/ 否□ 是否包含精装修：是□ / 否□ 合同有关购房款支付的约定： 其他事由："
+    },
+    {
+      "key": "field_023",
+      "label": "3. 房屋交付情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是否已经实际交付：是□ / 否□ 是否存在房屋面积差：是□ / 否□ 是否包含车位或车库：是□ / 否□ 合同约定的交房时间："
+    },
+    {
+      "key": "field_024",
+      "label": "4. 房屋登记手续办理 情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是否已经取得首次登记：是□ / 否□ 是否办理不动产转移登记手续：是□ / 否□ 是否约定逾期办证违约金： 具体计算标准："
+    },
+    {
+      "key": "field_025",
+      "label": "5. 中介服务费情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "应返还□ / 承担□ 中介服务费的事由"
+    },
+    {
+      "key": "field_026",
+      "label": "6. 质量损害赔偿相关 情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "属于严重影响正常居住使用的质量问题□ 属于可修复的质量问题□ 是否还在质保期内：是□ 否□ 是否存在修复行为：是□ 否□ 是否通知维修：是□ 否□ 赔偿数额："
+    },
+    {
+      "key": "field_027",
+      "label": "7. 是否签订担保贷款 （按揭）合同",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 具体情况： 否□"
+    },
+    {
+      "key": "field_028",
+      "label": "8. 申请鉴定及其他实 现债权费用的事实",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 具体情况： 否□"
+    },
+    {
+      "key": "field_029",
+      "label": "9. 请求依据",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "合同约定： 法律规定："
+    },
+    {
+      "key": "field_030",
+      "label": "是否了解调解作为非诉 讼纠纷解决方式，能 及时、高效、低成本、 不伤和气地解决纠纷",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "了解□ 不了解□"
+    },
+    {
+      "key": "field_031",
+      "label": "是否了解先行调解解 决纠纷的好处",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "1. 立案后选择先行调解的，可以很快启动调解程序。如不同意调解，法院将 依程序开庭审理案件，但可能需要经过较长一段时间的排期等待，且审理、 执行周期相对较长。 了解□ 不了解□ 2. 选择先行调解，调解成功且自动履行的免交诉讼费用，申请司法确认的不 交纳诉讼费用，要求出具调解书的减半交纳诉讼费用。 了解□ 不了解□ 3. 首次调解不成功，但仍有继续调解意愿的，可以选择更换调解组织和调解 员再进行调解。调解无法达成一致意见的，法院将依程序排期开庭。 了解□ 不了解□ 4. 依照法律规定，调解具有保密性要求，调解过程不公开，调解协议未经当 事人同意不得公开。 了解□ 不了解□ 5. 调解达成的协议具有法律效力，可以依照法律规定申请司法确认，具有强 制执行效力。 了解□ 不了解□"
+    },
+    {
+      "key": "field_032",
+      "label": "是否考虑先行调解",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 否□ 暂不确定，想要了解更多内容□"
+    },
+    {
+      "key": "field_033",
+      "label": "具状人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_034",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

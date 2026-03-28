@@ -1,0 +1,229 @@
+{
+  "templateId": "intellectual_property_025",
+  "categoryId": "intellectual_property",
+  "categoryLabel": "知识产权",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "行政起诉状",
+  "caseTitle": "专利申请驳回复审行政纠纷",
+  "label": "行政起诉状（专利申请驳回复审行政纠纷）",
+  "templateFile": "intellectual_property_025.docx",
+  "manifestFile": "intellectual_property_025.json",
+  "fileNamePrefix": "行政起诉状（专利申请驳回复审行政纠纷）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "原告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "如不具有以下情况，可不填： 外资情况□：中外合资经营企业□ 中外合作经营企业□ 外商独资企业□ 其他形式□ 出资方： 份额构成： 上市公司□ ：上市所在交易所： 专精特新中小企业□"
+    },
+    {
+      "key": "field_004",
+      "label": "委托诉讼代理人 （律师）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_005",
+      "label": "委托诉讼代理人 （其他）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 单位： 职务：（员工担任代理人需写明部门） 联系电话： 与原告关系（近亲属担任委托诉讼代理人）： 推荐单位（当事人所在社区、单位以及有关社会团体推荐的公民担任 委托诉讼代理人）： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_006",
+      "label": "被告",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称：国家知识产权局 住所地（主要办事机构所在地）： 法定代表人： 职务："
+    },
+    {
+      "key": "field_007",
+      "label": "诉讼请求全文",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_008",
+      "label": "1. 关于被诉决定",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "判决撤销国家知识产权局第 ×× 号复审请求审查决定（以下简称“被诉决 定”），判令被告重新作出审查决定。"
+    },
+    {
+      "key": "field_009",
+      "label": "2. 是否主张诉讼费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 否□"
+    },
+    {
+      "key": "field_010",
+      "label": "1. 是否涉外",
+      "blockTitle": "涉外及涉港澳台",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 涉及国家： 否□"
+    },
+    {
+      "key": "field_011",
+      "label": "2. 是否涉港澳台",
+      "blockTitle": "涉外及涉港澳台",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 涉港□ 涉澳□ 涉台□ 否□"
+    },
+    {
+      "key": "field_012",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_013",
+      "label": "1. 权利基础状况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "申请号： 专利名称： 专利类型：发明专利□ 实用新型专利□ 外观设计专利□ 专利领域：机械□ 电学□ 通信□ 化学□ 医药生物□ 光电□ 材料□ 其他□ 专利申请人： 专利申请日： 优先权日： 审查基础：申请文本 /× 年 × 月 × 日提交的修改文本 同族专利情况：同族专利涉及 × 国、× 地区的 × 件专利， × 件获得授权 并处于有效状态，× 件被驳回申请，……（详见附件 2 同族专利信息表）"
+    },
+    {
+      "key": "field_014",
+      "label": "2. 本案行政程序情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "× 年 × 月 × 日，国家知识产权局经其原审查部门审查，决定驳回本 申请。主要理由包括：（一）……。（二） ……。国家知识产权局原审查部门 引用了如下证据：×- ×（对比文件 1）： ……。×- ×（对比文件 2）： ……。 × 年 × 月 × 日，国家知识产权局作出被诉决定，认为： ……。国家 知识产权局据此决定：……。 （对被诉决定作出程序如有异议，请说明具体理由。）"
+    },
+    {
+      "key": "field_015",
+      "label": "3. 专利授权条件分析 （详见附件 3 专利申请 有效性分析表）",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "本申请技术方案为：……（概述）。现有技术的技术方案为：……（概述）。 本申请具备新颖性 / 具备创造性 / 具备实用性 / 说明书公开充分 / 权利要求书能 够得到说明书支持 ……，符合专利授权条件。"
+    },
+    {
+      "key": "field_016",
+      "label": "3. 专利授权条件分析 （详见附件 3 专利申请 有效性分析表）",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述争议技术特征分析意见）"
+    },
+    {
+      "key": "field_017",
+      "label": "3. 专利授权条件分析 （详见附件 3 专利申请 有效性分析表）",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述争议技术特征分析意见）"
+    },
+    {
+      "key": "field_018",
+      "label": "3. 专利授权条件分析 （详见附件 3 专利申请 有效性分析表）",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述意见）"
+    },
+    {
+      "key": "field_019",
+      "label": "3. 专利授权条件分析 （详见附件 3 专利申请 有效性分析表）",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述意见）"
+    },
+    {
+      "key": "field_020",
+      "label": "3. 专利授权条件分析 （详见附件 3 专利申请 有效性分析表）",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "具体分析：（概述意见）"
+    },
+    {
+      "key": "field_021",
+      "label": "3. 专利授权条件分析 （详见附件 3 专利申请 有效性分析表）",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "……"
+    },
+    {
+      "key": "field_022",
+      "label": "4. 其他",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 主要事实与理由： 无□"
+    },
+    {
+      "key": "field_023",
+      "label": "具状人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_024",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

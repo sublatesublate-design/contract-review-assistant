@@ -1,0 +1,59 @@
+{
+  "templateId": "criminal_private_006",
+  "categoryId": "criminal_private",
+  "categoryLabel": "刑事（自诉）",
+  "orientation": "response",
+  "documentKind": "main_pleading",
+  "documentTitle": "刑事（附带民事）自诉答辩状",
+  "caseTitle": "重婚案",
+  "label": "刑事（附带民事）自诉答辩状（重婚案）",
+  "templateFile": "criminal_private_006.docx",
+  "manifestFile": "criminal_private_006.json",
+  "fileNamePrefix": "刑事（附带民事）自诉答辩状（重婚案）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "答辩人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 出生地： 文化程度： 职业： 工作单位： 户籍地： 住址： 联系电话： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "辩护人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： （辩护人为非律师的自然人，请增加填写以下信息） 住址： 证件类型： 证件号码： 与答辩人的关系： 无□"
+    },
+    {
+      "key": "field_003",
+      "label": "自诉部分",
+      "blockTitle": "是否同意调解",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "同意□ 不同意□ 暂不确定□"
+    },
+    {
+      "key": "field_004",
+      "label": "附带民事部分",
+      "blockTitle": "是否同意调解",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "同意□ 不同意□ 暂不确定□"
+    },
+    {
+      "key": "field_005",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

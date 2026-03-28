@@ -80,6 +80,13 @@ export interface IReportGenerator {
     ): Promise<void>;
 }
 
+export interface IGeneratedDocxOpener {
+    openGeneratedDocx(
+        base64Docx: string,
+        fileName?: string,
+    ): Promise<void>;
+}
+
 /** 条款插入 */
 export interface IClauseInserter {
     insertTextAtSelection(content: string): Promise<void>;
@@ -96,6 +103,7 @@ export interface IPlatformAdapter {
     readonly trackChangesManager: ITrackChangesManager;
     readonly navigationHelper: INavigationHelper;
     readonly reportGenerator: IReportGenerator;
+    readonly openGeneratedDocx: IGeneratedDocxOpener['openGeneratedDocx'];
     readonly clauseInserter: IClauseInserter;
     invalidateMappingCache?(): void;
     initialize(): Promise<boolean>;

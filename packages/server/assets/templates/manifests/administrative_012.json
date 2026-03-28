@@ -1,0 +1,129 @@
+{
+  "templateId": "administrative_012",
+  "categoryId": "administrative",
+  "categoryLabel": "行政",
+  "orientation": "response",
+  "documentKind": "main_pleading",
+  "documentTitle": "行政答辩状",
+  "caseTitle": "",
+  "label": "行政答辩状",
+  "templateFile": "administrative_012.docx",
+  "manifestFile": "administrative_012.json",
+  "fileNamePrefix": "行政答辩状",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "案号",
+      "blockTitle": "补充字段",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true
+    },
+    {
+      "key": "field_002",
+      "label": "答辩人 （行政机关或者法律、 法规、规章授权的 组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）: 法定代表人 / 负责人： 职务： 联系电话："
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "答辩事项全文",
+      "blockTitle": "答辩事项",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_005",
+      "label": "1. □具有作出行政行为 的法定职权",
+      "blockTitle": "答辩事项",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体理由："
+    },
+    {
+      "key": "field_006",
+      "label": "2. □行政行为具有事实 根据",
+      "blockTitle": "答辩事项",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体理由："
+    },
+    {
+      "key": "field_007",
+      "label": "3. □行政行为具有法 律、法规依据",
+      "blockTitle": "答辩事项",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体理由："
+    },
+    {
+      "key": "field_008",
+      "label": "4. □行政行为符合法定 程序",
+      "blockTitle": "答辩事项",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "具体理由："
+    },
+    {
+      "key": "field_009",
+      "label": "5. □原告申请被告履行 法定职责或者给付义 务理由不成立",
+      "blockTitle": "答辩事项",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "具体理由："
+    },
+    {
+      "key": "field_010",
+      "label": "6. □其他",
+      "blockTitle": "答辩事项",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "具体理由："
+    },
+    {
+      "key": "field_011",
+      "label": "7. 案涉争议是否经过行 政复议或涉及其他诉讼",
+      "blockTitle": "答辩事项",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "□是 列明案号、时间、受理机关、处理结果等具体情况： □否"
+    },
+    {
+      "key": "field_012",
+      "label": "答辩人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_013",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

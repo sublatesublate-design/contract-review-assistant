@@ -10,6 +10,10 @@ const projectRoot = path.resolve(__dirname, '../../..');
 const desktopRoot = path.resolve(__dirname, '..');
 const serverRoot = path.resolve(projectRoot, 'packages/server');
 const serverDist = path.resolve(serverRoot, 'dist');
+const serverTemplateAssetsRoots = [
+    path.resolve(serverRoot, 'assets', 'templates'),
+    path.resolve(serverRoot, 'src', 'assets', 'templates'),
+];
 const addinRoot = path.resolve(projectRoot, 'packages/addin');
 const addinDist = path.resolve(addinRoot, 'dist');
 const wpsAddinRoot = path.resolve(addinRoot, 'wps-addin');
@@ -26,6 +30,7 @@ function run(command, cwd) {
 function copyPackagedAssets() {
     const publicDir = path.resolve(serverDist, 'public');
     const packagedWpsDir = path.resolve(publicDir, 'wps-addin');
+    const packagedTemplateDir = path.resolve(serverDist, 'assets', 'templates');
 
     shell.rm('-rf', publicDir);
     shell.mkdir('-p', publicDir);
@@ -33,11 +38,29 @@ function copyPackagedAssets() {
 
     shell.mkdir('-p', packagedWpsDir);
     shell.cp('-R', path.join(wpsAddinRoot, '*'), packagedWpsDir);
+
+    const serverTemplateAssetsRoot = serverTemplateAssetsRoots.find((dir) => fs.existsSync(dir));
+    if (serverTemplateAssetsRoot) {
+        shell.mkdir('-p', packagedTemplateDir);
+        for (const entry of fs.readdirSync(serverTemplateAssetsRoot, { withFileTypes: true })) {
+            if (entry.name.startsWith('~$') || entry.name.endsWith('.tmp')) {
+                continue;
+            }
+
+            const sourcePath = path.join(serverTemplateAssetsRoot, entry.name);
+            if (entry.isDirectory()) {
+                shell.cp('-R', sourcePath, packagedTemplateDir);
+            } else {
+                shell.cp(sourcePath, packagedTemplateDir);
+            }
+        }
+    }
 }
 
 function packageServerExe() {
     const serverPkgJsonPath = path.resolve(serverRoot, 'package.json');
-    const originalServerPkg = JSON.parse(fs.readFileSync(serverPkgJsonPath, 'utf8'));
+    const originalServerPkgText = fs.readFileSync(serverPkgJsonPath, 'utf8');
+    const originalServerPkg = JSON.parse(originalServerPkgText);
 
     const packagedServerPkg = {
         ...originalServerPkg,
@@ -46,6 +69,7 @@ function packageServerExe() {
             scripts: 'dist/**/*.js',
             assets: [
                 'dist/public/**/*',
+                'dist/assets/templates/**/*',
             ],
             targets: ['node20-win-x64'],
         },
@@ -59,7 +83,7 @@ function packageServerExe() {
             desktopRoot
         );
     } finally {
-        fs.writeFileSync(serverPkgJsonPath, `${JSON.stringify(originalServerPkg, null, 2)}\n`);
+        fs.writeFileSync(serverPkgJsonPath, originalServerPkgText);
     }
 }
 

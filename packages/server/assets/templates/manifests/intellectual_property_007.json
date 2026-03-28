@@ -1,0 +1,229 @@
+{
+  "templateId": "intellectual_property_007",
+  "categoryId": "intellectual_property",
+  "categoryLabel": "知识产权",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "民事起诉状",
+  "caseTitle": "侵害外观设计专利权纠纷",
+  "label": "民事起诉状（侵害外观设计专利权纠纷）",
+  "templateFile": "intellectual_property_007.docx",
+  "manifestFile": "intellectual_property_007.json",
+  "fileNamePrefix": "民事起诉状（侵害外观设计专利权纠纷）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "原告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "原告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_003",
+      "label": "委托诉讼代理人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 姓名： 单位： 职务： 联系电话： 代理权限：一般授权□ 特别授权□ 无□"
+    },
+    {
+      "key": "field_004",
+      "label": "被告 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_005",
+      "label": "被告 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_006",
+      "label": "第三人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_007",
+      "label": "第三人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码： 类型：有限责任公司□ 股份有限公司□ 上市公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_008",
+      "label": "诉讼请求全文",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_009",
+      "label": "1. 停止侵权",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 内容：具体陈述侵权对象、停止侵权的方式和内容等，如停止制造、 销售、许诺销售等 无□"
+    },
+    {
+      "key": "field_010",
+      "label": "2. 赔偿经济损失",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 经济损失共计 元 原告损失□ 元；被告获利□ 元；许可使用费□ 元（基 数： 元，倍数： 倍）； 计算依据或参考因素： 惩罚性赔偿□ 元（基数： 元，倍数： 倍）； 计算依据或参考因素： 无□"
+    },
+    {
+      "key": "field_011",
+      "label": "3. 支付合理费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "有□ 律师费 元 律师费凭证：有□ 无□ 公证费 元 公证费凭证：有□ 无□ 差旅费 元 差旅费凭证：有□ 无□ 其他费用 元 凭证：有□ 无□ 无□"
+    },
+    {
+      "key": "field_012",
+      "label": "4. 是否主张诉讼费用",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": true,
+      "multiline": true,
+      "hint": "是□ 否□"
+    },
+    {
+      "key": "field_013",
+      "label": "5. 其他请求",
+      "blockTitle": "诉讼请求",
+      "sourceSection": "request_or_response",
+      "required": false,
+      "multiline": true,
+      "hint": "有□ 内容： 无□"
+    },
+    {
+      "key": "field_014",
+      "label": "是否已经诉前保全",
+      "blockTitle": "诉前保全",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 保全法院： 保全时间： 保全案号： 否□ （如申请诉讼保全，请另行提交诉讼保全申请及相关材料）"
+    },
+    {
+      "key": "field_015",
+      "label": "事实与理由全文",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "填写模板说明文字下方的大段概述区域，优先保留原文对应段落。"
+    },
+    {
+      "key": "field_016",
+      "label": "1. 原告主体情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "外观设计专利权人□ 1. 原始取得□ 2. 继受取得□ 原权利人信息： 转让时间： 其它： 利害关系人□: 1. 被许可人□: ①独占使用许可合同的被许可人□ ②排他使用许可合同的被许可人□：和权利人共同起诉□ 单独起诉□ （权利人已起诉□ 权利人未起诉□) ③普通使用许可合同的被许可人□：和权利人共同起诉□ 单独起诉□ （权利人书面授权单独起诉□ 权利人未授权单独起诉□) 2. 其他利害关系人□ 具体情形："
+    },
+    {
+      "key": "field_017",
+      "label": "2. 权利基础情况",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "专利号： 专利名称： 专利申请日： 专利优先权日： 授权公告日： 据以主张权利的权利要求效力状态：有效□ 无效□ 终止□"
+    },
+    {
+      "key": "field_018",
+      "label": "3. 外观设计专利权评价 报告",
+      "blockTitle": "事实与理由",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "是否提交报告 □是 □全部外观设计未发现存在不符合授予专利权条件的缺陷。 □全部外观设计不符合授予专利权条件。 □该外观设计的 不符合授予专利权条件， 未发现存在不符合授予 专利权条件的缺陷。 □否"
+    },
+    {
+      "key": "field_019",
+      "label": "4. 被告侵犯外观设计专 利的事实",
+      "blockTitle": "事实与理由",
+      "sourceSection": "parties",
+      "required": true,
+      "multiline": true,
+      "hint": "1. 被诉侵权产品实物（附录像，如有） 2. 被诉侵权产品图片 3. 被告侵权行为方式证据 4. 被告侵权期间证据 5. 被告财务报表（如无，暂可不交） 6. 其他证据"
+    },
+    {
+      "key": "field_020",
+      "label": "是否了解调解作为非诉 讼纠纷解决方式，能 及时、高效、低成本、 不伤和气地解决纠纷",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "了解□ 不了解□"
+    },
+    {
+      "key": "field_021",
+      "label": "是否了解先行调解解 决纠纷的好处",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "1. 立案后选择先行调解的，可以很快启动调解程序。如不同意调解，法院 将依程序开庭审理案件，但可能需要经过较长一段时间的排期等待，且审 理、执行周期相对较长。 了解□ 不了解□ 2. 选择先行调解，调解成功且自动履行的免交诉讼费用，申请司法确认的 不交纳诉讼费用，要求出具调解书的减半交纳诉讼费用。 了解□ 不了解□ 3. 首次调解不成功，但仍有继续调解意愿的，可以选择更换调解组织和调 解员再进行调解。调解无法达成一致意见的，法院将依程序排期开庭。 了解□ 不了解□ 4. 依照法律规定，调解具有保密性要求，调解过程不公开，调解协议未经 当事人同意不得公开。 了解□ 不了解□ 5. 调解达成的协议具有法律效力，可以依照法律规定申请司法确认，具有 强制执行效力。 了解□ 不了解□"
+    },
+    {
+      "key": "field_022",
+      "label": "是否考虑先行调解",
+      "blockTitle": "对纠纷解决方式的意愿",
+      "sourceSection": "facts",
+      "required": false,
+      "multiline": true,
+      "hint": "是□ 否□ 暂不确定，想要了解更多内容□"
+    },
+    {
+      "key": "field_023",
+      "label": "具状人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_024",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

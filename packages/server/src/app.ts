@@ -2,9 +2,12 @@ import cors from 'cors';
 import express from 'express';
 import path from 'path';
 import { chatRouter } from './routes/chat';
+import { filesRouter } from './routes/files';
+import { litigationRouter } from './routes/litigation';
 import { mcpRouter } from './routes/mcp';
 import { modelsRouter } from './routes/models';
 import { reviewRouter } from './routes/review';
+import { summaryRouter } from './routes/summary';
 import { mcpManager } from './services/mcp/mcpManager';
 
 type ProcessWithPkg = NodeJS.Process & { pkg?: unknown };
@@ -35,8 +38,11 @@ export function createApp(): import('express').Express {
     }
 
     app.use('/api/models', modelsRouter);
+    app.use('/api/files', filesRouter);
     app.use('/api/review', reviewRouter);
     app.use('/api/chat', chatRouter);
+    app.use('/api/summary', summaryRouter);
+    app.use('/api/litigation', litigationRouter);
     app.use('/api/mcp', mcpRouter);
 
     mcpManager.initialize().catch((err) => {

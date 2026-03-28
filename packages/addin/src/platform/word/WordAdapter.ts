@@ -8,6 +8,7 @@ import { createWordTrackChangesManager } from './wordTrackChanges';
 import { createWordNavigationHelper } from './wordNavigation';
 import { createWordReportGenerator } from './wordReportGenerator';
 import { createWordClauseInserter } from './wordClauseInserter';
+import { createWordGeneratedDocxOpener } from './wordElementComplaintGenerator';
 
 export function createWordAdapter(): IPlatformAdapter {
     return {
@@ -18,6 +19,7 @@ export function createWordAdapter(): IPlatformAdapter {
         trackChangesManager: createWordTrackChangesManager(),
         navigationHelper: createWordNavigationHelper(),
         reportGenerator: createWordReportGenerator(),
+        openGeneratedDocx: createWordGeneratedDocxOpener().openGeneratedDocx,
         clauseInserter: createWordClauseInserter(),
 
         async initialize(): Promise<boolean> {

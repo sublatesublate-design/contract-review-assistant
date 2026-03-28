@@ -1,0 +1,121 @@
+{
+  "templateId": "enforcement_004",
+  "categoryId": "enforcement",
+  "categoryLabel": "执行",
+  "orientation": "request",
+  "documentKind": "main_pleading",
+  "documentTitle": "执行担保申请书",
+  "caseTitle": "被执行人或他人提供执行担保用",
+  "label": "执行担保申请书（被执行人或他人提供执行担保用）",
+  "templateFile": "enforcement_004.docx",
+  "manifestFile": "enforcement_004.json",
+  "fileNamePrefix": "执行担保申请书（被执行人或他人提供执行担保用）",
+  "fields": [
+    {
+      "key": "field_001",
+      "label": "担保人 （自然人）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：被执行人□ 利害关系人□ 案外人□ 其他□ 姓名： 性别：男□ 女□ 出生日期： 年 月 日 民族： 工作单位： 职务： 联系电话： 住所地（户籍所在地）： 经常居住地： 证件类型： 证件号码："
+    },
+    {
+      "key": "field_002",
+      "label": "担保人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：被执行人□ 利害关系人□ 案外人□ 其他□ 名称： 住所地（主要办事机构所在地）： 注册地 / 登记地： 法定代表人 / 负责人： 职务： 联系电话： 统一社会信用代码："
+    },
+    {
+      "key": "field_003",
+      "label": "担保人 （法人、非法人组织）",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "类型：有限责任公司□ 股份有限公司□ 其他企业法人□ 事业单位□ 社会团体□ 基金会□ 社会服务机构□ 机关法人□ 农村集体经济组织法人□ 城镇农村的合作经济组织法人□ 基层群众性自治组织法人□ 个人独资企业□ 合伙企业□ 不具有法人资格的专业服务机构□ 所有制性质：国有□（控股□ 参股□) 民营□ 其他"
+    },
+    {
+      "key": "field_004",
+      "label": "被担保人",
+      "blockTitle": "当事人信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "身份：申请执行人□ 被执行人□ 利害关系人□ 案外人□ 其他□ 姓名 / 名称： 联系电话："
+    },
+    {
+      "key": "field_005",
+      "label": "担保方式",
+      "blockTitle": "担保信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "财产担保□ 保证□ 其他□"
+    },
+    {
+      "key": "field_006",
+      "label": "被担保的债权种类及 数额",
+      "blockTitle": "担保信息",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "被担保的债权种类：金钱给付□ 特定物交付□ 行为□ 其他□ 被担保的债权数额"
+    },
+    {
+      "key": "field_007",
+      "label": "担保期间",
+      "blockTitle": "担保范围",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "年 月 日 —— 年 月 日"
+    },
+    {
+      "key": "field_008",
+      "label": "申请暂缓执行期限",
+      "blockTitle": "担保范围",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "年 月 日 —— 年 月 日"
+    },
+    {
+      "key": "field_009",
+      "label": "担保财产的情况",
+      "blockTitle": "担保范围",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "名称 数量 质量 状况 所在地 所有权或使用权归属 权利瑕疵（如有抵押、有其他担保、有租赁等） 其他"
+    },
+    {
+      "key": "field_010",
+      "label": "承诺 （电子版需输入一遍 承诺内容，并在承诺 人处签名；纸质版需 手写一遍承诺内容， 并在承诺人处签名）",
+      "blockTitle": "担保范围",
+      "sourceSection": "facts",
+      "required": true,
+      "multiline": true,
+      "hint": "如被执行人在你院暂缓执行期限届满后仍不履行义务，你院可以直接执行 本人 / 本单位的财产。 承诺人"
+    },
+    {
+      "key": "field_011",
+      "label": "申请人（签字、盖章）",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "key": "field_012",
+      "label": "日期",
+      "blockTitle": "落款",
+      "sourceSection": "footer",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

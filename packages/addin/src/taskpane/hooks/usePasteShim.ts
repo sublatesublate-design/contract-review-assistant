@@ -4,15 +4,15 @@ import { useEffect } from 'react';
  * Global paste shim for Mac Word/WPS taskpane webviews.
  *
  * Strategy:
- * 1) In WPS: intercept both shortcut and context-menu paste, then insert plain text manually.
- * 2) In non-WPS hosts: only intercept shortcut paste, keep context-menu paste native.
- * 3) Use Clipboard API as fallback when clipboardData is unavailable.
+ * 1) For <input> and <textarea>: do NOT intercept — let native paste work.
+ *    WPS CEF handles native paste into standard form elements just fine;
+ *    intercepting it breaks paste because Clipboard API is unavailable in CEF.
+ * 2) For contentEditable elements: intercept and manually insert plain text,
+ *    because the host app (Word/WPS) may capture Cmd+V/Ctrl+V before the
+ *    webview gets it.
  */
 export function usePasteShim() {
     useEffect(() => {
-        const isWpsHost = typeof (window as any).wps !== 'undefined';
-        let lastFocusedEditable: HTMLElement | null = null;
-
         function isEditableTarget(el: Element | null): el is HTMLElement {
             if (!el) return false;
             if (el instanceof HTMLTextAreaElement) return !el.disabled && !el.readOnly;
@@ -23,36 +23,8 @@ export function usePasteShim() {
             return el instanceof HTMLElement && el.isContentEditable;
         }
 
-        function isInsideTaskpane(el: Element | null): boolean {
-            if (!el) return false;
-            const root = document.getElementById('root');
-            return !!root && root.contains(el);
-        }
-
-        function resolveEditableTarget(source?: EventTarget | null): HTMLElement | null {
-            const fromEventTarget = source instanceof Element ? source : null;
-            if (isEditableTarget(fromEventTarget) && isInsideTaskpane(fromEventTarget)) return fromEventTarget;
-
-            const active = document.activeElement;
-            if (isEditableTarget(active) && isInsideTaskpane(active)) return active;
-
-            if (
-                lastFocusedEditable &&
-                document.contains(lastFocusedEditable) &&
-                isEditableTarget(lastFocusedEditable) &&
-                isInsideTaskpane(lastFocusedEditable)
-            ) {
-                return lastFocusedEditable;
-            }
-            return null;
-        }
-
-        function insertTextIntoInputLike(target: HTMLInputElement | HTMLTextAreaElement, text: string) {
-            target.focus();
-            const start = target.selectionStart ?? target.value.length;
-            const end = target.selectionEnd ?? target.value.length;
-            target.setRangeText(text, start, end, 'end');
-            target.dispatchEvent(new Event('input', { bubbles: true }));
+        function isNativeFormElement(el: Element | null): boolean {
+            return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
         }
 
         function insertTextIntoContentEditable(target: HTMLElement, text: string) {
@@ -74,138 +46,8 @@ export function usePasteShim() {
             target.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
-        function insertTextToElement(target: HTMLElement, text: string) {
-            if (!text) return;
-            if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-                insertTextIntoInputLike(target, text);
-                return;
-            }
-            if (target.isContentEditable) {
-                insertTextIntoContentEditable(target, text);
-            }
-        }
-
-        if (isWpsHost) {
-            let shortcutToken = 0;
-            let shortcutHandledToken = 0;
-
-            const handleWpsFocusIn = (e: FocusEvent) => {
-                const target = resolveEditableTarget(e.target);
-                if (target) {
-                    lastFocusedEditable = target;
-                }
-            };
-
-            const handleWpsMouseDown = (e: MouseEvent) => {
-                const target = resolveEditableTarget(e.target);
-                if (target) {
-                    lastFocusedEditable = target;
-                }
-            };
-
-            const handleWpsKeyDown = (e: KeyboardEvent) => {
-                const key = (e.key || '').toLowerCase();
-                const isPasteShortcut = (e.metaKey || e.ctrlKey) && (key === 'v' || e.keyCode === 86);
-                if (!isPasteShortcut) return;
-
-                const target = resolveEditableTarget(e.target);
-                if (!target) return;
-                lastFocusedEditable = target;
-
-                e.preventDefault();
-                e.stopPropagation();
-                (e as any).stopImmediatePropagation?.();
-
-                shortcutToken += 1;
-                const token = shortcutToken;
-
-                window.setTimeout(() => {
-                    if (token !== shortcutToken || token === shortcutHandledToken) return;
-                    if (!navigator.clipboard?.readText) return;
-
-                    void navigator.clipboard.readText()
-                        .then((text) => {
-                            if (token !== shortcutToken || token === shortcutHandledToken) return;
-                            if (!text) return;
-                            insertTextToElement(target, text);
-                            shortcutHandledToken = token;
-                        })
-                        .catch((err) => {
-                            console.warn('[PasteShim][WPS] Shortcut clipboard fallback failed:', err);
-                        });
-                }, 20);
-            };
-
-            const handleWpsPaste = (e: ClipboardEvent) => {
-                const target = resolveEditableTarget(e.target);
-                if (!target) return;
-                lastFocusedEditable = target;
-
-                e.preventDefault();
-                e.stopPropagation();
-                (e as any).stopImmediatePropagation?.();
-
-                const token = shortcutToken;
-                const textFromEvent = e.clipboardData?.getData('text/plain') || '';
-                if (textFromEvent) {
-                    insertTextToElement(target, textFromEvent);
-                    if (token > 0) {
-                        shortcutHandledToken = token;
-                    }
-                    return;
-                }
-
-                if (!navigator.clipboard?.readText) return;
-                void navigator.clipboard.readText()
-                    .then((text) => {
-                        if (!text) return;
-                        insertTextToElement(target, text);
-                        if (token > 0) {
-                            shortcutHandledToken = token;
-                        }
-                    })
-                    .catch((err) => {
-                        console.warn('[PasteShim][WPS] Clipboard API fallback failed:', err);
-                    });
-            };
-
-            console.log('[PasteShim] WPS host detected, using strict taskpane paste mode.');
-            document.addEventListener('focusin', handleWpsFocusIn, true);
-            document.addEventListener('mousedown', handleWpsMouseDown, true);
-            document.addEventListener('keydown', handleWpsKeyDown, true);
-            document.addEventListener('paste', handleWpsPaste, true);
-
-            return () => {
-                document.removeEventListener('focusin', handleWpsFocusIn, true);
-                document.removeEventListener('mousedown', handleWpsMouseDown, true);
-                document.removeEventListener('keydown', handleWpsKeyDown, true);
-                document.removeEventListener('paste', handleWpsPaste, true);
-            };
-        }
-
         let shortcutToken = 0;
         let shortcutHandledToken = 0;
-        let shortcutTarget: HTMLElement | null = null;
-
-        async function fallbackReadClipboardAndInsert(token: number, releaseOnFailure = false) {
-            if (token !== shortcutToken || token === shortcutHandledToken) return;
-            const active = shortcutTarget || (document.activeElement as HTMLElement | null);
-            if (!isEditableTarget(active)) return;
-            if (!navigator.clipboard?.readText) return;
-
-            try {
-                const text = await navigator.clipboard.readText();
-                if (token !== shortcutToken || token === shortcutHandledToken) return;
-                if (!text) return;
-                insertTextToElement(active, text);
-                shortcutHandledToken = token;
-            } catch (err) {
-                console.warn('[PasteShim] Clipboard API fallback failed:', err);
-                if (releaseOnFailure && token === shortcutToken) {
-                    shortcutHandledToken = token;
-                }
-            }
-        }
 
         function handleKeyDown(e: KeyboardEvent) {
             const key = (e.key || '').toLowerCase();
@@ -215,17 +57,31 @@ export function usePasteShim() {
             const target = document.activeElement;
             if (!isEditableTarget(target)) return;
 
-            // Stop host/editor from handling this shortcut outside the taskpane.
+            // For input/textarea: do NOT intercept — let native Ctrl+V / Cmd+V work.
+            if (isNativeFormElement(target)) return;
+
+            // For contentEditable: intercept to prevent host from capturing the shortcut.
             e.preventDefault();
             e.stopPropagation();
 
             shortcutToken += 1;
             const token = shortcutToken;
-            shortcutTarget = target;
 
-            // If a native paste event does not arrive shortly, do manual fallback.
+            // If a native paste event does not arrive shortly, try Clipboard API fallback.
             window.setTimeout(() => {
-                void fallbackReadClipboardAndInsert(token);
+                if (token !== shortcutToken || token === shortcutHandledToken) return;
+                if (!navigator.clipboard?.readText) return;
+
+                void navigator.clipboard.readText()
+                    .then((text) => {
+                        if (token !== shortcutToken || token === shortcutHandledToken) return;
+                        if (!text) return;
+                        insertTextIntoContentEditable(target, text);
+                        shortcutHandledToken = token;
+                    })
+                    .catch((err) => {
+                        console.warn('[PasteShim] Clipboard API fallback failed:', err);
+                    });
             }, 45);
         }
 
@@ -233,10 +89,13 @@ export function usePasteShim() {
             const active = document.activeElement as HTMLElement | null;
             if (!isEditableTarget(active)) return;
 
-            // Context-menu paste path: keep native behavior untouched.
+            // For input/textarea: always let native paste through.
+            if (isNativeFormElement(active)) return;
+
+            // Context-menu paste path for contentEditable: keep native behavior.
             if (shortcutToken === 0 || shortcutToken === shortcutHandledToken) return;
 
-            // Shortcut paste path: consume once and insert plain text ourselves.
+            // Shortcut paste path for contentEditable: consume and insert plain text.
             e.preventDefault();
             e.stopPropagation();
 
@@ -246,7 +105,7 @@ export function usePasteShim() {
                 return;
             }
 
-            insertTextToElement(active, text);
+            insertTextIntoContentEditable(active, text);
             shortcutHandledToken = shortcutToken;
         }
 

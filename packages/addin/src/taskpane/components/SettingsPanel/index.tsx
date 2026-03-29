@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
-import { Save, RefreshCw, Eye, EyeOff, Server, Cpu, KeyRound, BookText, Plus, Edit2, Trash2, Check, X, Plug, Unplug, Wrench } from 'lucide-react';
+import { Save, RefreshCw, Eye, EyeOff, Server, Cpu, KeyRound, BookText, Plus, Edit2, Trash2, Check, X, Plug, Unplug, Wrench, ClipboardPaste } from 'lucide-react';
 import clsx from 'clsx';
 import { useSettingsStore } from '../../../store/settingsStore';
 import type { AppSettings, ProviderType, ReviewDepth, ReviewTemplate } from '../../../types/settings';
@@ -263,24 +263,69 @@ export default function SettingsPanel() {
 
 const InputControl = memo(({ inputRef, defaultValue, isPassword, placeholder }: any) => {
     const [show, setShow] = useState(false);
+    const isWps = typeof (window as any).wps !== 'undefined';
+
+    // WPS CEF: Clipboard API 不可用，用 prompt() 作为终极后备
+    const handlePasteClick = async () => {
+        const input = inputRef?.current;
+        if (!input) return;
+
+        // 尝试 Clipboard API（用户手势触发，权限更好）
+        try {
+            if (navigator.clipboard?.readText) {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    input.value = text;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    return;
+                }
+            }
+        } catch { /* fall through */ }
+
+        // 终极后备：prompt 对话框（所有 CEF 版本都支持）
+        const text = window.prompt('请粘贴 API Key：');
+        if (text) {
+            input.value = text;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
+
+    // WPS CEF 部分版本阻止粘贴到 type="password"，
+    // 改用 type="text" + CSS -webkit-text-security 遮罩
+    const masked = isPassword && !show;
+    const inputType = masked ? (isWps ? 'text' : 'password') : 'text';
+
     return (
         <div className="relative">
             <input
                 ref={inputRef}
-                type={isPassword && !show ? 'password' : 'text'}
+                type={inputType}
                 defaultValue={defaultValue || ''}
                 placeholder={placeholder}
-                className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                className={`w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 ${isPassword ? (isWps ? 'pr-14' : 'pr-8') : ''}`}
+                style={masked && isWps ? { WebkitTextSecurity: 'disc' } as React.CSSProperties : undefined}
             />
-            {isPassword && (
-                <button
-                    type="button"
-                    onClick={() => setShow(!show)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                    {show ? <EyeOff size={13} /> : <Eye size={13} />}
-                </button>
-            )}
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                {isPassword && isWps && (
+                    <button
+                        type="button"
+                        onClick={handlePasteClick}
+                        title="粘贴"
+                        className="text-gray-400 hover:text-primary-600 transition-colors p-0.5"
+                    >
+                        <ClipboardPaste size={13} />
+                    </button>
+                )}
+                {isPassword && (
+                    <button
+                        type="button"
+                        onClick={() => setShow(!show)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                    >
+                        {show ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                )}
+            </div>
         </div>
     );
 });

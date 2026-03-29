@@ -62,7 +62,10 @@ module.exports = (env, argv) => {
                 filename: '[name].[contenthash].css',
             }),
             new CopyPlugin({
-                patterns: [{ from: 'assets', to: 'assets', noErrorOnMissing: true }],
+                patterns: [
+                    { from: 'assets', to: 'assets', noErrorOnMissing: true },
+                    { from: 'wps-addin', to: 'wps-addin', globOptions: { ignore: ['**/node_modules/**', '**/*.mjs'] } },
+                ],
             }),
         ],
         devServer: {
@@ -82,7 +85,6 @@ module.exports = (env, argv) => {
             static: [
                 { directory: path.join(__dirname, 'public') },
                 { directory: path.join(__dirname, 'dist') },
-                { directory: path.join(__dirname, 'wps-addin'), publicPath: '/wps-addin' },
             ],
             proxy: {
                 '/api': {

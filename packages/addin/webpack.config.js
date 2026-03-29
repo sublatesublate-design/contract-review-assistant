@@ -82,6 +82,7 @@ module.exports = (env, argv) => {
             static: [
                 { directory: path.join(__dirname, 'public') },
                 { directory: path.join(__dirname, 'dist') },
+                { directory: path.join(__dirname, 'wps-addin'), publicPath: '/wps-addin' },
             ],
             proxy: {
                 '/api': {

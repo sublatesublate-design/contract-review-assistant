@@ -95,11 +95,11 @@ echo.
 echo   [模式] WPS Office
 echo.
 
-:: 注册 WPS 插件（端口 3889）
-echo   [提示] 正在注册 WPS 插件服务（端口 3889）...
-start "WPS-Plugin" /min cmd /c "chcp 65001 >nul 2>&1 && cd /d "%~dp0packages\addin\wps-addin" && node wps-register.mjs"
-timeout /t 3 >nul
-echo   [OK] WPS 插件服务已启动
+:: 注册 WPS 插件（写入 publish.xml，与 exe 安装包相同方式）
+echo   [提示] 正在注册 WPS 插件...
+cd /d "%~dp0packages\addin\wps-addin"
+call node wps-register.mjs
+cd /d "%~dp0"
 
 echo.
 echo   ========================================

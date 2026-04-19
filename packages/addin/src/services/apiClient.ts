@@ -1,7 +1,7 @@
 /**
  * apiClient.ts
- * 闁告挸绉堕顒佺▔鎼粹剝鍊电紒?Express 闁哄牆绉存慨鐔兼焻濮橆偂绻嗛柣銊ュ閻ㄦ繄鎲楅崨顓犳勾
- * 闁哄倹婢橀·鍐晬濮樿埖鏅╅悹鍥跺灠閸ㄥ海鐚炬导娆戠auth/quota/network/unknown闁? 缂傚啯鍨圭划鍫曟煥濞嗘帩鍤栭柤濂変簻婵晠鏌屽鍫㈡Ц闁挎稑鐗婂〒鑸靛緞?2 婵炲棌妲勭槐?
+ * Client helpers for review, chat, and litigation APIs.
+ * Includes streaming utilities and user-facing fallback error mapping.
  */
 import type { ReviewIssue } from '../types/review';
 import type { ReviewErrorType } from '../store/reviewStore';
@@ -31,16 +31,16 @@ export interface ReviewStreamRequest {
     depth: 'quick' | 'standard' | 'deep';
     standpoint?: string;
     apiKey?: string | undefined;
-    baseUrl?: string | undefined;   // OpenAI 闁稿繒鍘ч鎰板箳閵夈儱缍撻柨娑樻箳eepSeek/闁哄牜鍓欏﹢瀛樼閿濆洦鍊炵紒娑橆檧缁?
+    baseUrl?: string | undefined;   // Optional provider base URL.
     globalInstruction?: string | undefined;
     selectedTemplate?: { name: string; prompt: string } | undefined;
 }
 
 export interface ReviewStreamCallbacks {
     onIssue: (issue: ReviewIssue) => void;
-    /** summary 閻㈩垽绠戣ぐ鏌ユ焻婢跺鐎☉鏃撳鐞氼偊宕圭€ｂ晙绻嗛柟?*/
+    /** Called when the backend emits a summary event. */
     onSummary: (summary: string, model: string, documentType?: string, documentLabel?: string) => void;
-    /** 闂佹寧鐟ㄩ銈夊炊閻愬墎娈堕柨娑樼焸濡绢喚鏁敃鈧崹搴ｇ尵閼姐倛顫﹂柛?*/
+    /** Called when the request fails after error classification. */
     onError: (err: string, errorType?: ReviewErrorType) => void;
 }
 
@@ -50,7 +50,7 @@ export interface ChatStreamRequest {
     provider: string;
     model: string;
     apiKey?: string | undefined;
-    baseUrl?: string | undefined;   // OpenAI 闁稿繒鍘ч鎰板箳閵夈儱缍?
+    baseUrl?: string | undefined;   // Optional provider base URL.
 }
 
 export interface ChatStreamCallbacks {
@@ -59,35 +59,96 @@ export interface ChatStreamCallbacks {
     onError: (err: string, errorType?: ReviewErrorType) => void;
 }
 
-/** 闁哄秷顫夊畵渚€鏌ㄥ▎鎺濆殩濞ｅ洠鍓濇导?闁绘鍩栭埀顑胯兌閻栨粓宕氶崱娆掝潶 */
-function classifyError(err: unknown, status?: number): { message: string; errorType: ReviewErrorType } {
-    const raw = err instanceof Error ? err.message : String(err);
+function extractErrorText(err: unknown): string {
+    if (err instanceof Error) {
+        return err.message || err.name;
+    }
+    if (typeof err === 'string') {
+        return err;
+    }
+    if (err && typeof err === 'object') {
+        const record = err as Record<string, unknown>;
+        const nested = record['message'] ?? record['error'] ?? record['detail'];
+        if (typeof nested === 'string' && nested.trim()) {
+            return nested;
+        }
+        try {
+            return JSON.stringify(err);
+        } catch {
+            return String(err);
+        }
+    }
+    return String(err ?? '');
+}
+
+function normalizeErrorText(text: string): string {
+    return text
+        .replace(/^error:\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function looksLikeMojibake(text: string): boolean {
+    const normalized = normalizeErrorText(text);
+    if (!normalized) return false;
+    if (normalized.includes('\ufffd')) return true;
+
+    const suspiciousFragments = ['锛', '璇', '鏃', '鍦', '缃', '闄', '閿', '鍚', '宸', '绋', '鏈'];
+    let hits = 0;
+    for (const fragment of suspiciousFragments) {
+        if (normalized.includes(fragment)) {
+            hits++;
+            if (hits >= 2) return true;
+        }
+    }
+
+    return false;
+}
+
+function shouldExposeRawDetail(text: string): boolean {
+    const normalized = normalizeErrorText(text);
+    if (!normalized) return false;
+    if (looksLikeMojibake(normalized)) return false;
+    if (/^script error\.?$/i.test(normalized)) return false;
+    if (/^uncaught runtime errors?/i.test(normalized)) return false;
+    return normalized.length <= 160;
+}
+
+export function toUserFacingError(err: unknown, status?: number): { message: string; errorType: ReviewErrorType } {
+    const raw = normalizeErrorText(extractErrorText(err));
     const lower = raw.toLowerCase();
 
     if (status === 401 || lower.includes('invalid_api_key') || lower.includes('authentication') || lower.includes('unauthorized')) {
-        return { message: `API Key 鏃犳晥锛岃鍦ㄨ缃腑妫€鏌ユ偍鐨勫瘑閽ワ紙${raw}锛塦`, errorType: 'auth' };
+        return { message: '\u0041\u0050\u0049\u0020\u004b\u0065\u0079\u0020\u65e0\u6548\uff0c\u8bf7\u5728\u8bbe\u7f6e\u4e2d\u68c0\u67e5\u60a8\u7684\u5bc6\u94a5\u3002', errorType: 'auth' };
     }
     if (status === 429 || lower.includes('rate_limit') || lower.includes('rate limit') || lower.includes('insufficient') || lower.includes('quota')) {
-        return { message: `浣欓涓嶈冻鎴栬揪鍒伴€熺巼闄愬埗锛岃绋嶅悗鍐嶈瘯锛?{raw}锛塦`, errorType: 'quota' };
+        return { message: '\u4f59\u989d\u4e0d\u8db3\u6216\u89e6\u53d1\u901f\u7387\u9650\u5236\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002', errorType: 'quota' };
     }
     if (lower.includes('failed to fetch') || lower.includes('load failed') || lower.includes('econnrefused') || lower.includes('network') || lower.includes('fetch') || lower.includes('connect')) {
-        return { message: `鏃犳硶杩炴帴鏈嶅姟鍣紝璇锋鏌ョ綉缁滃拰鏈嶅姟鍦板潃锛?{raw}锛塦`, errorType: 'network' };
+        return { message: '\u65e0\u6cd5\u8fde\u63a5\u670d\u52a1\u5668\uff0c\u8bf7\u68c0\u67e5\u7f51\u7edc\u548c\u670d\u52a1\u5668\u5730\u5740\u3002', errorType: 'network' };
     }
-    return { message: raw, errorType: 'unknown' };
+    if (shouldExposeRawDetail(raw)) {
+        return { message: raw, errorType: 'unknown' };
+    }
+    return { message: '\u8bf7\u6c42\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002', errorType: 'unknown' };
 }
 
-/** 婵☆偀鍋撴繛鏉戭儐濡叉悂宕ラ敂鑳 Mac Word 闁?WKWebView闁挎稑鐗呯粭澶愬绩椤栨稑鐦?fetch/XHR 婵炵繝绀佺槐?ReadableStream闁?*/
+/** Maps transport and provider failures to user-facing error buckets. */
+function classifyError(err: unknown, status?: number): { message: string; errorType: ReviewErrorType } {
+    return toUserFacingError(err, status);
+}
+
+/** Detect the Mac Word WKWebView host, which has limited streaming support. */
 function isMacWordWebView(): boolean {
     const ua = navigator.userAgent;
-    // Mac + WebKit 濞达絽妫濆?Chrome/Chromium闁挎稑婀筆S 濞达綀娉曢弫?CEF/Chromium闁挎稑濂旂粭澶愬矗濡も偓婵傛牠宕蹇曠
+    // Windows hosts use Chromium-based webviews and should not match here.
     return /Macintosh/.test(ua) && /AppleWebKit/.test(ua) && !/Chrome/.test(ua);
 }
 
 /**
- * 闂侇偅淇虹换?EventSource闁挎稑鐗嗙敮顐︽偨?SSE闁挎稑顦悿鍕偝閻楀牏銈︾€殿喖绻戠粔椋庢嫻?
- * WKWebView 闁?fetch ReadableStream 闁?XHR onprogress 闂侇喗鍨濈槐鎵磽閹惧啿鏆遍柛婵嗙Т缁ㄦ煡鏁?
- * 濞达絽妫楃敮顐︽偨?EventSource API 闁告瑯鍨遍婊呮暜閹间讲鍋撻幇顏嗙殤濞寸姵鍎艰闁告瑦鍨埀?
- * 婵炵繝鑳堕埢濂告晬濮濆尗ST /init 闁告帗绋戠紓鎾存媴濠娾偓缁?闁?GET /stream/:jobId 闁?EventSource 婵炴垵鐗愰崹?
+ * Fallback SSE transport for Mac Word.
+ * WKWebView does not reliably support fetch streaming or XHR progress events.
+ * Create the job with POST /init, then subscribe via EventSource.
  */
 async function sseViaEventSource(
     initUrl: string,
@@ -95,7 +156,7 @@ async function sseViaEventSource(
     body: string,
     handlers: { onEvent: (data: Record<string, unknown>) => void }
 ): Promise<void> {
-    // Phase 1: POST 闁告帗绋戠紓鎾存媴濠娾偓缁楃喖鏁嶅畝鍐ㄧ闁?jobId
+    // Phase 1: create the job and read back the jobId.
     const initRes = await fetch(initUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,7 +168,7 @@ async function sseViaEventSource(
     }
     const { jobId } = (await initRes.json()) as { jobId: string };
 
-    // Phase 2: EventSource 婵炵繝绀佺槐鈥斥槈閸絽鐎?
+    // Phase 2: subscribe to the stream with EventSource.
     return new Promise<void>((resolve, reject) => {
         const es = new EventSource(`${streamUrlBase}/${jobId}`);
         es.onmessage = (event) => {
@@ -118,7 +179,7 @@ async function sseViaEventSource(
                     es.close();
                     resolve();
                 }
-            } catch { /* 闊洨鏅弳鎰版?JSON */ }
+            } catch { /* Ignore malformed JSON chunks. */ }
         };
         es.onerror = () => {
             es.close();
@@ -127,13 +188,13 @@ async function sseViaEventSource(
     });
 }
 
-/** 閻㈩垽绠撻崳鍝ユ嫚閺囩姵鐣?fetch闁挎稒鐭划搴ㄦ⒔閹邦喚绉圭紓浣圭矒閺佸﹦鎷犻銈囩闁哄牃鍋撳?2 婵炲棌妲勭槐婵喰掕箛鏃戝仹鐎点倖鍎肩换?2s */
+/** Retry transient fetch failures and 5xx responses. */
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
     let lastErr: unknown;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             const resp = await fetch(url, options);
-            // 5xx 闁哄牆绉存慨鐔虹博椤栫偞鏅╅悹鍥跺灡婢х娀鏌屽鍫㈡Ц
+            // Retry transient 5xx responses.
             if (resp.status >= 500 && attempt < maxRetries) {
                 await new Promise((r) => setTimeout(r, 2000));
                 continue;
@@ -249,10 +310,10 @@ function normalizeFooter(value: unknown): ElementComplaintFooter {
     const signerLabel = toStringValue(record['signerLabel']).trim();
     const dateLabel = toStringValue(record['dateLabel']).trim();
     const derivedLines = [
-        court ? '姝よ嚧' : '',
+        court ? '\u6b64\u81f4' : '',
         court,
-        signerLabel ? `${signerLabel}锛歚` : '',
-        dateLabel ? `${dateLabel}锛歚` : '',
+        signerLabel ? signerLabel + '\uff1a' : '',
+        dateLabel ? dateLabel + '\uff1a' : '',
     ].filter((line) => line.trim().length > 0);
 
     return {
@@ -264,7 +325,7 @@ function normalizeFooter(value: unknown): ElementComplaintFooter {
 function normalizeElementComplaintRenderModel(value: unknown): ElementComplaintRenderModel {
     if (!value || typeof value !== 'object') {
         return {
-            title: { main: '姘戜簨璧疯瘔鐘?' },
+            title: { main: '\u6c11\u4e8b\u8d77\u8bc9\u72b6' },
             instructions: [],
             blocks: [],
             footer: { lines: [] },
@@ -277,7 +338,7 @@ function normalizeElementComplaintRenderModel(value: unknown): ElementComplaintR
 
     return {
         title: {
-            main: toStringValue(titleObject['main'] ?? titleObject['primary'] ?? titleValue ?? record['caseType'] ?? '姘戜簨璧疯瘔鐘?'),
+            main: toStringValue(titleObject['main'] ?? titleObject['primary'] ?? titleValue ?? record['caseType'] ?? '\u6c11\u4e8b\u8d77\u8bc9\u72b6'),
             sub: toStringValue(titleObject['sub'] ?? titleObject['subtitle'] ?? record['caseType'] ?? '').trim() || undefined,
         },
         instructions: normalizeStringArray(record['instructions']),
@@ -314,7 +375,7 @@ function normalizeElementPleadingResponse(value: unknown): ElementPleadingApiRes
 
 export const apiClient = {
     /**
-     * 闁告瑦鍨奸幑锝夊棘閸モ晩鐒鹃悗鍏夊墲閻楀酣鏁嶉崷鐜圗 婵炵繝绀佺槐锟犳晬?
+     * Stream contract review issues and summary updates.
      */
     async reviewStream(
         req: ReviewStreamRequest,
@@ -340,7 +401,7 @@ export const apiClient = {
             }
         };
 
-        // Mac Word (WKWebView) 闁?fetch/XHR 闂侇喗鍨濈槐鎵磽閹惧啿鏆?SSE 闁告繂绉寸花鏌ユ晬鐏炵偓鏆柣顫妼鐢偊鎮?EventSource
+        // Mac Word WKWebView falls back to EventSource-based SSE.
         if (isMacWordWebView()) {
             try {
                 await sseViaEventSource(
@@ -380,7 +441,7 @@ export const apiClient = {
     },
 
     /**
-     * AI 閻庣數顢婇惁浠嬫晬閸︾巿E 婵炵繝绀佺槐锟犳晬?
+     * Stream AI chat responses.
      */
     async chatStream(
         req: ChatStreamRequest,
@@ -397,7 +458,7 @@ export const apiClient = {
             else if (data['type'] === 'error') callbacks.onError(data['message'] as string);
         };
 
-        // Mac Word (WKWebView) 闁?fetch/XHR 闂侇喗鍨濈槐鎵磽閹惧啿鏆?SSE 闁告繂绉寸花鏌ユ晬鐏炵偓鏆柣顫妼鐢偊鎮?EventSource
+        // Mac Word WKWebView falls back to EventSource-based SSE.
         if (isMacWordWebView()) {
             try {
                 await sseViaEventSource(
@@ -436,7 +497,7 @@ export const apiClient = {
         await consumeSSE(response, { onEvent });
     },
     /**
-     * 闁兼儳鍢茶ぐ鍥矗椤栨粍鏆忔俊顖椻偓宕団偓鐑藉礆濡ゅ嫨鈧?
+     * Load the model list from the backend.
      */
     async getModels(serverUrl: string): Promise<ModelInfo[]> {
         try {
@@ -450,7 +511,7 @@ export const apiClient = {
     },
 
     /**
-     * 闁兼儳鍢茶ぐ鍥╃磼閹惧鈧垶宕犻弽銊︾€紒瀣閹插磭鎲版笟濠勭闂傚牏鍋炵粊锕€顕ｈ箛銉х
+     * Fetch a contract summary.
      */
     async getSummary(
         req: Omit<ReviewStreamRequest, 'depth' | 'customTemplates' | 'standpoint'>,
@@ -472,7 +533,7 @@ export const apiClient = {
                 } catch {
                     errorData = { error: res.statusText };
                 }
-                throw new Error(errorData.error || `閻犲洭鏀遍惇鐗堝緞鏉堫偉袝 (${res.status})`);
+                throw new Error(errorData.error || ('\u6458\u8981\u751f\u6210\u5931\u8d25 (' + res.status + ')'));
             }
 
             return await res.json() as ContractSummary;
@@ -568,18 +629,18 @@ export const apiClient = {
             } catch {
                 message = await response.text().catch(() => '');
             }
-            throw new Error(message || `闁兼儳鍢茶ぐ鍥┾偓瑙勆戦弻鐔肺熼埄鍐╃凡闁烩晩鍠栫紞宥嗗緞鏉堫偉袝 (${response.status})`);
+            throw new Error(message || ('\u83b7\u53d6\u8981\u7d20\u5f0f\u6587\u4e66\u6a21\u677f\u5931\u8d25 (' + response.status + ')'));
         }
 
         const payload = await response.json() as { categories?: ElementPleadingTemplateCategory[] };
         return Array.isArray(payload.categories) ? payload.categories : [];
     },
 
-    // 闁冲厜鍋撻柍鍏夊亾 MCP 缂佺媴绱曢幃?闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?
+    // MCP server management.
     async getMcpServers(serverUrl?: string): Promise<McpServerStatus[]> {
         const base = serverUrl || window.location.origin;
         const res = await fetch(`${base}/api/mcp/servers`);
-        if (!res.ok) throw new Error(`闁兼儳鍢茶ぐ?MCP 闁哄牆绉存慨鐔煎闯閵娿儱鐏欓悶娑栧妼閵囨垹鎷?(${res.status})`);
+        if (!res.ok) throw new Error('\u83b7\u53d6 MCP \u670d\u52a1\u5668\u5217\u8868\u5931\u8d25 (' + res.status + ')');
         return await res.json() as McpServerStatus[];
     },
 
@@ -592,26 +653,26 @@ export const apiClient = {
         });
         if (!res.ok) {
             const data = await res.json().catch(() => ({})) as Record<string, unknown>;
-            throw new Error((data['error'] as string) || `婵烇綀顕ф慨鐐村緞鏉堫偉袝 (${res.status})`);
+            throw new Error((data['error'] as string) || ('\u65b0\u589e MCP \u670d\u52a1\u5668\u5931\u8d25 (' + res.status + ')'));
         }
     },
 
     async removeMcpServer(serverId: string, serverUrl?: string): Promise<void> {
         const base = serverUrl || window.location.origin;
         const res = await fetch(`${base}/api/mcp/servers/${serverId}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error(`闁告帞濞€濞呭孩寰勬潏顐バ?(${res.status})`);
+        if (!res.ok) throw new Error('\u5220\u9664 MCP \u670d\u52a1\u5668\u5931\u8d25 (' + res.status + ')');
     },
 
     async reconnectMcpServer(serverId: string, serverUrl?: string): Promise<void> {
         const base = serverUrl || window.location.origin;
         const res = await fetch(`${base}/api/mcp/servers/${serverId}/reconnect`, { method: 'POST' });
-        if (!res.ok) throw new Error(`闂佹彃绉风换娑欏緞鏉堫偉袝 (${res.status})`);
+        if (!res.ok) throw new Error('\u91cd\u8fde MCP \u670d\u52a1\u5668\u5931\u8d25 (' + res.status + ')');
     },
 
     async getMcpTools(serverUrl?: string): Promise<McpToolInfo[]> {
         const base = serverUrl || window.location.origin;
         const res = await fetch(`${base}/api/mcp/tools`);
-        if (!res.ok) throw new Error(`闁兼儳鍢茶ぐ鍥ь啅閵夈儱寰旈柛鎺擃殙閵嗗啯寰勬潏顐バ?(${res.status})`);
+        if (!res.ok) throw new Error('\u83b7\u53d6 MCP \u5de5\u5177\u5217\u8868\u5931\u8d25 (' + res.status + ')');
         return await res.json() as McpToolInfo[];
     },
 };
@@ -640,7 +701,7 @@ export interface McpToolInfo {
 }
 
 /**
- * 闂侇偅姘ㄩ弫?SSE 婵炴垵鐗愰崹鍌炲礄閼恒儲娈?
+ * Consume a standard text/event-stream response.
  */
 async function consumeSSE(
     response: Response,
@@ -668,7 +729,7 @@ async function consumeSSE(
                     const data = JSON.parse(jsonStr) as Record<string, unknown>;
                     handlers.onEvent(data);
                 } catch {
-                    // 闊洨鏅弳鎰版?JSON 閻?
+                    // Ignore malformed JSON chunks.
                 }
             }
         }

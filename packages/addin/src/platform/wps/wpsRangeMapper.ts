@@ -7,7 +7,7 @@ import type { IRangeMapper, PlatformRange, RangeFindOptions } from '../types';
 function cleanForSearch(t: string): string {
     return t
         .replace(/[\*\?<>|\\/~]/g, '')
-        .replace(/[\u3010\u3011\[\]\u3008\u3009\u300c\u300d\u201c\u201d\u2018\u2019]/g, '')
+        .replace(/[\u3010\u3011\[\]\u3008\u3009\u300a\u300b\u300c\u300d\u300e\u300f\u201c\u201d\u2018\u2019]/g, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -114,7 +114,7 @@ function normalizeWithMap(
 }
 
 // 棰勭紪璇戝崟瀛楃姝ｅ垯
-const RE_CLEAN_CHAR = /[\*\?<>|\\/~\u3010\u3011\[\]\u3008\u3009\u300c\u300d\u201c\u201d\u2018\u2019]/;
+const RE_CLEAN_CHAR = /[\*\?<>|\\/~\u3010\u3011\[\]\u3008\u3009\u300a\u300b\u300c\u300d\u300e\u300f\u201c\u201d\u2018\u2019]/;
 const RE_PUNCT_CHAR = /[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/;
 const RE_MATCH_NOTHING = /$a/;
 
@@ -237,7 +237,7 @@ function buildSmartProbes(probeStr: string): string[] {
     pushProbe(bodyFirstSentence || bodyWithoutHeading);
 
     // 5) Remove bracket forms often rewritten by model.
-    const withoutBrackets = base.replace(/[\u3010\u3011\[\]]/g, '');
+    const withoutBrackets = base.replace(/[\u3010\u3011\[\]\u3008\u3009\u300a\u300b\u300c\u300d\u300e\u300f\u201c\u201d\u2018\u2019]/g, '');
     pushProbe(withoutBrackets);
 
     // 6) Keep old behavior as fallback.
@@ -245,6 +245,10 @@ function buildSmartProbes(probeStr: string): string[] {
 
     return probes;
 }
+
+const EDGE_WRAPPER_CHARS = '[\\u3008\\u3009\\u300a\\u300b\\u300c\\u300d\\u300e\\u300f\\u201c\\u201d\\u2018\\u2019\\u3010\\u3011\\uFF08\\uFF09\\[\\]\\(\\)]';
+const EDGE_PREFIX_RE = new RegExp(`^${EDGE_WRAPPER_CHARS}+`);
+const EDGE_SUFFIX_RE = new RegExp(`${EDGE_WRAPPER_CHARS}+$`);
 
 /* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 WpsRangeMapper 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 */
 
@@ -342,13 +346,100 @@ export class WpsRangeMapper implements IRangeMapper {
         return { start, end };
     }
 
+    private alignRangeToSearchEdges(
+        sourceText: string,
+        range: { start: number; end: number },
+        searchText: string
+    ): { start: number; end: number } {
+        const safe = {
+            start: Math.max(0, Math.min(sourceText.length, range.start)),
+            end: Math.max(0, Math.min(sourceText.length, range.end)),
+        };
+        const target = (searchText || '').trim();
+        if (!target) return safe;
+
+        const leading = target.match(EDGE_PREFIX_RE)?.[0] || '';
+        const trailing = target.match(EDGE_SUFFIX_RE)?.[0] || '';
+
+        let start = safe.start;
+        let end = Math.max(start, safe.end);
+
+        if (leading && start >= leading.length) {
+            const prefix = sourceText.slice(start - leading.length, start);
+            if (prefix === leading) {
+                start -= leading.length;
+            }
+        }
+
+        if (trailing && end + trailing.length <= sourceText.length) {
+            const suffix = sourceText.slice(end, end + trailing.length);
+            if (suffix === trailing) {
+                end += trailing.length;
+            }
+        }
+
+        return { start, end: Math.max(start, end) };
+    }
+
     private scoreRangeText(candidateText: string, searchText: string): number {
         const anchors = buildAnchors(searchText);
         const base = calcTextScore(candidateText, searchText);
         if (!Number.isFinite(base)) return -Infinity;
+        const candidateRaw = normalizeLineBreaksToSpace(candidateText);
+        const targetRaw = normalizeLineBreaksToSpace(searchText);
+        const rawAnchorLen = Math.min(24, Math.max(8, Math.floor(targetRaw.length * 0.18)));
+        const rawHead = targetRaw.slice(0, rawAnchorLen);
+        const rawTail = targetRaw.slice(Math.max(0, targetRaw.length - rawAnchorLen));
         const headBonus = hasAnchor(candidateText, anchors.head) ? 1.1 : -0.8;
         const tailBonus = hasAnchor(candidateText, anchors.tail) ? 1.1 : -0.8;
-        return base + headBonus + tailBonus;
+        const rawHeadBonus = rawHead.length >= 4
+            ? (candidateRaw.startsWith(rawHead) ? 0.9 : -0.4)
+            : 0;
+        const rawTailBonus = rawTail.length >= 4
+            ? (candidateRaw.endsWith(rawTail) ? 0.9 : -0.4)
+            : 0;
+        return base + headBonus + tailBonus + rawHeadBonus + rawTailBonus;
+    }
+
+    private findBestNormalizedMatch(
+        fullText: string,
+        fullNorm: NormResult,
+        searchNorm: NormResult,
+        searchText: string
+    ): { start: number; end: number } | null {
+        if (searchNorm.text.length < 2) return null;
+
+        let best: { start: number; end: number } | null = null;
+        let bestScore = -Infinity;
+        let bestSpan = Number.POSITIVE_INFINITY;
+        let idx = fullNorm.text.indexOf(searchNorm.text);
+        let guard = 0;
+
+        while (idx !== -1 && guard < 64) {
+            const lastNormIdx = idx + searchNorm.text.length - 1;
+            if (lastNormIdx < fullNorm.map.length) {
+                const start = fullNorm.map[idx]!;
+                const end = fullNorm.map[lastNormIdx]! + 1;
+                const candidateText = fullText.slice(start, end);
+                const score = this.scoreRangeText(candidateText, searchText);
+                const span = Math.max(0, end - start);
+
+                if (
+                    !best ||
+                    score > bestScore ||
+                    (score === bestScore && span < bestSpan)
+                ) {
+                    best = { start, end };
+                    bestScore = score;
+                    bestSpan = span;
+                }
+            }
+
+            idx = fullNorm.text.indexOf(searchNorm.text, idx + 1);
+            guard++;
+        }
+
+        return best;
     }
 
     private expandHitToBestRange(
@@ -450,8 +541,13 @@ export class WpsRangeMapper implements IRangeMapper {
                     continue;
                 }
 
-                const hit = (r: { start: number; end: number }): PlatformRange =>
-                    ({ _internal: { start: chunkStart + r.start, end: chunkStart + r.end }, _platform: 'wps' });
+                const hit = (r: { start: number; end: number }): PlatformRange => {
+                    const aligned = this.alignRangeToSearchEdges(chunkText, r, searchText);
+                    return {
+                        _internal: { start: chunkStart + aligned.start, end: chunkStart + aligned.end },
+                        _platform: 'wps',
+                    };
+                };
 
                 const exactIdx = chunkText.indexOf(searchPattern);
                 if (exactIdx !== -1) {
@@ -470,14 +566,14 @@ export class WpsRangeMapper implements IRangeMapper {
 
                 const normChunk = normalizeWithMap(chunkText, RE_CLEAN_CHAR, true);
                 const normSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true);
-                const rClean = normIndexOf(normChunk, normSearch);
+                const rClean = this.findBestNormalizedMatch(chunkText, normChunk, normSearch, searchText);
                 if (rClean) {
                     return hit(rClean);
                 }
 
                 const punctChunk = normalizeWithMap(chunkText, RE_PUNCT_CHAR, true);
                 const punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true);
-                const rPunct = normIndexOf(punctChunk, punctSearch);
+                const rPunct = this.findBestNormalizedMatch(chunkText, punctChunk, punctSearch, searchText);
                 if (rPunct) {
                     return hit(rPunct);
                 }
@@ -542,8 +638,10 @@ export class WpsRangeMapper implements IRangeMapper {
         if (!searchText || !fullText) return null;
 
         const searchPattern = searchText.replace(/\r?\n/g, '\r');
-        const hit = (r: { start: number; end: number }): PlatformRange =>
-            ({ _internal: { start: r.start, end: r.end }, _platform: 'wps' });
+        const hit = (r: { start: number; end: number }): PlatformRange => {
+            const aligned = this.alignRangeToSearchEdges(fullText, r, searchText);
+            return { _internal: { start: aligned.start, end: aligned.end }, _platform: 'wps' };
+        };
 
         const exactIdx = fullText.indexOf(searchPattern);
         if (exactIdx !== -1) {
@@ -552,21 +650,21 @@ export class WpsRangeMapper implements IRangeMapper {
 
         const rawFull = this._cachedRawFull || (this._cachedRawFull = normalizeWithMap(fullText, RE_MATCH_NOTHING, true));
         const rawSearch = normalizeWithMap(searchPattern, RE_MATCH_NOTHING, true);
-        const rRaw = normIndexOf(rawFull, rawSearch);
+        const rRaw = this.findBestNormalizedMatch(fullText, rawFull, rawSearch, searchText);
         if (rRaw) {
             return hit(rRaw);
         }
 
         const cleanFull = this._cachedCleanFull || (this._cachedCleanFull = normalizeWithMap(fullText, RE_CLEAN_CHAR, true));
         const cleanSearch = normalizeWithMap(searchText, RE_CLEAN_CHAR, true);
-        const rClean = normIndexOf(cleanFull, cleanSearch);
+        const rClean = this.findBestNormalizedMatch(fullText, cleanFull, cleanSearch, searchText);
         if (rClean) {
             return hit(rClean);
         }
 
         const punctFull = this._cachedPunctFull || (this._cachedPunctFull = normalizeWithMap(fullText, RE_PUNCT_CHAR, true));
         const punctSearch = normalizeWithMap(searchText, RE_PUNCT_CHAR, true);
-        const rPunct = normIndexOf(punctFull, punctSearch);
+        const rPunct = this.findBestNormalizedMatch(fullText, punctFull, punctSearch, searchText);
         if (rPunct) {
             return hit(rPunct);
         }
@@ -619,10 +717,12 @@ export class WpsRangeMapper implements IRangeMapper {
             const hit = (r: { start: number; end: number }, shouldRefine = true): PlatformRange => {
                 const normalized = this.sanitizeRange(doc, r);
                 if (!shouldRefine || skipRefinement) {
-                    return { _internal: normalized, _platform: 'wps' };
+                    const aligned = this.alignRangeToSearchEdges(fullText, normalized, searchText);
+                    return { _internal: aligned, _platform: 'wps' };
                 }
                 const refined = this.expandHitToBestRange(doc, normalized, searchText);
-                return { _internal: refined, _platform: 'wps' };
+                const aligned = this.alignRangeToSearchEdges(fullText, refined, searchText);
+                return { _internal: aligned, _platform: 'wps' };
             };
 
             const exactIdx = fullText.indexOf(searchPattern);
@@ -630,17 +730,17 @@ export class WpsRangeMapper implements IRangeMapper {
                 return hit({ start: exactIdx, end: exactIdx + searchPattern.length }, false);
             }
 
-            const rawHit = normIndexOf(getRawFull(), getRawSearch());
+            const rawHit = this.findBestNormalizedMatch(fullText, getRawFull(), getRawSearch(), searchText);
             if (rawHit) {
                 return hit(rawHit);
             }
 
-            const cleanHit = normIndexOf(getCleanFull(), getCleanSearch());
+            const cleanHit = this.findBestNormalizedMatch(fullText, getCleanFull(), getCleanSearch(), searchText);
             if (cleanHit) {
                 return hit(cleanHit);
             }
 
-            const punctHit = normIndexOf(getPunctFull(), getPunctSearch());
+            const punctHit = this.findBestNormalizedMatch(fullText, getPunctFull(), getPunctSearch(), searchText);
             if (punctHit) {
                 return hit(punctHit);
             }

@@ -59,3 +59,9 @@ progress.md
 task_plan.md
 review_report.md
 ts_errors.txt
+
+# Local generated outputs and scratch files
+output/
+tmp/
+packages/server/scripts/__pycache__/
+packages/desktop/out/*.exe

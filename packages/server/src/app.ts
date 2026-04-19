@@ -14,7 +14,10 @@ type ProcessWithPkg = NodeJS.Process & { pkg?: unknown };
 
 function isDesktopMode(): boolean {
     const processWithPkg = process as ProcessWithPkg;
-    return Boolean(processWithPkg.pkg) || process.argv.includes('--desktop') || !!process.env['DESKTOP_MODE'];
+    return Boolean(processWithPkg.pkg)
+        || process.argv.includes('--desktop')
+        || process.argv.includes('--desktop-server')
+        || !!process.env['DESKTOP_MODE'];
 }
 
 export function createApp(): import('express').Express {

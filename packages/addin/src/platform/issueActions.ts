@@ -86,20 +86,48 @@ function pushUniqueText(target: string[], value?: string): void {
 
 function stripLeadingLocateLabel(text: string): string {
     return text.replace(
-        /^\s*(缺失条款所在原文|缺失条款原文|合同原文|原文|条款原文|原条款|条款)\s*[:：]\s*/,
+        /^\s*(?:\u7f3a\u5931\u6761\u6b3e\u6240\u5728\u539f\u6587|\u7f3a\u5931\u6761\u6b3e\u539f\u6587|\u5408\u540c\u539f\u6587|\u539f\u6587\u5b9a\u4f4d|\u539f\u6587|\u6761\u6b3e\u539f\u6587|\u539f\u6761\u6b3e|\u6761\u6b3e)\s*[:\uFF1A]\s*/,
         ''
     ).trim();
 }
 
 function stripOuterQuotes(text: string): string {
-    return text
-        .replace(/^[\s"'`“”‘’「『《（(【\[]+/, '')
-        .replace(/[\s"'`“”‘’」』》）)】\]]+$/, '')
-        .trim();
+    const pairs: Array<[string, string]> = [
+        ['\u201c', '\u201d'],
+        ['\u2018', '\u2019'],
+        ['\u300c', '\u300d'],
+        ['\u300e', '\u300f'],
+        ['\u300a', '\u300b'],
+        ['\u3008', '\u3009'],
+        ['\u3010', '\u3011'],
+        ['\uFF08', '\uFF09'],
+        ['(', ')'],
+        ['[', ']'],
+        ['"', '"'],
+        ['\'', '\''],
+        ['`', '`'],
+    ];
+
+    let current = text.trim();
+    let changed = true;
+
+    while (changed && current.length >= 2) {
+        changed = false;
+
+        for (const [open, close] of pairs) {
+            if (current.startsWith(open) && current.endsWith(close)) {
+                current = current.slice(open.length, current.length - close.length).trim();
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    return current;
 }
 
 function stripBracketPairs(text: string): string {
-    return text.replace(/[\u3010\u3011\[\]]/g, '').trim();
+    return text.replace(/[\u3010\u3011\[\]\u3008\u3009\u300a\u300b\u300c\u300d\u300e\u300f\uFF08\uFF09()]/g, '').trim();
 }
 
 function stripLeadingClauseHeading(text: string): string {
@@ -117,7 +145,11 @@ function buildLocateTextVariants(text?: string): string[] {
     const noHeading = stripLeadingClauseHeading(unquoted);
     const noHeadingNoBrackets = stripLeadingClauseHeading(noBrackets);
 
-    // Keep bracketed original first for WPS Find.Execute, then relaxed variants as fallback.
+    // Prefer the exact original first, then progressively relax punctuation wrappers.
+    pushUniqueText(variants, base);
+    pushUniqueText(variants, normalizeQuery(base));
+    pushUniqueText(variants, labelStripped);
+    pushUniqueText(variants, normalizeQuery(labelStripped));
     pushUniqueText(variants, unquoted);
     pushUniqueText(variants, normalizeQuery(unquoted));
     pushUniqueText(variants, noBrackets);
@@ -126,8 +158,6 @@ function buildLocateTextVariants(text?: string): string[] {
     pushUniqueText(variants, normalizeQuery(noHeading));
     pushUniqueText(variants, noHeadingNoBrackets);
     pushUniqueText(variants, normalizeQuery(noHeadingNoBrackets));
-    pushUniqueText(variants, base);
-    pushUniqueText(variants, normalizeQuery(base));
 
     return variants;
 }
@@ -149,7 +179,7 @@ function splitByEllipsis(text: string): string[] {
 
 function splitBySentence(text: string): string[] {
     return text
-        .split(/[。！？；;.!?]/)
+        .split(/[\u3002\uFF01\uFF1F\uFF1B;.!?]/)
         .map((s) => normalizeQuery(s))
         .filter((s) => s.length >= 20);
 }
@@ -162,7 +192,7 @@ function hasEllipsis(text?: string): boolean {
 function countClauseMarkers(text?: string): number {
     const src = normalizeQuery(text);
     if (!src) return 0;
-    const matches = src.match(/第[一二三四五六七八九十百千万零〇\d]+条/g);
+    const matches = src.match(/\u7b2c[\u4e00-\u9fa5\d\u96f6\u3007]+?\u6761/g);
     return matches?.length ?? 0;
 }
 

@@ -5,7 +5,7 @@ import { useReviewStore } from '../../../store/reviewStore';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { usePlatform } from '../../../platform/platformContext';
 import { batchComment, batchApply, clearAllRangeCache } from '../../../platform/issueActions';
-import { apiClient } from '../../../services/apiClient';
+import { apiClient, toUserFacingError } from '../../../services/apiClient';
 import IssueCard from './IssueCard';
 import HistoryPanel from './HistoryPanel';
 import SummaryCard from './SummaryCard';
@@ -124,7 +124,8 @@ export default function ReviewPanel() {
                 onError: (err: string, errType) => setError(err, errType),
             });
         } catch (err) {
-            setError(err instanceof Error ? err.message : '审校过程中发生了意外错误');
+            const { message, errorType } = toUserFacingError(err);
+            setError(message || '审校过程中发生了意外错误', errorType);
         }
     }, [settings, setStatus, setError, addStreamingIssue, setResult, selectedTemplateId, selectedDocumentType]);
 
@@ -144,7 +145,8 @@ export default function ReviewPanel() {
             setDocTextUpdated(Date.now());
             await runReview(docContent, false);
         } catch (err) {
-            setError(err instanceof Error ? err.message : '读取文书失败');
+            const { message, errorType } = toUserFacingError(err);
+            setError(message || '读取文书失败', errorType);
         }
     }, [reset, setStatus, setError, runReview, platform]);
 
@@ -164,7 +166,8 @@ export default function ReviewPanel() {
             setDocTextUpdated(Date.now());
             await runReview(selText, true);
         } catch (err) {
-            setError(err instanceof Error ? err.message : '读取所选文本失败');
+            const { message, errorType } = toUserFacingError(err);
+            setError(message || '读取所选文本失败', errorType);
         }
     }, [reset, setStatus, setError, runReview, platform]);
 
@@ -244,7 +247,8 @@ export default function ReviewPanel() {
             setStatus('analyzing');
             await platform.reportGenerator.generateReport(result, useReviewStore.getState().summary, result.documentLabel || result.contractLabel);
         } catch (err) {
-            setError(err instanceof Error ? err.message : '生成报告失败');
+            const { message, errorType } = toUserFacingError(err);
+            setError(message || '生成报告失败', errorType);
         } finally {
             setStatus('completed');
         }
@@ -257,7 +261,7 @@ export default function ReviewPanel() {
     if (showClauseLibrary) return <ClauseLibrary onClose={() => setShowClauseLibrary(false)} />;
 
     return (
-        <div className="flex flex-col h-full min-h-0">
+        <div className="flex flex-col h-full min-h-0 overflow-y-auto">
             <div className="flex-shrink-0 p-3 border-b border-gray-200 bg-white space-y-2">
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 whitespace-nowrap">文书类型：</span>
@@ -351,7 +355,7 @@ export default function ReviewPanel() {
             </div>
 
             {reviewMode === 'element_pleading' && (
-                <div className="flex-1 min-h-0 overflow-y-auto p-3">
+                <div className="p-3">
                     <ElementPleadingPanel />
                 </div>
             )}
@@ -484,7 +488,7 @@ export default function ReviewPanel() {
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                    <div className="p-3 space-y-2">
                         {status === 'idle' && (
                             <div className="text-center py-12 text-gray-400">
                                 <MessageSquarePlus size={32} className="mx-auto mb-3 opacity-40" />

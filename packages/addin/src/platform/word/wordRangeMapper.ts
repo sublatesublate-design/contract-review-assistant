@@ -10,7 +10,7 @@ export interface WordRangeRef {
 function cleanForSearch(t: string): string {
     return t
         .replace(/[*?<>|\\/~]/g, '')
-        .replace(/[\u3010\u3011\[\]\u3008\u3009\u300c\u300d\u201c\u201d\u2018\u2019]/g, '')
+        .replace(/[\u3010\u3011\[\]\u3008\u3009\u300a\u300b\u300c\u300d\u300e\u300f\u201c\u201d\u2018\u2019]/g, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();

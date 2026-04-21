@@ -181,6 +181,23 @@ git clone https://github.com/sublatesublate-design/contract-review-assistant.git
 3. 浏览器会提示「不安全」，点击「高级」→「继续访问」
 4. 回到 Word / WPS，关闭面板重新打开即可
 
+### 提示「由于内容未经有效安全证书签名，因此已被阻止」？
+
+这是 Office / WPS 校验本地 HTTPS 证书没通过。本插件用的是 `office-addin-dev-certs` 生成的本地自签名证书，**一机一证**——每台电脑第一次都得在本机生成并写入「受信任的根证书颁发机构」。报这个错说明你这台机器上证书没装好（可能安装中途被 UAC / 杀毒软件拦了，或第一次没点「是」）。
+
+解决步骤：
+
+1. 在项目根目录打开命令行，执行：
+   ```bash
+   npx office-addin-dev-certs install
+   ```
+   过程中如果系统弹出「是否安装此证书」，必须点「是」。成功标志是看到：`You now have trusted access to https://localhost.`
+2. **彻底关闭 Word / WPS**（任务管理器里确认没有 `WINWORD.EXE` / `wps.exe` 残留进程）
+3. 确认启动窗口（`启动.bat` / `启动.command`）还在运行
+4. 重新打开 Word / WPS，再次打开审校面板
+
+如果还是不行，按 `Win + R` 输入 `certmgr.msc`，进入「受信任的根证书颁发机构」→「证书」，确认列表里有 `Developer CA for Microsoft Office Add-ins`。没有的话再跑一次第 1 步并放行所有弹窗。
+
 ### WPS 加载不出来？
 
 - 关闭 WPS，重新双击启动脚本试试

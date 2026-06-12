@@ -84,6 +84,7 @@ function packageServerExe() {
             assets: [
                 'dist/public/**/*',
                 'dist/assets/templates/**/*',
+                '../../node_modules/@anthropic-ai/sdk/**/*',
             ],
             targets: ['node20-win-x64'],
         },

@@ -10,47 +10,52 @@ function OnAddinLoad(ribbon) {
     if (typeof wps !== 'undefined' && typeof wps.ribbonUI !== 'undefined') {
         wps.ribbonUI = ribbon;
     }
-    // 诊断日志：确认 WPS 运行时对象是否注入
     console.log('[法律写作审校] OnAddinLoad called');
-    console.log('[法律写作审校] window.wps:', typeof wps);
-    console.log('[法律写作审校] window.Application:', typeof Application);
+    return true;
 }
 
 function OnShowTaskPane(control) {
     var taskpaneUrl = 'https://localhost:3000/taskpane-wps.html';
     console.log('[法律写作审校] OnShowTaskPane called');
-    console.log('[法律写作审校] wps:', typeof wps, 'Application:', typeof Application);
 
     try {
-        var tsId = wps.PluginStorage.getItem('taskpane_id');
-        var tskpane = null;
+        var taskpane = null;
+        var tsId = null;
 
-        if (tsId) {
-            // 官方文档拼写：GetTaskpane（小写 p）
-            tskpane = wps.GetTaskpane(tsId);
-        }
-
-        if (!tskpane) {
-            tskpane = wps.CreateTaskPane(taskpaneUrl);
-            var id = tskpane.ID;
-            wps.PluginStorage.setItem('taskpane_id', id);
-            tskpane.Visible = true;
-        } else {
-            tskpane.Visible = !tskpane.Visible;
-        }
-    } catch (e) {
-        console.error('[法律写作审校] wps.CreateTaskPane 失败:', e);
-        // 回退：尝试通过 Application 对象创建（部分 WPS 版本的路径）
         try {
-            if (typeof Application !== 'undefined' && Application.CreateTaskPane) {
-                var pane = Application.CreateTaskPane(taskpaneUrl);
-                pane.Visible = true;
-            } else {
-                console.error('[法律写作审校] Application.CreateTaskPane 也不可用');
+            if (typeof wps !== 'undefined' && wps.PluginStorage) {
+                tsId = wps.PluginStorage.getItem('taskpane_id');
             }
-        } catch (e2) {
-            console.error('[法律写作审校] 回退方案也失败:', e2);
+        } catch (e) {
+            console.warn('[法律写作审校] 获取 taskpane_id 失败:', e);
         }
+
+        if (tsId && typeof wps !== 'undefined' && typeof wps.GetTaskpane === 'function') {
+            taskpane = wps.GetTaskpane(tsId);
+        }
+
+        if (!taskpane) {
+            if (typeof wps !== 'undefined' && typeof wps.CreateTaskPane === 'function') {
+                taskpane = wps.CreateTaskPane(taskpaneUrl);
+                if (taskpane && taskpane.ID && wps.PluginStorage) {
+                    wps.PluginStorage.setItem('taskpane_id', taskpane.ID);
+                }
+            } else if (typeof Application !== 'undefined' && typeof Application.CreateTaskPane === 'function') {
+                taskpane = Application.CreateTaskPane(taskpaneUrl);
+            } else {
+                console.error('[法律写作审校] 当前环境不支持 CreateTaskPane');
+                return false;
+            }
+        }
+
+        if (taskpane) {
+            taskpane.Visible = true;
+        }
+
+        return true;
+    } catch (e) {
+        console.error('[法律写作审校] 打开任务窗格失败:', e);
+        return false;
     }
 }
 
@@ -58,26 +63,20 @@ console.log('[法律写作审校] main.js loaded');
 
 (function () {
     var globalObj = null;
-    var globalName = '';
 
     if (typeof window !== 'undefined') {
         globalObj = window;
-        globalName = 'window';
     } else if (typeof globalThis !== 'undefined') {
         globalObj = globalThis;
-        globalName = 'globalThis';
     } else if (typeof self !== 'undefined') {
         globalObj = self;
-        globalName = 'self';
     } else {
         globalObj = Function('return this')();
-        globalName = 'Function return this';
     }
 
     globalObj.OnAddinLoad = OnAddinLoad;
     globalObj.OnShowTaskPane = OnShowTaskPane;
 
-    console.log('[法律写作审校] globalName:', globalName);
-    console.log('[法律写作审校] typeof OnAddinLoad:', typeof globalObj.OnAddinLoad);
-    console.log('[法律写作审校] typeof OnShowTaskPane:', typeof globalObj.OnShowTaskPane);
+    console.log('[法律写作审校] OnAddinLoad 已挂载:', typeof globalObj.OnAddinLoad);
+    console.log('[法律写作审校] OnShowTaskPane 已挂载:', typeof globalObj.OnShowTaskPane);
 })();

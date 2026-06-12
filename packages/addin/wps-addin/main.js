@@ -53,3 +53,31 @@ function OnShowTaskPane(control) {
         }
     }
 }
+
+console.log('[法律写作审校] main.js loaded');
+
+(function () {
+    var globalObj = null;
+    var globalName = '';
+
+    if (typeof window !== 'undefined') {
+        globalObj = window;
+        globalName = 'window';
+    } else if (typeof globalThis !== 'undefined') {
+        globalObj = globalThis;
+        globalName = 'globalThis';
+    } else if (typeof self !== 'undefined') {
+        globalObj = self;
+        globalName = 'self';
+    } else {
+        globalObj = Function('return this')();
+        globalName = 'Function return this';
+    }
+
+    globalObj.OnAddinLoad = OnAddinLoad;
+    globalObj.OnShowTaskPane = OnShowTaskPane;
+
+    console.log('[法律写作审校] globalName:', globalName);
+    console.log('[法律写作审校] typeof OnAddinLoad:', typeof globalObj.OnAddinLoad);
+    console.log('[法律写作审校] typeof OnShowTaskPane:', typeof globalObj.OnShowTaskPane);
+})();

@@ -61,16 +61,15 @@ if /i "%CHOICE%"=="P" goto START_WPS
 goto START_WORD
 
 :ENSURE_CERT
-if exist "%USERPROFILE%\.office-addin-dev-certs\localhost.crt" goto :eof
-echo   [INFO] Installing HTTPS dev certificate...
-call npx office-addin-dev-certs install
+echo   [INFO] Checking HTTPS dev certificate...
+call powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0packages\desktop\scripts\ensure-windows-dev-cert.ps1"
 if errorlevel 1 (
-    echo   [ERROR] Failed to install the HTTPS dev certificate.
+    echo   [ERROR] Failed to prepare the HTTPS dev certificate.
     echo.
     pause
     exit /b 1
 )
-echo   [OK] HTTPS dev certificate installed.
+echo   [OK] HTTPS dev certificate is ready.
 goto :eof
 
 :START_WORD

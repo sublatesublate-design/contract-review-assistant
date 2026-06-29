@@ -15,23 +15,18 @@ function OnAddinLoad(ribbon) {
 }
 
 function OnShowTaskPane(control) {
-    var taskpaneUrl = 'https://localhost:3000/taskpane-wps.html';
+    var taskpaneUrl = 'https://localhost:3000/taskpane-wps.html?wpsCacheBust=' + Date.now();
     console.log('[法律写作审校] OnShowTaskPane called');
 
     try {
         var taskpane = null;
-        var tsId = null;
 
         try {
             if (typeof wps !== 'undefined' && wps.PluginStorage) {
-                tsId = wps.PluginStorage.getItem('taskpane_id');
+                wps.PluginStorage.removeItem('taskpane_id');
             }
         } catch (e) {
-            console.warn('[法律写作审校] 获取 taskpane_id 失败:', e);
-        }
-
-        if (tsId && typeof wps !== 'undefined' && typeof wps.GetTaskpane === 'function') {
-            taskpane = wps.GetTaskpane(tsId);
+            console.warn('[法律写作审校] 清理旧 taskpane_id 失败:', e);
         }
 
         if (!taskpane) {

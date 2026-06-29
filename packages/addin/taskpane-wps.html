@@ -14,18 +14,31 @@
         正在加载合同审查助手...
     </div>
     <script>
-        window.addEventListener('error', function (event) {
+        function renderWpsTaskpaneError(title, detail) {
             var root = document.getElementById('root');
             if (!root) return;
-            root.innerHTML = '<div style="color:#b91c1c;white-space:pre-wrap;">合同审查助手加载失败\n'
-                + String(event.message || '未知脚本错误') + '</div>';
+            var scripts = Array.prototype.slice.call(document.scripts || [])
+                .map(function (script) { return script.src || '[inline script]'; })
+                .join('\n');
+            root.innerHTML = '<div style="color:#b91c1c;white-space:pre-wrap;font-family:Consolas,Microsoft YaHei,monospace;font-size:12px;line-height:1.45;">'
+                + title + '\n'
+                + detail + '\n\n'
+                + 'Loaded scripts:\n' + scripts
+                + '</div>';
+        }
+        window.addEventListener('error', function (event) {
+            var error = event.error || {};
+            var detail = [
+                String(event.message || '未知脚本错误'),
+                event.filename ? ('file: ' + event.filename) : '',
+                event.lineno ? ('line: ' + event.lineno + ', column: ' + (event.colno || 0)) : '',
+                error.stack ? ('stack:\n' + error.stack) : ''
+            ].filter(Boolean).join('\n');
+            renderWpsTaskpaneError('合同审查助手加载失败', detail);
         });
         window.addEventListener('unhandledrejection', function (event) {
-            var root = document.getElementById('root');
-            if (!root) return;
             var reason = event.reason && (event.reason.stack || event.reason.message || event.reason);
-            root.innerHTML = '<div style="color:#b91c1c;white-space:pre-wrap;">合同审查助手初始化失败\n'
-                + String(reason || '未知异步错误') + '</div>';
+            renderWpsTaskpaneError('合同审查助手初始化失败', String(reason || '未知异步错误'));
         });
     </script>
     <!-- webpack 会自动注入打包后的 JS/CSS -->

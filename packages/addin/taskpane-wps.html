@@ -10,7 +10,24 @@
 </head>
 
 <body>
-    <div id="root"></div>
+    <div id="root" style="padding:16px;font-family:'Microsoft YaHei',Arial,sans-serif;color:#4b5563;">
+        正在加载合同审查助手...
+    </div>
+    <script>
+        window.addEventListener('error', function (event) {
+            var root = document.getElementById('root');
+            if (!root) return;
+            root.innerHTML = '<div style="color:#b91c1c;white-space:pre-wrap;">合同审查助手加载失败\n'
+                + String(event.message || '未知脚本错误') + '</div>';
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+            var root = document.getElementById('root');
+            if (!root) return;
+            var reason = event.reason && (event.reason.stack || event.reason.message || event.reason);
+            root.innerHTML = '<div style="color:#b91c1c;white-space:pre-wrap;">合同审查助手初始化失败\n'
+                + String(reason || '未知异步错误') + '</div>';
+        });
+    </script>
     <!-- webpack 会自动注入打包后的 JS/CSS -->
 </body>
 

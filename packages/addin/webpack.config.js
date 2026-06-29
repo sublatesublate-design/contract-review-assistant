@@ -70,6 +70,8 @@ module.exports = (env, argv) => {
                 template: './taskpane-wps.html',
                 filename: 'taskpane-wps.html',
                 chunks: ['taskpane'],
+                inject: 'body',
+                scriptLoading: 'blocking',
             }),
             new MiniCssExtractPlugin({
                 filename: '[name].[contenthash].css',

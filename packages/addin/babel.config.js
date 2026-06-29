@@ -3,7 +3,7 @@ module.exports = {
         [
             '@babel/preset-env',
             {
-                targets: 'chrome >= 69, safari >= 13', // WPS/Word CEF + Mac WKWebView
+                targets: { ie: '11', safari: '13' }, // WPS CEF can lag far behind desktop browsers
                 useBuiltIns: 'usage',              // 按需注入 polyfill
                 corejs: { version: 3, proposals: false },
                 modules: false,                    // 保留 ESModule 让 webpack tree-shake

@@ -6,8 +6,10 @@ const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, argv) => {
     const isDev = argv.mode === 'development';
+    const transpileDependencyPattern = /node_modules[\\/](lucide-react|zustand|clsx)[\\/]/;
 
     return {
+        target: ['web', 'es5'],
         entry: {
             taskpane: './src/index.tsx',
         },
@@ -15,6 +17,14 @@ module.exports = (env, argv) => {
             path: path.resolve(__dirname, 'dist'),
             filename: '[name].[contenthash].js',
             clean: true,
+            environment: {
+                arrowFunction: false,
+                const: false,
+                destructuring: false,
+                dynamicImport: false,
+                forOf: false,
+                module: false,
+            },
         },
         resolve: {
             extensions: ['.tsx', '.ts', '.js', '.jsx'],
@@ -29,9 +39,12 @@ module.exports = (env, argv) => {
         module: {
             rules: [
                 {
-                    test: /\.tsx?$/,
+                    test: /\.[cm]?[jt]sx?$/,
                     use: 'babel-loader',
-                    exclude: /node_modules/,
+                    exclude: (modulePath) => {
+                        return /node_modules/.test(modulePath)
+                            && !transpileDependencyPattern.test(modulePath);
+                    },
                 },
                 {
                     test: /\.css$/,

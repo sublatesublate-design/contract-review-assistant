@@ -36,6 +36,10 @@ const RISK_CONFIG: Record<RiskLevel, { label: string; icon: React.ReactNode; cla
     },
 };
 
+function resolveRiskConfig(riskLevel: ReviewIssue['riskLevel']) {
+    return RISK_CONFIG[riskLevel as RiskLevel] ?? RISK_CONFIG.info;
+}
+
 export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: IssueCardProps) {
     const { setActiveIssue, updateIssueStatus } = useReviewStore();
     const platform = usePlatform();
@@ -48,7 +52,8 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
         setTimeout(() => setActionError(null), 5000);
     };
 
-    const riskConfig = RISK_CONFIG[issue.riskLevel];
+    const riskConfig = resolveRiskConfig(issue.riskLevel);
+    const categoryLabel = ISSUE_CATEGORY_LABELS[issue.category as IssueCategory] || '其他问题';
 
     /** 定位到文档中的原文 */
     const handleLocate = async () => {
@@ -155,7 +160,7 @@ export default function IssueCard({ issue, isActive, onOpenClauseLibrary }: Issu
 
                 <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-800 leading-snug">{issue.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{ISSUE_CATEGORY_LABELS[issue.category]}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{categoryLabel}</p>
                 </div>
 
                 {/* 关闭按钮 */}

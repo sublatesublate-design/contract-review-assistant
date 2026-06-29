@@ -201,7 +201,12 @@ export default function ReviewPanel() {
     }, [result?.issues, filter, effectiveSortMode, docTextUpdated]);
 
     const issueCountByLevel = result?.issues.reduce((acc, issue) => {
-        if (issue.status !== 'dismissed') acc[issue.riskLevel] = (acc[issue.riskLevel] ?? 0) + 1;
+        if (issue.status !== 'dismissed') {
+            const level = ['high', 'medium', 'low', 'info'].includes(issue.riskLevel)
+                ? issue.riskLevel
+                : 'info';
+            acc[level] = (acc[level] ?? 0) + 1;
+        }
         return acc;
     }, {} as Record<string, number>);
 

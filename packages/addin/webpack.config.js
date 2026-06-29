@@ -34,6 +34,7 @@ module.exports = (env, argv) => {
                 '@store': path.resolve(__dirname, 'src/store'),
                 '@components': path.resolve(__dirname, 'src/taskpane/components'),
                 '@types': path.resolve(__dirname, 'src/types'),
+                'lucide-react$': path.resolve(__dirname, 'src/icons/lucideCompat.tsx'),
             },
         },
         module: {

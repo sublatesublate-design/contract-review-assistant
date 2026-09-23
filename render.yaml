@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: contract-review-assistant
+    runtime: docker
+    healthCheckPath: /health
+    envVars:
+      - key: SERVE_ADDIN
+        value: "true"
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_APP_ORIGIN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

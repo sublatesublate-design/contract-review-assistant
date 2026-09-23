@@ -20,22 +20,29 @@ function isDesktopMode(): boolean {
         || !!process.env['DESKTOP_MODE'];
 }
 
+function getAllowedOrigins(): string[] {
+    const configured = (process.env['PUBLIC_APP_ORIGIN'] ?? '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+
+    return configured.length > 0
+        ? configured
+        : ['https://localhost:3000', 'https://localhost', 'null'];
+}
+
 export function createApp(): import('express').Express {
     const app = express();
 
     app.use(
         cors({
-            origin: [
-                'https://localhost:3000',
-                'https://localhost',
-                'null',
-            ],
+            origin: getAllowedOrigins(),
             credentials: true,
         })
     );
     app.use(express.json({ limit: '10mb' }));
 
-    if (isDesktopMode()) {
+    if (isDesktopMode() || process.env['SERVE_ADDIN'] === 'true') {
         const publicDir = path.join(__dirname, 'public');
         app.use(express.static(publicDir));
     }

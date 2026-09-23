@@ -79,7 +79,7 @@ module.exports = (env, argv) => {
             }),
             new CopyPlugin({
                 patterns: [
-                    { from: 'assets', to: 'assets', noErrorOnMissing: true },
+                    { from: 'public/assets', to: 'assets', noErrorOnMissing: true },
                     { from: 'wps-addin', to: 'wps-addin', globOptions: { ignore: ['**/node_modules/**', '**/*.mjs'] } },
                 ],
             }),

@@ -25,6 +25,7 @@ export class OllamaProvider implements AIProvider {
                 model: this.model,
                 messages: allMessages,
                 stream: false,
+                options: { num_predict: -1 },
             }),
         });
 
@@ -53,6 +54,7 @@ export class OllamaProvider implements AIProvider {
                     model: this.model,
                     messages: allMessages,
                     stream: true,
+                    options: { num_predict: -1 },
                 }),
             });
 

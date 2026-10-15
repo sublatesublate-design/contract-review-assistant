@@ -2,14 +2,36 @@ import crypto from 'crypto';
 import OpenAI from 'openai';
 import type { AIProvider, ChatMessageParam, AIStreamCallbacks, AIToolDefinition, ToolCallHandler } from '../types';
 
+function summarizeUsage(usage: OpenAI.CompletionUsage | null | undefined) {
+    return {
+        usageAvailable: usage != null,
+        promptTokens: usage?.prompt_tokens ?? null,
+        completionTokens: usage?.completion_tokens ?? null,
+        totalTokens: usage?.total_tokens ?? null,
+        reasoningTokens: usage?.completion_tokens_details?.reasoning_tokens ?? null,
+    };
+}
+
 export class OpenAIProvider implements AIProvider {
     readonly name = 'openai';
     readonly model: string;
     private client: OpenAI;
     private baseURL: string;
+    private tokenOptions: { max_completion_tokens: number } | { max_tokens: number };
 
     constructor(apiKey: string, model = 'gpt-4o', baseURL?: string) {
         this.model = model;
+        const largeOutputModels = ['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.5-pro', 'mimo-v2.5'];
+        const completionTokens = largeOutputModels.includes(model) || /^(gpt-5(?:[.-]|$)|o[134](?:-|$))/.test(model);
+        let maxTokens = 65536;
+        if (model === 'gpt-4o-2024-05-13') maxTokens = 4096;
+        else if (model.startsWith('gpt-4o')) maxTokens = 16384;
+        else if (model.startsWith('gpt-4.1')) maxTokens = 32768;
+        else if (/^gpt-4(?:-|$)/.test(model)) maxTokens = /turbo|1106|0125/.test(model) ? 4096 : 8192;
+        else if (/^gpt-3\.5-turbo(?:-|$)/.test(model)) maxTokens = 4096;
+        this.tokenOptions = completionTokens
+            ? { max_completion_tokens: maxTokens }
+            : { max_tokens: maxTokens };
         // 使用原样传入的 baseURL，不要强制追加 /v1，但移除末尾可能的斜杠以防拼接出错
         this.baseURL = baseURL ? baseURL.replace(/\/$/, '') : 'https://api.openai.com/v1';
         console.log(`[OpenAIProvider] 初始化: model=${model}`);
@@ -28,10 +50,22 @@ export class OpenAIProvider implements AIProvider {
             ...messages.map((m) => ({ role: m.role, content: m.content } as OpenAI.ChatCompletionMessageParam))
         );
 
+        const requestId = crypto.randomUUID();
+        const startedAt = Date.now();
+        console.log(`[OpenAIChat:${requestId}] 开始调用`, {
+            at: new Date().toISOString(), model: this.model, ...this.tokenOptions,
+        });
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: allMessages,
-            max_tokens: 8192,
+            ...this.tokenOptions,
+        });
+        console.log(`[OpenAIChat:${requestId}] 调用完成`, {
+            at: new Date().toISOString(), model: this.model,
+            elapsedMs: Date.now() - startedAt,
+            ...this.tokenOptions,
+            finishReason: response.choices[0]?.finish_reason ?? null,
+            ...summarizeUsage(response.usage),
         });
         return response.choices[0]?.message.content ?? '';
     }
@@ -50,11 +84,14 @@ export class OpenAIProvider implements AIProvider {
         let reasoningChars = 0;
         let roundNumber = 0;
         let finishReason: string | null = null;
+        let usage: OpenAI.CompletionUsage | null | undefined;
         const logStream = (event: string) => console.log(`[OpenAIStream:${streamId}] ${event}`, {
             at: new Date().toISOString(),
             model: this.model,
             elapsedMs: Date.now() - startedAt,
             round: roundNumber, chunkCount, textChars, reasoningChars, finishReason,
+            ...this.tokenOptions,
+            ...summarizeUsage(usage),
         });
         logStream('开始流式调用');
         try {
@@ -81,12 +118,14 @@ export class OpenAIProvider implements AIProvider {
             for (let round = 0; round < 10; round++) {
                 roundNumber = round + 1;
                 finishReason = null;
+                usage = null;
                 logStream('发送本轮请求');
                 const stream = await this.client.chat.completions.create({
                     model: this.model,
                     messages: allMessages,
-                    max_tokens: 8192,
+                    ...this.tokenOptions,
                     stream: true,
+                    stream_options: { include_usage: true },
                     ...(openaiTools ? { tools: openaiTools } : {}),
                 });
                 logStream('已取得上游流');
@@ -97,6 +136,7 @@ export class OpenAIProvider implements AIProvider {
                 for await (const chunk of stream) {
                     chunkCount++;
                     if (chunkCount === 1) logStream('收到首个数据包');
+                    if (chunk.usage != null) usage = chunk.usage;
                     const choice = chunk.choices[0];
                     if (!choice) continue;
 

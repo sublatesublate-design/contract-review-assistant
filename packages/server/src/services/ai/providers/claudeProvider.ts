@@ -5,16 +5,21 @@ export class ClaudeProvider implements AIProvider {
     readonly name = 'claude';
     readonly model: string;
     private client: Anthropic;
+    private maxTokens: number;
 
     constructor(apiKey: string, model = 'claude-opus-4-5') {
         this.model = model;
+        this.maxTokens = model.startsWith('claude-3-5-') ? 8192
+            : /^claude-3-(opus|sonnet|haiku)-/.test(model) ? 4096
+            : /^claude-opus-4(?:-1)?(?:-\d{8})?$/.test(model) ? 32000
+            : 64000;
         this.client = new Anthropic({ apiKey });
     }
 
     async chat(messages: ChatMessageParam[], systemPrompt?: string): Promise<string> {
         const response = await this.client.messages.create({
             model: this.model,
-            max_tokens: 8192,
+            max_tokens: this.maxTokens,
             ...(systemPrompt ? { system: systemPrompt } : {}),
             messages: messages.filter((m) => m.role !== 'system').map((m) => ({
                 role: m.role as 'user' | 'assistant',
@@ -52,7 +57,7 @@ export class ClaudeProvider implements AIProvider {
             for (let round = 0; round < 10; round++) {
                 const stream = await this.client.messages.create({
                     model: this.model,
-                    max_tokens: 8192,
+                    max_tokens: this.maxTokens,
                     ...(systemPrompt ? { system: systemPrompt } : {}),
                     messages: conversationMessages,
                     ...(claudeTools ? { tools: claudeTools } : {}),

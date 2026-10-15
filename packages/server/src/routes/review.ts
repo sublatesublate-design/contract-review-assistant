@@ -46,13 +46,31 @@ async function executeReview(
     sendEvent: (data: unknown) => void,
     endResponse: () => void,
 ): Promise<void> {
+    const requestId = crypto.randomUUID();
+    const startedAt = Date.now();
+    let receivedChars = 0;
+    let issueCount = 0;
+    let summaryCount = 0;
+    let ignoredLineCount = 0;
+    let tailIssueIgnored = false;
+    let outcome = 'running';
+    const logProgress = (event: string) => console.log(`[Review:${requestId}] ${event}`, {
+        at: new Date().toISOString(),
+        elapsedMs: Date.now() - startedAt,
+        receivedChars, issueCount, summaryCount, ignoredLineCount, tailIssueIgnored, outcome,
+    });
+    const progressTimer = setInterval(() => logProgress('仍在等待或处理'), 30_000);
+    progressTimer.unref();
     try {
-        console.log('[Review] 收到请求:', {
+        console.log(`[Review:${requestId}] 收到请求`, {
+            at: new Date().toISOString(),
             documentType: reviewReq.documentType,
             provider: reviewReq.provider,
             model: reviewReq.model,
-            baseUrl: reviewReq.baseUrl ?? '(未传入)',
-            apiKeyPrefix: reviewReq.apiKey?.slice(0, 8) ?? '(无)',
+            contentChars: reviewReq.content.length,
+            depth: reviewReq.depth,
+            standpoint: reviewReq.standpoint ?? 'neutral',
+            customTemplate: Boolean(reviewReq.selectedTemplate),
         });
 
         const provider = createProvider({
@@ -72,14 +90,14 @@ async function executeReview(
             const contractDetect = detectContractType(reviewReq.content);
             finalDocumentLabel = contractDetect.label;
             finalContractType = contractDetect.type;
-            console.log('[Review] 合同类型识别:', contractDetect);
+            console.log(`[Review:${requestId}] 合同类型识别:`, contractDetect);
         } else if (reviewReq.documentType === 'litigation' && !reviewReq.selectedTemplate) {
             const litigationDetect = detectLitigationSubtype(reviewReq.content);
             finalDocumentLabel = litigationDetect.label;
             finalLitigationSubtype = litigationDetect.subtype;
-            console.log('[Review] 诉讼文书子类型识别:', litigationDetect);
+            console.log(`[Review:${requestId}] 诉讼文书子类型识别:`, litigationDetect);
         } else if (reviewReq.selectedTemplate) {
-            console.log('[Review] 使用自定义用户模板:', reviewReq.selectedTemplate.name);
+            console.log(`[Review:${requestId}] 使用自定义用户模板`);
             finalContractType = 'custom';
         }
 
@@ -103,22 +121,30 @@ async function executeReview(
             ? (name: string, args: Record<string, unknown>) => mcpManager.callTool(name, args)
             : undefined;
 
+        logProgress('开始调用模型');
         await provider.chatStream(
             [{ role: 'user', content: `请审校以下${LEGAL_DOCUMENT_TYPE_LABELS[reviewReq.documentType as LegalDocumentType] ?? '文稿'}：\n\n${reviewReq.content}` }],
             {
                 onDelta: (delta) => {
+                    if (delta.length > 0 && receivedChars === 0) logProgress('收到首段正文');
+                    receivedChars += delta.length;
                     lineBuffer += delta;
                     const lines = lineBuffer.split('\n');
                     lineBuffer = lines.pop() ?? '';
 
                     for (const line of lines) {
                         const parsed = parseLine(line);
-                        if (!parsed) continue;
+                        if (!parsed) {
+                            if (line.trim()) ignoredLineCount++;
+                            continue;
+                        }
 
                         if (parsed.type === 'issue') {
+                            issueCount++;
                             const issue = toReviewIssue(parsed);
                             sendEvent({ type: 'issue', data: issue });
                         } else if (parsed.type === 'summary') {
+                            summaryCount++;
                             sendEvent({
                                 type: 'summary',
                                 content: parsed.content,
@@ -132,7 +158,10 @@ async function executeReview(
                 onDone: () => {
                     if (lineBuffer.trim()) {
                         const parsed = parseLine(lineBuffer);
+                        if (!parsed) ignoredLineCount++;
+                        tailIssueIgnored = parsed?.type === 'issue';
                         if (parsed?.type === 'summary') {
+                            summaryCount++;
                             sendEvent({
                                 type: 'summary',
                                 content: parsed.content,
@@ -142,10 +171,17 @@ async function executeReview(
                             });
                         }
                     }
+                    outcome = 'done';
+                    logProgress('模型结束，解析统计');
+                    if (summaryCount === 0) {
+                        console.warn(`[Review:${requestId}] 未解析到审查总结，当前前端可能仍显示正在审校`);
+                    }
                     sendEvent({ type: 'done' });
                     endResponse();
                 },
                 onError: (err) => {
+                    outcome = 'provider-error';
+                    logProgress('模型调用失败（错误详情见界面）');
                     sendEvent({ type: 'error', message: err });
                     endResponse();
                 },
@@ -155,8 +191,14 @@ async function executeReview(
             onToolCall
         );
     } catch (err) {
+        outcome = 'exception';
+        logProgress('审查异常（错误详情见界面）');
         sendEvent({ type: 'error', message: err instanceof Error ? err.message : String(err) });
         endResponse();
+    } finally {
+        clearInterval(progressTimer);
+        if (outcome === 'running') outcome = 'returned-without-terminal-event';
+        logProgress('审查调用退出');
     }
 }
 

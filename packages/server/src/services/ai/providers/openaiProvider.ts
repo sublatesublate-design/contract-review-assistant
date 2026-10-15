@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import OpenAI from 'openai';
 import type { AIProvider, ChatMessageParam, AIStreamCallbacks, AIToolDefinition, ToolCallHandler } from '../types';
 
@@ -11,7 +12,7 @@ export class OpenAIProvider implements AIProvider {
         this.model = model;
         // 使用原样传入的 baseURL，不要强制追加 /v1，但移除末尾可能的斜杠以防拼接出错
         this.baseURL = baseURL ? baseURL.replace(/\/$/, '') : 'https://api.openai.com/v1';
-        console.log(`[OpenAIProvider] 初始化: model=${model}, baseURL=${this.baseURL}`);
+        console.log(`[OpenAIProvider] 初始化: model=${model}`);
         this.client = new OpenAI({
             apiKey,
             baseURL: this.baseURL,
@@ -42,6 +43,20 @@ export class OpenAIProvider implements AIProvider {
         tools?: AIToolDefinition[],
         onToolCall?: ToolCallHandler
     ): Promise<void> {
+        const streamId = crypto.randomUUID();
+        const startedAt = Date.now();
+        let chunkCount = 0;
+        let textChars = 0;
+        let reasoningChars = 0;
+        let roundNumber = 0;
+        let finishReason: string | null = null;
+        const logStream = (event: string) => console.log(`[OpenAIStream:${streamId}] ${event}`, {
+            at: new Date().toISOString(),
+            model: this.model,
+            elapsedMs: Date.now() - startedAt,
+            round: roundNumber, chunkCount, textChars, reasoningChars, finishReason,
+        });
+        logStream('开始流式调用');
         try {
             // 转为 OpenAI tools 格式
             const openaiTools = tools?.length ? tools.map((t) => ({
@@ -64,6 +79,9 @@ export class OpenAIProvider implements AIProvider {
 
             // Tool-use 循环：最多 10 轮
             for (let round = 0; round < 10; round++) {
+                roundNumber = round + 1;
+                finishReason = null;
+                logStream('发送本轮请求');
                 const stream = await this.client.chat.completions.create({
                     model: this.model,
                     messages: allMessages,
@@ -71,17 +89,27 @@ export class OpenAIProvider implements AIProvider {
                     stream: true,
                     ...(openaiTools ? { tools: openaiTools } : {}),
                 });
+                logStream('已取得上游流');
 
                 let hasToolCalls = false;
                 const toolCalls: Map<number, { id: string; name: string; arguments: string }> = new Map();
 
                 for await (const chunk of stream) {
+                    chunkCount++;
+                    if (chunkCount === 1) logStream('收到首个数据包');
                     const choice = chunk.choices[0];
                     if (!choice) continue;
+
+                    if (choice.finish_reason) finishReason = choice.finish_reason;
+                    const extraDelta = choice.delta as unknown as Record<string, unknown> | undefined;
+                    const reasoning = extraDelta?.['reasoning_content'];
+                    if (typeof reasoning === 'string') reasoningChars += reasoning.length;
 
                     // 文本 delta
                     const delta = choice.delta?.content;
                     if (delta) {
+                        if (textChars === 0) logStream('收到首段正文');
+                        textChars += delta.length;
                         callbacks.onDelta(delta);
                     }
 
@@ -102,6 +130,7 @@ export class OpenAIProvider implements AIProvider {
                         }
                     }
                 }
+                logStream('本轮流结束');
 
                 // 如果没有工具调用，结束循环
                 if (!hasToolCalls || toolCalls.size === 0 || !onToolCall) {
@@ -140,20 +169,23 @@ export class OpenAIProvider implements AIProvider {
                 }
             }
 
+            logStream('流式调用完成');
             callbacks.onDone();
         } catch (err) {
+            logStream('流式调用失败');
             // 提取 OpenAI SDK APIError 的完整信息
             if (err instanceof OpenAI.APIError) {
                 const detail = `[HTTP ${err.status}] ${err.message}`;
-                console.error(`[OpenAIProvider] API错误 (${this.baseURL}):`, {
-                    status: err.status,
-                    message: err.message,
-                    error: err.error,
+                console.error(`[OpenAIStream:${streamId}] API错误`, {
+                    status: err.status ?? null,
+                    errorName: err.name,
                 });
                 callbacks.onError(detail);
             } else {
                 const msg = err instanceof Error ? err.message : String(err);
-                console.error(`[OpenAIProvider] 未知错误 (${this.baseURL}):`, msg);
+                console.error(`[OpenAIStream:${streamId}] 非API错误`, {
+                    errorName: err instanceof Error ? err.name : typeof err,
+                });
                 callbacks.onError(msg);
             }
         }

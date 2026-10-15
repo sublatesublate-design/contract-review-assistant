@@ -2,13 +2,15 @@ import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { Save, RefreshCw, Eye, EyeOff, Server, Cpu, KeyRound, BookText, Plus, Edit2, Trash2, Check, X, Plug, Unplug, Wrench, ClipboardPaste } from 'lucide-react';
 import clsx from 'clsx';
 import { useSettingsStore } from '../../../store/settingsStore';
-import type { AppSettings, ProviderType, ReviewDepth, ReviewTemplate } from '../../../types/settings';
+import type { AppSettings, ProviderType, ReviewDepth, ReviewTemplate, ThinkingConfig } from '../../../types/settings';
 import { apiClient } from '../../../services/apiClient';
 import type { McpServerStatus, McpServerConfig } from '../../../services/apiClient';
 import { CONTRACT_TYPE_OPTIONS } from '../../../constants/defaultTemplates';
 import { LEGAL_DOCUMENT_TYPE_OPTIONS, LEGAL_DOCUMENT_TYPE_LABELS } from '../../../constants/legalWriting';
 import type { LegalDocumentType } from '../../../types/legalDocument';
 import { CLAUDE_MODELS, OPENAI_MODELS, DEFAULT_MODELS } from '../../../constants/models';
+import { DEFAULT_THINKING, normalizeThinkingConfig } from '../../../constants/thinking';
+import ThinkingSettings, { isThinkingSaveBlocked, type ThinkingCapabilityReport } from './ThinkingSettings';
 
 const PROVIDERS: { id: ProviderType; label: string; description: string }[] = [
     { id: 'claude', label: 'Anthropic', description: 'Claude 系列模型' },
@@ -54,6 +56,14 @@ export default function SettingsPanel() {
     const [currentDocumentType, setCurrentDocumentType] = useState<LegalDocumentType>(settings.documentType);
     const [saved, setSaved] = useState(false);
 
+    // 思考设置（受控，保存时写入 settings.thinking）
+    const [currentThinking, setCurrentThinking] = useState<ThinkingConfig>(() => normalizeThinkingConfig(settings.thinking));
+    const [thinkingReport, setThinkingReport] = useState<ThinkingCapabilityReport>({ status: 'idle', capabilities: null, error: null });
+    const [thinkingResetNotice, setThinkingResetNotice] = useState<string | null>(null);
+    const thinkingNoticeTimerRef = useRef<number | null>(null);
+    // 当前编辑中的模型名称；模型输入仍是非受控 + ref 采集
+    const [currentModelInput, setCurrentModelInput] = useState(settings.models[settings.provider]);
+
     // 当全局设置重置时，强制同步一次（非受控组件也需要 key 来触发重新挂载以应用新 defaultValue）
     const [resetKey, setResetKey] = useState(0);
     useEffect(() => {
@@ -61,29 +71,83 @@ export default function SettingsPanel() {
         setCurrentDepth(settings.reviewDepth);
         setCurrentStandpoint(settings.standpoint);
         setCurrentDocumentType(settings.documentType);
+        setCurrentThinking(normalizeThinkingConfig(settings.thinking));
+        setCurrentModelInput(settings.models[settings.provider]);
+        setThinkingResetNotice(null);
         setResetKey(prev => prev + 1);
     }, [settings]);
 
+    useEffect(() => () => {
+        if (thinkingNoticeTimerRef.current !== null) {
+            window.clearTimeout(thinkingNoticeTimerRef.current);
+        }
+    }, []);
+
+    const showThinkingResetNotice = useCallback((message: string) => {
+        setThinkingResetNotice(message);
+        if (thinkingNoticeTimerRef.current !== null) {
+            window.clearTimeout(thinkingNoticeTimerRef.current);
+        }
+        thinkingNoticeTimerRef.current = window.setTimeout(() => {
+            thinkingNoticeTimerRef.current = null;
+            setThinkingResetNotice(null);
+        }, 5000);
+    }, []);
+
+    /** 切换模型/提供商后，未保存的思考设置恢复默认，避免不适用的等级被带到新模型。 */
+    const resetPendingThinking = useCallback((message: string) => {
+        const alreadyDefault = currentThinking.mode === DEFAULT_THINKING.mode && currentThinking.effort === DEFAULT_THINKING.effort && currentThinking.budgetTokens === undefined;
+        setCurrentThinking((prev) => (
+            prev.mode === DEFAULT_THINKING.mode && prev.effort === DEFAULT_THINKING.effort && prev.budgetTokens === undefined
+                ? prev
+                : { ...DEFAULT_THINKING }
+        ));
+        if (!alreadyDefault) {
+            showThinkingResetNotice(message);
+        }
+    }, [currentThinking, showThinkingResetNotice]);
+
+    const handleProviderChange = useCallback((nextProvider: ProviderType) => {
+        if (nextProvider === currentProvider) return;
+        setCurrentProvider(nextProvider);
+        setCurrentModelInput(settings.models[nextProvider]);
+        resetPendingThinking('已切换 AI 提供商，思考设置已恢复默认策略：已适配模型开启，等级采用推荐值。');
+    }, [currentProvider, settings.models, resetPendingThinking]);
+
+    const handleModelInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const nextModel = event.target.value;
+        setCurrentModelInput(nextModel);
+        if (nextModel.trim() !== (settings.models[currentProvider] || '').trim()) {
+            resetPendingThinking('模型已变更，思考设置已恢复默认策略：已适配模型开启，等级采用推荐值，保存后生效。');
+        }
+    }, [currentProvider, settings.models, resetPendingThinking]);
+
+    const thinkingSaveBlocked = isThinkingSaveBlocked(currentThinking, thinkingReport);
+
     const handleSave = () => {
+        if (thinkingSaveBlocked) return;
+
         const newSettings: Partial<AppSettings> = {
             documentType: currentDocumentType,
             provider: currentProvider,
             reviewDepth: currentDepth,
             standpoint: currentStandpoint,
-            baseUrl: baseUrlRef.current?.value || '',
-            ollamaBaseUrl: ollamaBaseUrlRef.current?.value || '',
+            baseUrl: baseUrlRef.current?.value ?? settings.baseUrl ?? '',
+            ollamaBaseUrl: ollamaBaseUrlRef.current?.value ?? settings.ollamaBaseUrl ?? '',
             serverUrl: serverUrlRef.current?.value || '',
             globalInstruction: globalInstructionRef.current?.value || '',
             rememberApiKeys: rememberRef.current?.checked || false,
+            // 非当前提供商的输入框未挂载（ref 为 null）时保留原有配置，避免仅保存思考设置时清空其他模型/密钥
             apiKeys: {
-                anthropic: anthropicKeyRef.current?.value || '',
-                openai: openaiKeyRef.current?.value || ''
+                anthropic: anthropicKeyRef.current?.value ?? settings.apiKeys.anthropic,
+                openai: openaiKeyRef.current?.value ?? settings.apiKeys.openai
             },
             models: {
-                claude: claudeModelRef.current?.value || '',
-                openai: openaiModelRef.current?.value || '',
-                ollama: ollamaModelRef.current?.value || ''
-            }
+                claude: claudeModelRef.current?.value ?? settings.models.claude,
+                openai: openaiModelRef.current?.value ?? settings.models.openai,
+                ollama: ollamaModelRef.current?.value ?? settings.models.ollama
+            },
+            thinking: normalizeThinkingConfig(currentThinking)
         };
 
         updateSettings(newSettings as Partial<AppSettings>);
@@ -96,7 +160,7 @@ export default function SettingsPanel() {
             <div className="p-3 space-y-4 pb-20">
                 <ProviderSection
                     provider={currentProvider}
-                    onChange={setCurrentProvider}
+                    onChange={handleProviderChange}
                 />
 
                 <DocumentTypeSection
@@ -120,6 +184,7 @@ export default function SettingsPanel() {
                                 <div className="mt-2 text-xs text-gray-600 font-medium">模型</div>
                                 <input
                                     ref={claudeModelRef}
+                                    onChange={handleModelInputChange}
                                     defaultValue={settings.models.claude}
                                     placeholder={`例如：${DEFAULT_MODELS.claude}`}
                                     list="claude-models-list"
@@ -151,6 +216,7 @@ export default function SettingsPanel() {
                                 <div className="mt-2 text-xs text-gray-600 font-medium">模型</div>
                                 <input
                                     ref={openaiModelRef}
+                                    onChange={handleModelInputChange}
                                     defaultValue={settings.models.openai}
                                     placeholder={`例如：${DEFAULT_MODELS.openai} 或 mimo-v2.6-pro`}
                                     list="openai-models-list"
@@ -174,6 +240,7 @@ export default function SettingsPanel() {
                             <div className="mt-2 text-xs text-gray-600 font-medium">本地模型</div>
                             <input
                                 ref={ollamaModelRef}
+                                onChange={handleModelInputChange}
                                 defaultValue={settings.models.ollama}
                                 placeholder={`输入已安装的模型名称，如 ${DEFAULT_MODELS.ollama}` }
                                 className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-400 focus:outline-none"
@@ -198,6 +265,14 @@ export default function SettingsPanel() {
 
                 <DepthSection reviewDepth={currentDepth} onChange={setCurrentDepth} />
                 <StandpointSection standpoint={currentStandpoint} onChange={setCurrentStandpoint} />
+                <ThinkingSettings
+                    value={currentThinking}
+                    onChange={setCurrentThinking}
+                    provider={currentProvider}
+                    model={currentModelInput}
+                    onCapabilityReportChange={setThinkingReport}
+                    resetNotice={thinkingResetNotice}
+                />
 
                 <section>
                     <div className="flex items-center justify-between mb-2">
@@ -237,12 +312,24 @@ export default function SettingsPanel() {
                     />
                 </section>
 
+                {thinkingSaveBlocked && (
+                    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-relaxed text-red-700">
+                        {thinkingReport.status === 'ready'
+                            ? '当前等级或预算不适用于此型号，请调整或恢复推荐等级。'
+                            : '请先填写型号，再选择思考等级。'}
+                    </p>
+                )}
+
                 <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t pt-3 pb-4 px-1 flex gap-2 z-50">
                     <button
                         onClick={handleSave}
+                        disabled={thinkingSaveBlocked}
+                        title={thinkingSaveBlocked ? '请先确认思考设置有效，或恢复默认' : undefined}
                         className={clsx(
                             'btn-primary flex-1 text-sm font-semibold py-2.5 flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95',
-                            saved ? 'bg-emerald-600' : 'bg-primary-600'
+                            thinkingSaveBlocked
+                                ? 'opacity-50 cursor-not-allowed'
+                                : saved ? 'bg-emerald-600' : 'bg-primary-600'
                         )}
                     >
                         <Save size={14} />

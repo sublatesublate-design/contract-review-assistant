@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { createProvider } from '../services/ai/providerFactory';
 import { mcpManager } from '../services/mcp/mcpManager';
 import type { AIToolDefinition } from '../services/ai/types';
+import { ThinkingConfigSchema } from '../services/ai/thinking';
 
 export const chatRouter: import('express').Router = Router();
 
@@ -19,6 +20,7 @@ const ChatRequestSchema = z.object({
     model: z.string().min(1),
     apiKey: z.string().optional(),
     baseUrl: z.string().optional(),   // OpenAI 兼容接口（DeepSeek/本地代理等）
+    thinking: ThinkingConfigSchema.optional(),
 });
 
 // ── EventSource 支持：作业存储 ────
@@ -47,6 +49,7 @@ async function executeChat(
             model: chatReq.model,
             apiKey: chatReq.apiKey,
             baseUrl: chatReq.baseUrl,
+            thinking: chatReq.thinking,
         });
 
         const mcpTools = mcpManager.listAllTools();

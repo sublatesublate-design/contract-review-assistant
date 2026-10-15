@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import OpenAI from 'openai';
 import type { AIProvider, ChatMessageParam, AIStreamCallbacks, AIToolDefinition, ToolCallHandler } from '../types';
+import { resolveThinkingOptions, type ThinkingConfig } from '../thinking';
 
 function summarizeUsage(usage: OpenAI.CompletionUsage | null | undefined) {
     return {
@@ -18,11 +19,13 @@ export class OpenAIProvider implements AIProvider {
     private client: OpenAI;
     private baseURL: string;
     private tokenOptions: { max_completion_tokens: number } | { max_tokens: number };
+    private thinkingOptions: Record<string, unknown>;
 
-    constructor(apiKey: string, model = 'gpt-6-astra', baseURL?: string) {
+    constructor(apiKey: string, model = 'gpt-6-astra', baseURL?: string, thinking?: ThinkingConfig) {
         this.model = model;
+        this.thinkingOptions = resolveThinkingOptions('openai', model, thinking);
         const largeOutputModels = ['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.5-pro', 'mimo-v2.5'];
-        const completionTokens = largeOutputModels.includes(model) || /^(gpt-(?:5|6)(?:[.-]|$)|o[134](?:-|$))/.test(model);
+        const completionTokens = largeOutputModels.includes(model) || /^(gpt-(?:5|6)(?:[.-]|$)|o[134](?:-|$)|MiniMax-M3(?:[.-]|$))/.test(model);
         let maxTokens = 65536;
         if (model === 'gpt-4o-2024-05-13') maxTokens = 4096;
         else if (model.startsWith('gpt-4o')) maxTokens = 16384;
@@ -42,6 +45,17 @@ export class OpenAIProvider implements AIProvider {
     }
 
     async chat(messages: ChatMessageParam[], systemPrompt?: string): Promise<string> {
+        if (this.thinkingOptions['enable_thinking'] === true) {
+            let content = '';
+            let failure: string | undefined;
+            await this.chatStream(messages, {
+                onDelta: (delta) => { content += delta; },
+                onDone: () => {},
+                onError: (error) => { failure = error; },
+            }, systemPrompt);
+            if (failure) throw new Error(failure);
+            return content;
+        }
         const allMessages: OpenAI.ChatCompletionMessageParam[] = [];
         if (systemPrompt) {
             allMessages.push({ role: 'system', content: systemPrompt });
@@ -53,12 +67,13 @@ export class OpenAIProvider implements AIProvider {
         const requestId = crypto.randomUUID();
         const startedAt = Date.now();
         console.log(`[OpenAIChat:${requestId}] 开始调用`, {
-            at: new Date().toISOString(), model: this.model, ...this.tokenOptions,
+            at: new Date().toISOString(), model: this.model, ...this.tokenOptions, thinkingOptions: this.thinkingOptions,
         });
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: allMessages,
             ...this.tokenOptions,
+            ...this.thinkingOptions,
         });
         console.log(`[OpenAIChat:${requestId}] 调用完成`, {
             at: new Date().toISOString(), model: this.model,
@@ -92,6 +107,7 @@ export class OpenAIProvider implements AIProvider {
             round: roundNumber, chunkCount, textChars, reasoningChars, finishReason,
             ...this.tokenOptions,
             ...summarizeUsage(usage),
+            thinkingOptions: this.thinkingOptions,
         });
         logStream('开始流式调用');
         try {
@@ -124,6 +140,7 @@ export class OpenAIProvider implements AIProvider {
                     model: this.model,
                     messages: allMessages,
                     ...this.tokenOptions,
+                    ...this.thinkingOptions,
                     stream: true,
                     stream_options: { include_usage: true },
                     ...(openaiTools ? { tools: openaiTools } : {}),
@@ -132,6 +149,8 @@ export class OpenAIProvider implements AIProvider {
 
                 let hasToolCalls = false;
                 const toolCalls: Map<number, { id: string; name: string; arguments: string }> = new Map();
+                let roundContent = '';
+                let roundReasoning = '';
 
                 for await (const chunk of stream) {
                     chunkCount++;
@@ -143,13 +162,17 @@ export class OpenAIProvider implements AIProvider {
                     if (choice.finish_reason) finishReason = choice.finish_reason;
                     const extraDelta = choice.delta as unknown as Record<string, unknown> | undefined;
                     const reasoning = extraDelta?.['reasoning_content'];
-                    if (typeof reasoning === 'string') reasoningChars += reasoning.length;
+                    if (typeof reasoning === 'string') {
+                        reasoningChars += reasoning.length;
+                        roundReasoning += reasoning;
+                    }
 
                     // 文本 delta
                     const delta = choice.delta?.content;
                     if (delta) {
                         if (textChars === 0) logStream('收到首段正文');
                         textChars += delta.length;
+                        roundContent += delta;
                         callbacks.onDelta(delta);
                     }
 
@@ -181,15 +204,19 @@ export class OpenAIProvider implements AIProvider {
 
                 // 构建 assistant 的 tool_calls 消息
                 const toolCallsArray = Array.from(toolCalls.values());
-                allMessages.push({
+                const assistantMessage: OpenAI.ChatCompletionAssistantMessageParam = {
                     role: 'assistant',
-                    content: null,
+                    content: roundContent || null,
                     tool_calls: toolCallsArray.map((tc) => ({
                         id: tc.id,
                         type: 'function' as const,
                         function: { name: tc.name, arguments: tc.arguments },
                     })),
-                });
+                };
+                if (roundReasoning) {
+                    (assistantMessage as unknown as Record<string, unknown>)['reasoning_content'] = roundReasoning;
+                }
+                allMessages.push(assistantMessage);
 
                 // 执行工具调用并追加结果
                 for (const tc of toolCallsArray) {

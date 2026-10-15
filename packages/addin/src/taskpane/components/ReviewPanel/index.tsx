@@ -95,6 +95,7 @@ export default function ReviewPanel() {
                 baseUrl: settings.provider === 'openai' ? settings.baseUrl : undefined,
                 globalInstruction: settings.globalInstruction,
                 standpoint: settings.standpoint,
+                thinking: settings.thinking,
                 selectedTemplate: selectedTemplateId !== 'auto' ? settings.reviewTemplates?.find((t) => t.id === selectedTemplateId) : undefined,
             };
             useReviewStore.getState().setSummaryStatus('loading');

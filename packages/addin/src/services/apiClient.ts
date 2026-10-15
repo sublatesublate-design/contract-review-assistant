@@ -5,7 +5,8 @@
  */
 import type { ReviewIssue } from '../types/review';
 import type { ReviewErrorType } from '../store/reviewStore';
-import type { ModelInfo } from '../types/settings';
+import type { ModelInfo, ThinkingCapabilities, ThinkingConfig } from '../types/settings';
+import { normalizeThinkingCapabilities } from '../constants/thinking';
 import type { ContractSummary } from '../types/summary';
 import type { LegalDocumentType } from '../types/legalDocument';
 import type {
@@ -34,6 +35,7 @@ export interface ReviewStreamRequest {
     baseUrl?: string | undefined;   // Optional provider base URL.
     globalInstruction?: string | undefined;
     selectedTemplate?: { name: string; prompt: string } | undefined;
+    thinking?: ThinkingConfig | undefined;
 }
 
 export interface ReviewStreamCallbacks {
@@ -51,6 +53,7 @@ export interface ChatStreamRequest {
     model: string;
     apiKey?: string | undefined;
     baseUrl?: string | undefined;   // Optional provider base URL.
+    thinking?: ThinkingConfig | undefined;
 }
 
 export interface ChatStreamCallbacks {
@@ -508,6 +511,35 @@ export const apiClient = {
         } catch {
             return [];
         }
+    },
+
+    /**
+     * Load the thinking (reasoning) capability matrix for a provider/model pair.
+     * Never sends API keys; failures surface as errors so the UI can keep the
+     * existing settings untouched.
+     */
+    async getThinkingCapabilities(
+        provider: string,
+        model: string,
+        serverUrl: string = ''
+    ): Promise<ThinkingCapabilities> {
+        const baseUrl = serverUrl ? serverUrl.replace(/\/$/, '') : window.location.origin;
+        const query = new URLSearchParams({ provider, model });
+        const response = await fetch(`${baseUrl}/api/models/thinking?${query.toString()}`);
+
+        if (!response.ok) {
+            let message = '';
+            try {
+                const payload = await response.json() as Record<string, unknown>;
+                message = toStringValue(payload['error'] ?? payload['message'] ?? payload['detail']);
+            } catch {
+                message = await response.text().catch(() => '');
+            }
+            throw new Error(message || (`思考能力获取失败 (${response.status})`));
+        }
+
+        const payload = await response.json().catch(() => ({}));
+        return normalizeThinkingCapabilities(payload);
     },
 
     /**

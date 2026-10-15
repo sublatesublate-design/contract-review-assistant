@@ -10,6 +10,7 @@ import { DEFAULT_REVIEW_LABELS, LEGAL_DOCUMENT_TYPE_LABELS } from '../services/r
 import { mcpManager } from '../services/mcp/mcpManager';
 import type { AIToolDefinition } from '../services/ai/types';
 import type { LegalDocumentType } from '../types/legalDocument';
+import { ThinkingConfigSchema } from '../services/ai/thinking';
 
 export const reviewRouter: import('express').Router = Router();
 
@@ -21,6 +22,7 @@ const ReviewRequestSchema = z.object({
     depth: z.enum(['quick', 'standard', 'deep']).default('standard'),
     apiKey: z.string().optional(),
     baseUrl: z.string().optional(),   // OpenAI 兼容接口（DeepSeek/本地代理等）
+    thinking: ThinkingConfigSchema.optional(),
     globalInstruction: z.string().optional(),
     standpoint: z.enum(['neutral', 'party_a', 'party_b']).optional(),
     selectedTemplate: z.object({
@@ -71,6 +73,7 @@ async function executeReview(
             depth: reviewReq.depth,
             standpoint: reviewReq.standpoint ?? 'neutral',
             customTemplate: Boolean(reviewReq.selectedTemplate),
+            thinking: reviewReq.thinking ?? null,
         });
 
         const provider = createProvider({
@@ -78,6 +81,7 @@ async function executeReview(
             model: reviewReq.model,
             apiKey: reviewReq.apiKey,
             baseUrl: reviewReq.baseUrl,
+            thinking: reviewReq.thinking,
         });
 
         let finalDocumentLabel = reviewReq.selectedTemplate

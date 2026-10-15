@@ -1,4 +1,5 @@
 import type { LegalDocumentType } from '../../types/legalDocument';
+import type { ThinkingConfig } from './thinking';
 
 /**
  * AI Provider 统一接口定义
@@ -65,6 +66,7 @@ export interface ReviewRequest {
     depth: 'quick' | 'standard' | 'deep';
     apiKey?: string | undefined;
     baseUrl?: string | undefined;   // OpenAI 兼容接口地址（DeepSeek/本地代理等）
+    thinking?: ThinkingConfig | undefined;
 }
 
 /**
@@ -77,4 +79,5 @@ export interface ChatRequest {
     model: string;
     apiKey?: string | undefined;
     baseUrl?: string | undefined;   // OpenAI 兼容接口地址（DeepSeek/本地代理等）
+    thinking?: ThinkingConfig | undefined;
 }

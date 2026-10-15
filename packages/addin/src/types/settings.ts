@@ -20,6 +20,35 @@ export type ReviewStandpoint = 'neutral' | 'party_a' | 'party_b';
 
 export type AIModel = string;
 
+/**
+ * 思考（reasoning）开关模式
+ */
+export type ThinkingMode = 'auto' | 'enabled' | 'disabled';
+
+/**
+ * 思考强度等级
+ */
+export type ThinkingEffort = 'auto' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/**
+ * 思考设置（与后端约定一致）
+ */
+export interface ThinkingConfig {
+    mode: ThinkingMode;
+    effort: ThinkingEffort;
+    budgetTokens?: number | undefined;
+}
+
+/**
+ * 某个 provider / model 支持的思考能力
+ */
+export interface ThinkingCapabilities {
+    modes: ThinkingMode[];
+    efforts: ThinkingEffort[];
+    note: string;
+    budgetTokens?: { min: number; max: number } | undefined;
+}
+
 export interface ReviewTemplate {
     id: string;                     // 唯一ID (内置: "builtin-sale", 自定义: "ut-12345")
     name: string;                   // 显示名称
@@ -56,6 +85,8 @@ export interface AppSettings {
         openai: string;
         ollama: string;
     };
+    /** 思考设置（思考开关 + 等级） */
+    thinking: ThinkingConfig;
     /** 全局审查指令 */
     globalInstruction: string;
     /** 统一模板列表（内置 + 自定义） */

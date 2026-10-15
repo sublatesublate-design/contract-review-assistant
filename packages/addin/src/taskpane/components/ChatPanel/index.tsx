@@ -69,6 +69,7 @@ export default function ChatPanel() {
                         : settings.apiKeys[settings.provider === 'claude' ? 'anthropic' : 'openai'],
                     // 仅 openai 兼容模式需要传 baseUrl（DeepSeek/本地代理等）
                     baseUrl: settings.provider === 'openai' ? settings.baseUrl : undefined,
+                    thinking: settings.thinking,
                 },
                 settings.serverUrl,
                 {

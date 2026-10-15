@@ -284,6 +284,7 @@ export default function ElementPleadingPanel() {
                         ? undefined
                         : settings.apiKeys[settings.provider === 'claude' ? 'anthropic' : 'openai'],
                     baseUrl: settings.provider === 'openai' ? settings.baseUrl : undefined,
+                    thinking: settings.thinking,
                 },
                 settings.serverUrl,
             );

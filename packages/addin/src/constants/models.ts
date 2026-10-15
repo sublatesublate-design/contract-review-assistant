@@ -1,7 +1,7 @@
 import type { AppSettings } from '../types/settings';
 
 export const CLAUDE_MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'];
-export const OPENAI_MODELS = ['gpt-6-astra', 'deepseek-v4-pro', 'deepseek-flash', 'qwen3.7-max', 'qwen3.7-plus', 'kimi-k3', 'glm-5.3', 'mimo-v2.6-pro', 'mimo-v2.6-flash'];
+export const OPENAI_MODELS = ['gpt-6-astra', 'gpt-6-sol', 'gemini-3.7-flash', 'grok-4.6', 'deepseek-v4-pro', 'deepseek-flash', 'qwen3.7-max', 'qwen3.7-plus', 'kimi-k3', 'glm-5.3', 'MiniMax-M3', 'doubao-seed-2-1-pro-260628', 'step-3.5-flash-2603', 'mimo-v2.6-pro', 'mimo-v2.6-flash'];
 
 export const DEFAULT_MODELS: AppSettings['models'] = {
     claude: 'claude-sonnet-5-5',

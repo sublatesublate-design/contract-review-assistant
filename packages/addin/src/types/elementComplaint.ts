@@ -1,9 +1,12 @@
+import type { ThinkingConfig } from './settings';
+
 export interface ElementComplaintApiRequest {
     content: string;
     provider: string;
     model: string;
     apiKey?: string | undefined;
     baseUrl?: string | undefined;
+    thinking?: ThinkingConfig | undefined;
 }
 
 export interface ElementComplaintTitle {

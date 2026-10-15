@@ -1,3 +1,5 @@
+import type { ThinkingConfig } from './settings';
+
 export type ElementPleadingOrientation = 'request' | 'response';
 export type ElementPleadingDocumentKind =
     | 'main_pleading'
@@ -42,6 +44,7 @@ export interface ElementPleadingApiRequest {
     templateId: string;
     apiKey?: string | undefined;
     baseUrl?: string | undefined;
+    thinking?: ThinkingConfig | undefined;
 }
 
 export interface ElementPleadingApiResponse {

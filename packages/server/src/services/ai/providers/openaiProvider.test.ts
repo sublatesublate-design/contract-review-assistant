@@ -56,7 +56,9 @@ test('other models get a higher budget within known older model limits', async (
         ['custom-model', 65536, 'max_tokens'],
     ] as const) {
         const { provider, requests } = setup(t, model, [
-            { choices: [{ message: { content: 'ok' } }] },
+            model.startsWith('qwen3.')
+                ? stream([{ choices: [{ delta: { content: 'ok' }, finish_reason: 'stop' }] }])
+                : { choices: [{ message: { content: 'ok' } }] },
             stream([{ choices: [{ delta: { content: 'ok' }, finish_reason: 'stop' }] }]),
         ]);
         await provider.chat([]);

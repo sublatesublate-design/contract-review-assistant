@@ -1,4 +1,5 @@
 import type { AIProvider, ChatMessageParam, AIStreamCallbacks, AIToolDefinition, ToolCallHandler } from '../types';
+import { resolveThinkingOptions, type ThinkingConfig } from '../thinking';
 
 /**
  * Ollama 本地模型 Provider
@@ -9,9 +10,11 @@ export class OllamaProvider implements AIProvider {
     readonly name = 'ollama';
     readonly model: string;
     private baseUrl: string;
+    private thinkingOptions: Record<string, unknown>;
 
-    constructor(model = 'qwen3.5:27b', baseUrl = 'http://localhost:11434') {
+    constructor(model = 'qwen3.5:27b', baseUrl = 'http://localhost:11434', thinking?: ThinkingConfig) {
         this.model = model;
+        this.thinkingOptions = resolveThinkingOptions('ollama', model, thinking);
         this.baseUrl = baseUrl.replace(/\/$/, '');
     }
 
@@ -26,6 +29,7 @@ export class OllamaProvider implements AIProvider {
                 messages: allMessages,
                 stream: false,
                 options: { num_predict: -1 },
+                ...this.thinkingOptions,
             }),
         });
 
@@ -55,6 +59,7 @@ export class OllamaProvider implements AIProvider {
                     messages: allMessages,
                     stream: true,
                     options: { num_predict: -1 },
+                    ...this.thinkingOptions,
                 }),
             });
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createProvider } from '../services/ai/providerFactory';
 import type { LegalDocumentType } from '../types/legalDocument';
 import { LEGAL_DOCUMENT_TYPE_LABELS } from '../services/review/legalWritingConfig';
+import { ThinkingConfigSchema } from '../services/ai/thinking';
 
 export const summaryRouter: import('express').Router = Router();
 
@@ -13,6 +14,7 @@ const SummaryRequestSchema = z.object({
     model: z.string().min(1),
     apiKey: z.string().optional(),
     baseUrl: z.string().optional(),
+    thinking: ThinkingConfigSchema.optional(),
 });
 
 function buildSummaryPrompt(documentType: LegalDocumentType): string {
@@ -72,6 +74,7 @@ summaryRouter.post('/', async (req, res) => {
             model: summaryReq.model,
             apiKey: summaryReq.apiKey,
             baseUrl: summaryReq.baseUrl,
+            thinking: summaryReq.thinking,
         });
 
         const responseText = await provider.chat(

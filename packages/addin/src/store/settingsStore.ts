@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppSettings, ReviewTemplate } from '../types/settings';
+import { DEFAULT_THINKING, normalizeThinkingConfig } from '../constants/thinking';
 import { BUILTIN_TEMPLATES } from '../constants/defaultTemplates';
 import type { LegalDocumentType } from '../types/legalDocument';
 import { DEFAULT_MODELS, upgradeLegacyModels } from '../constants/models';
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     standpoint: 'neutral',
     serverUrl: '',
     rememberApiKeys: false,
+    thinking: { ...DEFAULT_THINKING },
 };
 
 interface SettingsState {
@@ -130,66 +132,10 @@ export const useSettingsStore = create<SettingsState>()(
         {
             name: 'contract-review-settings',
             // 版本迁移或初始化时的处理
-            merge: (persistedState: any, currentState) => {
-                const mergedSettings = { ...currentState.settings, ...persistedState?.settings };
-                mergedSettings.models = upgradeLegacyModels(mergedSettings.models, mergedSettings.baseUrl);
-                mergedSettings.model = mergedSettings.models[mergedSettings.provider as AppSettings['provider']];
-
-                // 迁移旧格式 -> 新格式
-                if (!mergedSettings.reviewTemplates) {
-                    const templates = [...BUILTIN_TEMPLATES];
-
-                    // 迁移 customTemplates.typeTemplates
-                    if (mergedSettings.customTemplates?.typeTemplates) {
-                        for (const [type, prompt] of Object.entries(mergedSettings.customTemplates.typeTemplates)) {
-                            const builtin = templates.find(t => t.boundContractType === type);
-                            if (builtin && prompt) builtin.prompt = prompt as string;
-                        }
-                    }
-
-                    // 迁移 userTemplates
-                    if (mergedSettings.userTemplates) {
-                        for (const ut of mergedSettings.userTemplates) {
-                            templates.push({ ...ut, isBuiltin: false });
-                        }
-                    }
-
-                    mergedSettings.reviewTemplates = templates;
-                    mergedSettings.globalInstruction = mergedSettings.customTemplates?.globalInstruction || '';
-                    mergedSettings.documentType = mergedSettings.documentType || 'contract';
-
-                    // 清理旧字段
-                    delete mergedSettings.customTemplates;
-                    delete mergedSettings.userTemplates;
-                }
-
-                const normalizedTemplates = (mergedSettings.reviewTemplates as ReviewTemplate[] | undefined)?.map((template) => ({
-                    ...template,
-                    documentType: template.documentType || 'contract',
-                    boundDocumentSubtype: template.boundDocumentSubtype || template.boundContractType,
-                })) ?? [];
-
-                const builtinPromptOverrides = new Map(
-                    normalizedTemplates
-                        .filter((template) => template.isBuiltin)
-                        .map((template) => [template.id, template.prompt])
-                );
-
-                const customTemplates = normalizedTemplates.filter((template) => !template.isBuiltin);
-                mergedSettings.reviewTemplates = [
-                    ...BUILTIN_TEMPLATES.map((template) => ({
-                        ...template,
-                        prompt: builtinPromptOverrides.get(template.id) || template.prompt,
-                    })),
-                    ...customTemplates,
-                ];
-                mergedSettings.documentType = mergedSettings.documentType || 'contract';
-
-                return {
-                    ...currentState,
-                    settings: mergedSettings,
-                };
-            },
+            merge: (persistedState: any, currentState) => ({
+                ...currentState,
+                settings: mergePersistedSettings(persistedState?.settings, currentState.settings),
+            }),
             // 根据 rememberApiKeys 决定是否持久化 API Key
             partialize: (state) => ({
                 settings: state.settings.rememberApiKeys
@@ -199,3 +145,76 @@ export const useSettingsStore = create<SettingsState>()(
         }
     )
 );
+
+type PersistedSettings = Partial<AppSettings> & {
+    /** @deprecated 旧持久化结构 */
+    customTemplates?: { typeTemplates?: Record<string, string>; globalInstruction?: string } | undefined;
+    /** @deprecated 旧持久化结构 */
+    userTemplates?: ReviewTemplate[] | undefined;
+};
+
+/**
+ * 合并持久化配置：补齐默认值、迁移旧字段、归一化思考设置。
+ * 独立导出以便单元测试，迁移行为与原有实现一致。
+ */
+export function mergePersistedSettings(
+    persistedSettings: PersistedSettings | undefined | null,
+    currentSettings: AppSettings
+): AppSettings {
+    const mergedSettings = { ...currentSettings, ...persistedSettings };
+    mergedSettings.models = upgradeLegacyModels(mergedSettings.models, mergedSettings.baseUrl);
+    mergedSettings.model = mergedSettings.models[mergedSettings.provider as AppSettings['provider']];
+    mergedSettings.thinking = normalizeThinkingConfig(mergedSettings.thinking);
+
+    // 迁移旧格式 -> 新格式
+    if (!mergedSettings.reviewTemplates) {
+        const templates = [...BUILTIN_TEMPLATES];
+
+        // 迁移 customTemplates.typeTemplates
+        if (mergedSettings.customTemplates?.typeTemplates) {
+            for (const [type, prompt] of Object.entries(mergedSettings.customTemplates.typeTemplates)) {
+                const builtin = templates.find(t => t.boundContractType === type);
+                if (builtin && prompt) builtin.prompt = prompt;
+            }
+        }
+
+        // 迁移 userTemplates
+        if (mergedSettings.userTemplates) {
+            for (const ut of mergedSettings.userTemplates) {
+                templates.push({ ...ut, isBuiltin: false });
+            }
+        }
+
+        mergedSettings.reviewTemplates = templates;
+        mergedSettings.globalInstruction = mergedSettings.customTemplates?.globalInstruction || '';
+        mergedSettings.documentType = mergedSettings.documentType || 'contract';
+
+        // 清理旧字段
+        delete mergedSettings.customTemplates;
+        delete mergedSettings.userTemplates;
+    }
+
+    const normalizedTemplates = (mergedSettings.reviewTemplates as ReviewTemplate[] | undefined)?.map((template) => ({
+        ...template,
+        documentType: template.documentType || 'contract',
+        boundDocumentSubtype: template.boundDocumentSubtype || template.boundContractType,
+    })) ?? [];
+
+    const builtinPromptOverrides = new Map(
+        normalizedTemplates
+            .filter((template) => template.isBuiltin)
+            .map((template) => [template.id, template.prompt])
+    );
+
+    const customTemplates = normalizedTemplates.filter((template) => !template.isBuiltin);
+    mergedSettings.reviewTemplates = [
+        ...BUILTIN_TEMPLATES.map((template) => ({
+            ...template,
+            prompt: builtinPromptOverrides.get(template.id) || template.prompt,
+        })),
+        ...customTemplates,
+    ];
+    mergedSettings.documentType = mergedSettings.documentType || 'contract';
+
+    return mergedSettings;
+}

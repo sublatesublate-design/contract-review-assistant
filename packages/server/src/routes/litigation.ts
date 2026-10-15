@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createProvider } from '../services/ai/providerFactory';
 import { generateElementComplaint, generateElementPleadingDocx } from '../services/litigation/service';
 import { loadTemplateCatalog } from '../services/litigation/templateAssets';
+import { ThinkingConfigSchema } from '../services/ai/thinking';
 
 export const litigationRouter: import('express').Router = Router();
 
@@ -12,6 +13,7 @@ const BaseLitigationRequestSchema = z.object({
     model: z.string().min(1),
     apiKey: z.string().optional(),
     baseUrl: z.string().optional(),
+    thinking: ThinkingConfigSchema.optional(),
 });
 
 const ElementPleadingDocxRequestSchema = BaseLitigationRequestSchema.extend({
@@ -31,6 +33,7 @@ litigationRouter.post('/element-complaint', async (req, res) => {
             model: parsed.data.model,
             apiKey: parsed.data.apiKey,
             baseUrl: parsed.data.baseUrl,
+            thinking: parsed.data.thinking,
         });
 
         const result = await generateElementComplaint(provider, parsed.data.content);
@@ -65,6 +68,7 @@ litigationRouter.post('/element-pleading-docx', async (req, res) => {
             model: parsed.data.model,
             apiKey: parsed.data.apiKey,
             baseUrl: parsed.data.baseUrl,
+            thinking: parsed.data.thinking,
         });
 
         const result = await generateElementPleadingDocx(

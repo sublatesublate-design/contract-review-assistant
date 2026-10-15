@@ -2,6 +2,7 @@ import type { AIProvider } from './types';
 import { ClaudeProvider } from './providers/claudeProvider';
 import { OpenAIProvider } from './providers/openaiProvider';
 import { OllamaProvider } from './providers/ollamaProvider';
+import type { ThinkingConfig } from './thinking';
 
 interface ProviderConfig {
     provider: string;
@@ -9,6 +10,7 @@ interface ProviderConfig {
     apiKey?: string | undefined;
     baseUrl?: string | undefined;       // OpenAI 兼容接口地址（DeepSeek/本地代理等）
     ollamaBaseUrl?: string | undefined;
+    thinking?: ThinkingConfig | undefined;
 }
 
 /**
@@ -21,19 +23,19 @@ export function createProvider(config: ProviderConfig): AIProvider {
         case 'claude': {
             const key = apiKey || process.env['ANTHROPIC_API_KEY'] || '';
             if (!key) throw new Error('Claude 需要 ANTHROPIC_API_KEY');
-            return new ClaudeProvider(key, model);
+            return new ClaudeProvider(key, model, config.thinking);
         }
 
         case 'openai': {
             const key = apiKey || process.env['OPENAI_API_KEY'] || '';
             if (!key) throw new Error('OpenAI 需要 OPENAI_API_KEY');
             const baseURL = config.baseUrl || process.env['OPENAI_BASE_URL'];
-            return new OpenAIProvider(key, model, baseURL);
+            return new OpenAIProvider(key, model, baseURL, config.thinking);
         }
 
         case 'ollama': {
             const baseUrl = config.ollamaBaseUrl || process.env['OLLAMA_BASE_URL'] || 'http://localhost:11434';
-            return new OllamaProvider(model, baseUrl);
+            return new OllamaProvider(model, baseUrl, config.thinking);
         }
 
         default:

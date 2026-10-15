@@ -1,14 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIProvider, ChatMessageParam, AIStreamCallbacks, AIToolDefinition, ToolCallHandler } from '../types';
+import { resolveThinkingOptions, type ThinkingConfig } from '../thinking';
 
 export class ClaudeProvider implements AIProvider {
     readonly name = 'claude';
     readonly model: string;
     private client: Anthropic;
     private maxTokens: number;
+    private thinkingOptions: Record<string, unknown>;
 
-    constructor(apiKey: string, model = 'claude-sonnet-5-5') {
+    constructor(apiKey: string, model = 'claude-sonnet-5-5', thinking?: ThinkingConfig) {
         this.model = model;
+        this.thinkingOptions = resolveThinkingOptions('claude', model, thinking);
         this.maxTokens = model.startsWith('claude-3-5-') ? 8192
             : /^claude-3-(opus|sonnet|haiku)-/.test(model) ? 4096
             : /^claude-opus-4(?:-1)?(?:-\d{8})?$/.test(model) ? 32000
@@ -20,14 +23,14 @@ export class ClaudeProvider implements AIProvider {
         const response = await this.client.messages.create({
             model: this.model,
             max_tokens: this.maxTokens,
+            ...this.thinkingOptions,
             ...(systemPrompt ? { system: systemPrompt } : {}),
             messages: messages.filter((m) => m.role !== 'system').map((m) => ({
                 role: m.role as 'user' | 'assistant',
                 content: m.content,
             })),
         });
-        const block = response.content[0];
-        return block?.type === 'text' ? block.text : '';
+        return response.content.filter((block) => block.type === 'text').map((block) => block.type === 'text' ? block.text : '').join('');
     }
 
     async chatStream(
@@ -58,6 +61,7 @@ export class ClaudeProvider implements AIProvider {
                 const stream = await this.client.messages.create({
                     model: this.model,
                     max_tokens: this.maxTokens,
+                    ...this.thinkingOptions,
                     ...(systemPrompt ? { system: systemPrompt } : {}),
                     messages: conversationMessages,
                     ...(claudeTools ? { tools: claudeTools } : {}),
@@ -69,9 +73,13 @@ export class ClaudeProvider implements AIProvider {
                 let currentToolId = '';
                 let currentToolName = '';
                 let currentToolInput = '';
+                const assistantBlocks: Record<string, unknown>[] = [];
+                let currentBlock: Record<string, unknown> | undefined;
 
                 for await (const event of stream) {
                     if (event.type === 'content_block_start') {
+                        currentBlock = { ...event.content_block };
+                        assistantBlocks.push(currentBlock);
                         if (event.content_block.type === 'tool_use') {
                             hasToolUse = true;
                             currentToolId = event.content_block.id;
@@ -80,20 +88,30 @@ export class ClaudeProvider implements AIProvider {
                         }
                     } else if (event.type === 'content_block_delta') {
                         if (event.delta.type === 'text_delta') {
+                            if (currentBlock) currentBlock['text'] = String(currentBlock['text'] ?? '') + event.delta.text;
                             callbacks.onDelta(event.delta.text);
                         } else if (event.delta.type === 'input_json_delta') {
                             currentToolInput += event.delta.partial_json;
+                        } else {
+                            const delta = event.delta as unknown as Record<string, unknown>;
+                            if (currentBlock && delta['type'] === 'thinking_delta') {
+                                currentBlock['thinking'] = String(currentBlock['thinking'] ?? '') + String(delta['thinking'] ?? '');
+                            } else if (currentBlock && delta['type'] === 'signature_delta') {
+                                currentBlock['signature'] = String(currentBlock['signature'] ?? '') + String(delta['signature'] ?? '');
+                            }
                         }
                     } else if (event.type === 'content_block_stop') {
                         if (currentToolId) {
                             try {
-                                const parsedInput = currentToolInput ? JSON.parse(currentToolInput) : {};
+                                const parsedInput = currentToolInput ? JSON.parse(currentToolInput) : currentBlock?.['input'] ?? {};
+                                if (currentBlock) currentBlock['input'] = parsedInput;
                                 toolUseBlocks.push({
                                     id: currentToolId,
                                     name: currentToolName,
                                     input: parsedInput as Record<string, unknown>,
                                 });
                             } catch {
+                                if (currentBlock) currentBlock['input'] = {};
                                 toolUseBlocks.push({
                                     id: currentToolId,
                                     name: currentToolName,
@@ -102,6 +120,7 @@ export class ClaudeProvider implements AIProvider {
                             }
                             currentToolId = '';
                         }
+                        currentBlock = undefined;
                     }
                 }
 
@@ -116,12 +135,7 @@ export class ClaudeProvider implements AIProvider {
                 // 追加 assistant 的 tool_use 消息
                 conversationMessages.push({
                     role: 'assistant',
-                    content: toolUseBlocks.map((tb) => ({
-                        type: 'tool_use' as const,
-                        id: tb.id,
-                        name: tb.name,
-                        input: tb.input,
-                    })),
+                    content: assistantBlocks as unknown as Exclude<Anthropic.MessageParam['content'], string>,
                 });
 
                 // 执行所有工具调用并构建 tool_result

@@ -7,7 +7,7 @@
         "dev": "webpack serve --mode development",
         "build": "webpack --mode production",
         "typecheck": "tsc --noEmit",
-        "test": "node --test --import tsx src/constants/models.test.ts",
+        "test": "node --test --import tsx src/constants/models.test.ts src/constants/thinking.test.ts",
         "lint": "eslint src --ext .ts,.tsx",
         "clean": "rimraf dist"
     },

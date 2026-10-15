@@ -3,22 +3,19 @@ import { persist } from 'zustand/middleware';
 import type { AppSettings, ReviewTemplate } from '../types/settings';
 import { BUILTIN_TEMPLATES } from '../constants/defaultTemplates';
 import type { LegalDocumentType } from '../types/legalDocument';
+import { DEFAULT_MODELS, upgradeLegacyModels } from '../constants/models';
 
 const DEFAULT_SETTINGS: AppSettings = {
     documentType: 'contract',
     provider: 'claude',
-    model: 'claude-3-5-sonnet-20241022',
+    model: DEFAULT_MODELS.claude,
     apiKeys: {
         anthropic: '',
         openai: '',
     },
     baseUrl: 'https://api.openai.com/v1',
     ollamaBaseUrl: 'http://localhost:11434',
-    models: {
-        claude: 'claude-3-5-sonnet-20241022',
-        openai: 'gpt-4o',
-        ollama: 'qwen2.5:32b',
-    },
+    models: { ...DEFAULT_MODELS },
     globalInstruction: '',
     reviewTemplates: [...BUILTIN_TEMPLATES],
     reviewDepth: 'standard',
@@ -135,6 +132,8 @@ export const useSettingsStore = create<SettingsState>()(
             // 版本迁移或初始化时的处理
             merge: (persistedState: any, currentState) => {
                 const mergedSettings = { ...currentState.settings, ...persistedState?.settings };
+                mergedSettings.models = upgradeLegacyModels(mergedSettings.models, mergedSettings.baseUrl);
+                mergedSettings.model = mergedSettings.models[mergedSettings.provider as AppSettings['provider']];
 
                 // 迁移旧格式 -> 新格式
                 if (!mergedSettings.reviewTemplates) {

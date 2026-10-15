@@ -7,7 +7,7 @@ export class ClaudeProvider implements AIProvider {
     private client: Anthropic;
     private maxTokens: number;
 
-    constructor(apiKey: string, model = 'claude-opus-4-5') {
+    constructor(apiKey: string, model = 'claude-sonnet-5-5') {
         this.model = model;
         this.maxTokens = model.startsWith('claude-3-5-') ? 8192
             : /^claude-3-(opus|sonnet|haiku)-/.test(model) ? 4096

@@ -11,17 +11,20 @@ export const modelsRouter: import('express').Router = Router();
 modelsRouter.get('/', async (_req, res) => {
     const models: ModelInfo[] = [
         // Claude 模型（固定列表）
-        { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'claude', contextWindow: 1000000 },
-        { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', provider: 'claude', contextWindow: 1000000 },
+        { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', provider: 'claude', contextWindow: 1000000 },
+        { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', provider: 'claude', contextWindow: 1000000 },
+        { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', provider: 'claude', contextWindow: 1000000 },
 
         // OpenAI / 兼容接口模型
-        { id: 'gpt-5.2', name: 'GPT-5.2', provider: 'openai', contextWindow: 400000 },
-        { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex', provider: 'openai', contextWindow: 400000 },
-        { id: 'deepseek-chat', name: 'DeepSeek V3.2 Chat', provider: 'openai', contextWindow: 128000 },
-        { id: 'deepseek-reasoner', name: 'DeepSeek V3.2 Reasoner', provider: 'openai', contextWindow: 128000 },
-        { id: 'qwen3.5-max', name: 'Qwen 3.5 Max', provider: 'openai', contextWindow: 1000000 },
-        { id: 'kimi-k2.5', name: 'Kimi K2.5', provider: 'openai', contextWindow: 2000000 },
-        { id: 'glm-5-plus', name: 'GLM 5 Plus', provider: 'openai', contextWindow: 1000000 },
+        { id: 'gpt-6-astra', name: 'GPT-6 Astra', provider: 'openai', contextWindow: 1050000 },
+        { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'openai', contextWindow: 1000000 },
+        { id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', provider: 'openai', contextWindow: 1000000 },
+        { id: 'qwen3.7-max', name: 'Qwen 3.7 Max', provider: 'openai' },
+        { id: 'qwen3.7-plus', name: 'Qwen 3.7 Plus', provider: 'openai' },
+        { id: 'kimi-k3', name: 'Kimi K3', provider: 'openai', contextWindow: 1000000 },
+        { id: 'glm-5.3', name: 'GLM-5.3', provider: 'openai' },
+        { id: 'mimo-v2.6-pro', name: 'MiMo V2.6 Pro', provider: 'openai' },
+        { id: 'mimo-v2.6-flash', name: 'MiMo V2.6 Flash', provider: 'openai' },
     ];
 
     // 动态获取 Ollama 本地模型

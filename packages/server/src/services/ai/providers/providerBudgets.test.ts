@@ -7,6 +7,9 @@ async function* emptyStream() {}
 
 test('Claude uses higher budgets in both call modes, respecting older model caps', async (t) => {
     for (const [model, limit] of [
+        ['claude-sonnet-5-5', 64000],
+        ['claude-opus-5-5', 64000],
+        ['claude-haiku-5-5', 64000],
         ['claude-opus-4-6', 64000],
         ['claude-sonnet-4-6', 64000],
         ['claude-opus-4-5', 64000],

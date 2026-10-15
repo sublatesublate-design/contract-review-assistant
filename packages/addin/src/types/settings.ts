@@ -18,7 +18,7 @@ export type ReviewDepth = 'quick' | 'standard' | 'deep';
  */
 export type ReviewStandpoint = 'neutral' | 'party_a' | 'party_b';
 
-export type AIModel = 'claude-3-5-sonnet-20241022' | 'claude-3-opus-20240229' | 'gpt-4o' | 'gpt-4-turbo' | string;
+export type AIModel = string;
 
 export interface ReviewTemplate {
     id: string;                     // 唯一ID (内置: "builtin-sale", 自定义: "ut-12345")

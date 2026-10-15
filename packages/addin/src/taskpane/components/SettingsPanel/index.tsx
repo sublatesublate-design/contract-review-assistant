@@ -8,6 +8,7 @@ import type { McpServerStatus, McpServerConfig } from '../../../services/apiClie
 import { CONTRACT_TYPE_OPTIONS } from '../../../constants/defaultTemplates';
 import { LEGAL_DOCUMENT_TYPE_OPTIONS, LEGAL_DOCUMENT_TYPE_LABELS } from '../../../constants/legalWriting';
 import type { LegalDocumentType } from '../../../types/legalDocument';
+import { CLAUDE_MODELS, OPENAI_MODELS, DEFAULT_MODELS } from '../../../constants/models';
 
 const PROVIDERS: { id: ProviderType; label: string; description: string }[] = [
     { id: 'claude', label: 'Anthropic', description: 'Claude 系列模型' },
@@ -15,8 +16,6 @@ const PROVIDERS: { id: ProviderType; label: string; description: string }[] = [
     { id: 'ollama', label: 'Ollama（本地）', description: '完全离线，保护数据安全' },
 ];
 
-const CLAUDE_MODELS = ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'];
-const OPENAI_MODELS = ['gpt-5.2', 'deepseek-chat', 'deepseek-reasoner', 'qwen3.5-max', 'kimi-k2.5', 'glm-5-plus'];
 const DEPTH_OPTIONS: { id: ReviewDepth; label: string; description: string }[] = [
     { id: 'quick', label: '快速审查', description: '约 30s，关注主要风险条款' },
     { id: 'standard', label: '标准审查', description: '约 1-2min，四维度全面分析' },
@@ -122,7 +121,7 @@ export default function SettingsPanel() {
                                 <input
                                     ref={claudeModelRef}
                                     defaultValue={settings.models.claude}
-                                    placeholder="例如：claude-3-7-sonnet-20250219"
+                                    placeholder={`例如：${DEFAULT_MODELS.claude}`}
                                     list="claude-models-list"
                                     className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-400 focus:outline-none"
                                 />
@@ -153,7 +152,7 @@ export default function SettingsPanel() {
                                 <input
                                     ref={openaiModelRef}
                                     defaultValue={settings.models.openai}
-                                    placeholder="例如：gpt-4o 或 deepseek-chat"
+                                    placeholder={`例如：${DEFAULT_MODELS.openai} 或 mimo-v2.6-pro`}
                                     list="openai-models-list"
                                     className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-400 focus:outline-none"
                                 />
@@ -176,7 +175,7 @@ export default function SettingsPanel() {
                             <input
                                 ref={ollamaModelRef}
                                 defaultValue={settings.models.ollama}
-                                placeholder="输入模型名称，如 qwen2.5:32b"
+                                placeholder={`输入已安装的模型名称，如 ${DEFAULT_MODELS.ollama}` }
                                 className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-400 focus:outline-none"
                             />
                         </div>

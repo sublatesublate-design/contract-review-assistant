@@ -19,10 +19,10 @@ export class OpenAIProvider implements AIProvider {
     private baseURL: string;
     private tokenOptions: { max_completion_tokens: number } | { max_tokens: number };
 
-    constructor(apiKey: string, model = 'gpt-4o', baseURL?: string) {
+    constructor(apiKey: string, model = 'gpt-6-astra', baseURL?: string) {
         this.model = model;
         const largeOutputModels = ['mimo-v2.6-flash', 'mimo-v2.6-pro', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.5-pro', 'mimo-v2.5'];
-        const completionTokens = largeOutputModels.includes(model) || /^(gpt-5(?:[.-]|$)|o[134](?:-|$))/.test(model);
+        const completionTokens = largeOutputModels.includes(model) || /^(gpt-(?:5|6)(?:[.-]|$)|o[134](?:-|$))/.test(model);
         let maxTokens = 65536;
         if (model === 'gpt-4o-2024-05-13') maxTokens = 4096;
         else if (model.startsWith('gpt-4o')) maxTokens = 16384;

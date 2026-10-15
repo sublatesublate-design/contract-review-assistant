@@ -10,7 +10,7 @@ export class OllamaProvider implements AIProvider {
     readonly model: string;
     private baseUrl: string;
 
-    constructor(model = 'qwen2.5:32b', baseUrl = 'http://localhost:11434') {
+    constructor(model = 'qwen3.5:27b', baseUrl = 'http://localhost:11434') {
         this.model = model;
         this.baseUrl = baseUrl.replace(/\/$/, '');
     }
